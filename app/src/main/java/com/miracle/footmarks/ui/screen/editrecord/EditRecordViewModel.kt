@@ -1,0 +1,179 @@
+package com.miracle.footmarks.ui.screen.editrecord
+
+import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.miracle.footmarks.data.local.entity.RecordEntity
+import com.miracle.footmarks.data.local.entity.RecordType
+import com.miracle.footmarks.data.repository.CityRepository
+import com.miracle.footmarks.data.repository.RecordRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import javax.inject.Inject
+
+data class EditRecordUiState(
+    val recordId: Long = 0,
+    val recordType: RecordType = RecordType.ATTRACTION,
+    val cityId: Long? = null,
+    val cityName: String = "",
+    val name: String = "",
+    val date: LocalDate = LocalDate.now(),
+    val rating: Float? = null,
+    val cost: Float? = null,
+    val notes: String = "",
+    val photoUris: List<Uri> = emptyList(),
+    val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
+    val error: String? = null
+)
+
+@HiltViewModel
+class EditRecordViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val recordRepository: RecordRepository,
+    private val cityRepository: CityRepository
+) : ViewModel() {
+
+    private val recordId: Long = savedStateHandle.get<Long>("recordId") ?: 0L
+
+    private val _uiState = MutableStateFlow(EditRecordUiState(recordId = recordId))
+    val uiState: StateFlow<EditRecordUiState> = _uiState.asStateFlow()
+
+    init {
+        loadRecord()
+    }
+
+    private fun loadRecord() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            try {
+                val record = recordRepository.getRecordById(recordId)
+                if (record != null) {
+                    val city = cityRepository.getCityById(record.cityId)
+                    val photoUris = record.photoUris?.split(",")
+                        ?.filter { it.isNotBlank() }
+                        ?.map { Uri.parse(it) }
+                        ?: emptyList()
+
+                    _uiState.value = EditRecordUiState(
+                        recordId = record.id,
+                        recordType = record.type,
+                        cityId = record.cityId,
+                        cityName = city?.name ?: "",
+                        name = record.name,
+                        date = LocalDate.ofEpochDay(record.date / 86400000L),
+                        rating = record.rating,
+                        cost = record.cost,
+                        notes = record.notes ?: "",
+                        photoUris = photoUris,
+                        isLoading = false
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "记录不存在"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message
+                )
+            }
+        }
+    }
+
+    fun updateRecordType(type: RecordType) {
+        _uiState.value = _uiState.value.copy(recordType = type)
+    }
+
+    fun updateCity(cityId: Long, cityName: String) {
+        _uiState.value = _uiState.value.copy(cityId = cityId, cityName = cityName)
+    }
+
+    fun updateName(name: String) {
+        _uiState.value = _uiState.value.copy(name = name)
+    }
+
+    fun updateDate(date: LocalDate) {
+        _uiState.value = _uiState.value.copy(date = date)
+    }
+
+    fun updateRating(rating: Float?) {
+        _uiState.value = _uiState.value.copy(rating = rating)
+    }
+
+    fun updateCost(cost: Float?) {
+        _uiState.value = _uiState.value.copy(cost = cost)
+    }
+
+    fun updateNotes(notes: String) {
+        _uiState.value = _uiState.value.copy(notes = notes)
+    }
+
+    fun addPhoto(uri: Uri) {
+        _uiState.value = _uiState.value.copy(
+            photoUris = _uiState.value.photoUris + uri
+        )
+    }
+
+    fun removePhoto(uri: Uri) {
+        _uiState.value = _uiState.value.copy(
+            photoUris = _uiState.value.photoUris - uri
+        )
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun saveRecord(onSuccess: () -> Unit) {
+        val currentState = _uiState.value
+
+        // 验证
+        if (currentState.cityId == null || currentState.cityName.isBlank()) {
+            _uiState.value = currentState.copy(error = "请选择城市")
+            return
+        }
+
+        if (currentState.name.isBlank()) {
+            _uiState.value = currentState.copy(error = "请输入名称")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = currentState.copy(isSaving = true, error = null)
+
+            try {
+                val photoUrisStr = if (currentState.photoUris.isNotEmpty()) {
+                    currentState.photoUris.joinToString(",") { it.toString() }
+                } else null
+
+                val record = RecordEntity(
+                    id = currentState.recordId,
+                    cityId = currentState.cityId!!,
+                    type = currentState.recordType,
+                    name = currentState.name,
+                    date = currentState.date.toEpochDay() * 86400000L,
+                    rating = currentState.rating,
+                    cost = currentState.cost,
+                    notes = currentState.notes.ifBlank { null },
+                    photoUris = photoUrisStr
+                )
+
+                recordRepository.updateRecord(record)
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = currentState.copy(
+                    isSaving = false,
+                    error = "保存失败: ${e.message}"
+                )
+            }
+        }
+    }
+}

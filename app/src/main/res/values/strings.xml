@@ -1,0 +1,41 @@
+<resources>
+    <string name="app_name">足迹</string>
+
+    <!-- 底部导航 -->
+    <string name="nav_records">记录</string>
+    <string name="nav_smart_planning">智能规划</string>
+    <string name="nav_profile">个人中心</string>
+
+    <!-- 记录类型 -->
+    <string name="type_attraction">景点</string>
+    <string name="type_food">美食</string>
+
+    <!-- 通用操作 -->
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_delete">删除</string>
+    <string name="action_edit">编辑</string>
+    <string name="action_add_photo">添加照片</string>
+
+    <!-- 表单字段 -->
+    <string name="label_city">城市</string>
+    <string name="label_name">名称</string>
+    <string name="label_date">日期</string>
+    <string name="label_rating">评分</string>
+    <string name="label_cost">花费（元）</string>
+    <string name="label_notes">备注</string>
+
+    <!-- 提示信息 -->
+    <string name="hint_select_city">选择城市</string>
+    <string name="hint_enter_name">输入名称</string>
+    <string name="hint_enter_notes">输入备注（可选）</string>
+
+    <!-- 空状态 -->
+    <string name="empty_timeline">还没有记录，快去添加吧</string>
+    <string name="empty_city">这个城市还没有记录</string>
+
+    <!-- 统计 -->
+    <string name="stat_cities">城市数</string>
+    <string name="stat_records">记录数</string>
+    <string name="stat_visits">去过 %d 次</string>
+</resources>
