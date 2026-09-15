@@ -1,232 +1,117 @@
 # 足迹（Footmarks）
 
-> 一个简洁优雅的个人旅行记录 Android App
+个人旅行记录 Android App。当前为本地 Demo，已经实现景点/美食记录的创建、列表查看、详情查看、编辑和删除。
 
----
+## 当前状态
 
-## 项目简介
+- Android `versionName`：`1.0.0`
+- 开发分支：`feat/demo`
+- 已推送提交：`d8c668a Footmarks demo: complete CRUD records`
+- 构建环境：JDK 17、Android SDK 34、Gradle 8.4
+- 最低系统：Android 7.0（API 24）
 
-足迹（Footmarks）是一款专为旅行爱好者设计的记录工具，帮助你记录每一次旅行的美好时光。
+## 已实现
 
-**当前版本**：0.1.0-dev（开发中）
+- 底部导航：记录、智能规划、个人中心
+- 记录列表：按实际游览日期倒序展示景点和美食
+- 记录 CRUD：添加、列表查询、详情查询、编辑、删除确认
+- 记录字段：城市、类型、名称、日期、评分、人民币花费、备注、照片 URI
+- 城市选择：20 个常用城市预置、中文名称搜索、手动创建城市
+- 本地存储：Room 2，采用 `City → Trip → Record` 三层关系
+- Trip 数据层：旅行起止日期、子记录日期范围校验、DAO/Repository CRUD 和级联删除
+- 自动化验证：API 34 模拟器上的 Room 仪器测试 8/8 通过
+- 图片选择与展示：系统照片选择器、Coil 预览
 
-**开发阶段**：阶段 0 - 项目初始化 ⏳
+## 当前限制
 
----
+- Trip 数据层已落地，但 Trip 卡片和时间段录入界面尚未实现；当前添加记录会自动创建一条起止日期相同的单日 Trip。
+- 本次未实现 Room 1 → 2 迁移脚本，Demo 使用破坏式升级；从旧版首次启动新版时会重建本地数据库并清除旧记录。
+- 国家统计局 3000+ 行政区划数据尚未接入，目前只有 20 个常用城市，并允许手动创建城市。
+- `PhotoManager` 已实现 1080px 长边、JPEG 质量 80 的压缩方法，但记录保存仍直接存储相册 URI；删除记录不会清理照片文件，也未限制最多 9 张。
+- 记录列表中的城市名称仍显示占位文本；详情页会查询并显示真实城市。
+- 智能规划和个人中心当前只显示“待实现”，对话输入框、发送提示和统计信息尚未完成。
 
-## 核心功能（规划）
+## 项目结构
 
-### ✅ 已完成
-- 无（项目刚启动）
-
-### 🚧 开发中
-- [ ] 项目初始化与依赖配置
-
-### 📋 计划中
-- [ ] 城市旅行记录管理
-- [ ] 景点与美食记录
-- [ ] 照片上传与压缩存储
-- [ ] 足迹地图展示
-- [ ] 时间线浏览
-- [ ] 智能旅行规划（AI Agent，远期）
-
----
-
-## 技术栈
-
-### Android 端
-- **语言**：Kotlin
-- **UI 框架**：Jetpack Compose + Material 3
-- **架构模式**：MVVM（ViewModel + StateFlow）
-- **本地存储**：Room（SQLite ORM）
-- **图片加载**：Coil
-- **图片压缩**：Android BitmapFactory
-- **路由导航**：Navigation Compose
-- **照片选择**：Photo Picker（Android 13+）
-
-### 后端（远期规划）
-- **框架**：FastAPI（Python）
-- **数据库**：PostgreSQL
-- **AI Agent**：LangGraph / 工作流型框架
-- **LLM**：Claude API（或国产模型）
-
----
-
-## 开发环境要求
-
-- **Android Studio**：Hedgehog (2023.1.1) 或更高版本
-- **JDK**：17 或更高版本
-- **Android SDK**：
-  - Minimum SDK: 24 (Android 7.0)
-  - Target SDK: 34 (Android 14)
-  - Compile SDK: 34
-- **Kotlin**：1.9.0+
-- **Gradle**：8.0+
-
----
-
-## 项目结构（规划）
-
+```text
+app/src/main/java/com/miracle/footmarks/
+├── data/
+│   ├── local/
+│   │   ├── dao/             # CityDao、TripDao、RecordDao
+│   │   ├── entity/          # CityEntity、TripEntity、RecordEntity
+│   │   ├── util/            # DatabaseInitializer、PhotoManager
+│   │   ├── Converters.kt
+│   │   └── FootmarksDatabase.kt
+│   └── repository/          # CityRepository、TripRepository、RecordRepository
+├── di/                      # Hilt 数据库模块
+├── ui/
+│   ├── navigation/          # 底部导航与页面路由
+│   ├── screen/
+│   │   ├── records/         # 记录列表
+│   │   ├── addrecord/       # 添加记录和城市选择
+│   │   ├── recorddetail/    # 记录详情与删除
+│   │   ├── editrecord/      # 编辑记录
+│   │   ├── smartplanning/   # 占位页
+│   │   └── profile/         # 占位页
+│   └── theme/
+├── MainActivity.kt
+└── FootmarksApplication.kt
 ```
-app/
-├── src/main/
-│   ├── java/com/miracle/footmarks/
-│   │   ├── data/              # 数据层
-│   │   │   ├── entity/        # Room Entity
-│   │   │   ├── dao/           # Room DAO
-│   │   │   ├── repository/    # Repository 接口与实现
-│   │   │   └── database/      # AppDatabase
-│   │   ├── ui/                # UI 层
-│   │   │   ├── screen/        # 各页面 Composable
-│   │   │   ├── viewmodel/     # ViewModel
-│   │   │   ├── component/     # 可复用组件
-│   │   │   └── theme/         # Material 3 主题
-│   │   ├── navigation/        # 路由导航
-│   │   ├── utils/             # 工具类
-│   │   └── App.kt             # Application 类
-│   ├── assets/
-│   │   └── cities.json        # 城市数据
-│   └── res/                   # 资源文件
-└── build.gradle.kts
-```
-
----
 
 ## 数据模型
 
-采用两层嵌套模型：
+当前 Room 数据库版本为 2，包含三张表：
 
-```
-City（城市）
-  └─ Trip（旅行记录）
-      └─ Record（子记录：景点/美食）
+```text
+CityEntity 1 ─── * TripEntity 1 ─── * RecordEntity
 ```
 
-### 数据库表结构
+`TripEntity` 通过 `cityId` 关联城市并保存旅行起止日期；`RecordEntity` 通过 `tripId` 关联旅行，包含 `ATTRACTION`/`FOOD` 类型、名称、实际游览日期、可选评分、可选花费、备注和逗号分隔的照片 URI。删除城市会级联删除 Trip 和 Record。
 
-#### City（城市表）
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 主键 |
-| provinceCode | String | 省级行政区划代码 |
-| cityCode | String | 市级行政区划代码 |
-| cityName | String | 城市名称 |
-| createdAt | Long | 创建时间戳 |
+## 构建与安装
 
-#### Trip（旅行记录表）
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 主键 |
-| cityId | Long | 外键 → City.id |
-| startDate | Long | 开始日期时间戳 |
-| endDate | Long | 结束日期时间戳 |
-| createdAt | Long | 创建时间戳 |
+Android Studio 不是必需的，可以使用 VSCode 和命令行工具开发。必须安装 JDK 17 和 Android SDK。
 
-#### Record（子记录表）
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 主键 |
-| tripId | Long | 外键 → Trip.id |
-| name | String | 景点/美食名称 |
-| type | Enum | SPOT（景点）/ FOOD（美食） |
-| date | Long | 具体日期时间戳 |
-| rating | Int? | 评分 1-5 星（可选） |
-| cost | Float? | 花费人民币（可选） |
-| note | String? | 备注 |
-| photos | String | 照片路径 JSON 数组 |
-| createdAt | Long | 创建时间戳 |
+```powershell
+# 构建 Debug APK
+.\gradlew.bat assembleDebug
 
----
+# 安装到已连接设备
+adb install -r app\build\outputs\apk\debug\app-debug.apk
 
-## 安装与运行
-
-### 克隆项目
-```bash
-git clone <repository-url>
-cd tour_records
+# 启动应用
+adb shell am start -n com.miracle.footmarks/.MainActivity
 ```
 
-### 使用 Android Studio
-1. 打开 Android Studio
-2. 选择 `File` → `Open`
-3. 选择项目根目录
-4. 等待 Gradle 同步完成
-5. 连接 Android 设备或启动模拟器
-6. 点击运行按钮（▶️）
+Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。
 
-### 命令行构建
-```bash
-./gradlew assembleDebug
-```
+## 快速回归
 
----
+1. 在“记录”页点击右下角 `+`。
+2. 选择或创建城市，填写名称，并保存一条景点记录。
+3. 确认记录出现在列表中并可进入详情。
+4. 在详情页编辑名称、评分或花费，保存后确认变化。
+5. 在详情页删除记录，确认列表中不再显示。
+6. 关闭并重新启动 App，确认未删除的记录仍存在。
 
-## 开发进度
+完整步骤和已知限制见 [测试指南.md](./测试指南.md)。
 
-详见 [开发计划.md](./开发计划.md)
+## 文档导航
 
-**当前阶段**：阶段 0 - 项目初始化
+- [需求分析.md](./需求分析.md)：产品目标、已确认决策和当前实现差距
+- [开发计划.md](./开发计划.md)：分阶段任务、状态和每阶段验证方式
+- [开发日志.md](./开发日志.md)：按日期记录已完成工作和验证结果
+- [测试指南.md](./测试指南.md)：构建、安装和 CRUD 手工回归步骤
+- [CRUD功能完成总结.md](./CRUD功能完成总结.md)：本次 CRUD 里程碑范围
 
-**完成度**：0/16 阶段
+## 下一步
 
----
-
-## 城市数据源
-
-- **来源**：国家统计局 2023 年县及县以上行政区划代码
-- **数据量**：约 3000+ 城市（含地级市、县级市、自治州）
-- **更新频率**：按需更新（行政区划变更较少）
-
----
-
-## 照片存储规则
-
-- **压缩参数**：长边约 1080px，JPEG 质量 80
-- **存储位置**：App internal storage（`photos/{tripId}/{recordId}/{timestamp}.jpg`）
-- **数量限制**：每条记录最多 9 张
-- **删除规则**：删除记录时同步删除对应照片文件
-
----
-
-## 路线图
-
-### Demo 版本（v0.1.0）
-- [x] 项目初始化
-- [ ] 本地数据存储（Room）
-- [ ] 城市记录管理
-- [ ] 景点与美食记录
-- [ ] 照片功能
-- [ ] 足迹与时间线视图
-- [ ] 智能规划占位界面
-
-### v0.2.0（计划）
-- [ ] UI 优化与动画
-- [ ] 搜索功能
-- [ ] 数据导出
-
-### v1.0.0（远期）
-- [ ] 用户认证
-- [ ] 服务端同步
-- [ ] AI 旅行规划
-- [ ] 多设备同步
-
----
+1. 完成 Trip 卡片、旅行时间段录入和出行次数统计界面。
+2. 设计 Room 1 → 2 数据迁移，保留旧版记录。
+3. 接入 3000+ 行政区划 JSON 和省市级联选择。
+4. 接入照片压缩、内部存储和删除清理。
+5. 完成智能规划对话框架与个人中心。
 
 ## 许可证
 
-待定
-
----
-
-## 联系方式
-
-开发者：Miracle
-
----
-
-## 更新日志
-
-### [0.1.0-dev] - 2026-09-14
-- 项目启动
-- 完成需求分析
-- 制定开发计划
+待定。

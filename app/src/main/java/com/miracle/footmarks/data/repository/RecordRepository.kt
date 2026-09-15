@@ -1,15 +1,21 @@
 package com.miracle.footmarks.data.repository
 
 import android.net.Uri
+import androidx.room.withTransaction
+import com.miracle.footmarks.data.local.FootmarksDatabase
 import com.miracle.footmarks.data.local.dao.RecordDao
+import com.miracle.footmarks.data.local.dao.TripDao
 import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.local.entity.RecordType
-import kotlinx.coroutines.flow.Flow
+import com.miracle.footmarks.data.local.entity.TripEntity
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class RecordRepository @Inject constructor(
-    private val recordDao: RecordDao
+    private val database: FootmarksDatabase,
+    private val recordDao: RecordDao,
+    private val tripDao: TripDao
 ) {
     fun getAllRecords(): Flow<List<RecordEntity>> = recordDao.getAllRecords()
 
@@ -40,22 +46,66 @@ class RecordRepository @Inject constructor(
         cost: Float?,
         notes: String?,
         photoUris: List<Uri>
-    ): Long {
-        // TODO: 实现照片压缩和存储
-        val photoUrisStr = if (photoUris.isNotEmpty()) {
-            photoUris.joinToString(",") { it.toString() }
-        } else null
-
-        val record = RecordEntity(
-            cityId = cityId,
-            type = type,
-            name = name,
-            date = date.toEpochDay() * 86400000L, // LocalDate -> 时间戳
-            rating = rating,
-            cost = cost,
-            notes = notes,
-            photoUris = photoUrisStr
+    ): Long = database.withTransaction {
+        val dateMillis = date.toEpochDay() * DAY_MILLIS
+        val tripId = tripDao.insert(
+            TripEntity(cityId = cityId, startDate = dateMillis, endDate = dateMillis)
         )
-        return insertRecord(record)
+        insertRecord(
+            buildRecord(tripId, type, name, dateMillis, rating, cost, notes, photoUris)
+        )
+    }
+
+    suspend fun createRecordForTrip(
+        tripId: Long,
+        type: RecordType,
+        name: String,
+        date: LocalDate,
+        rating: Float?,
+        cost: Float?,
+        notes: String?,
+        photoUris: List<Uri>
+    ): Long {
+        val trip = requireNotNull(tripDao.getById(tripId)) { "旅行不存在" }
+        val dateMillis = date.toEpochDay() * DAY_MILLIS
+        require(dateMillis in trip.startDate..trip.endDate) { "记录日期必须在旅行日期范围内" }
+        return insertRecord(
+            buildRecord(tripId, type, name, dateMillis, rating, cost, notes, photoUris)
+        )
+    }
+
+    suspend fun updateRecordWithTrip(
+        record: RecordEntity,
+        cityId: Long,
+        date: LocalDate
+    ) = database.withTransaction {
+        val trip = requireNotNull(tripDao.getById(record.tripId)) { "旅行不存在" }
+        val dateMillis = date.toEpochDay() * DAY_MILLIS
+        tripDao.update(trip.copy(cityId = cityId, startDate = dateMillis, endDate = dateMillis))
+        recordDao.update(record.copy(date = dateMillis))
+    }
+
+    private fun buildRecord(
+        tripId: Long,
+        type: RecordType,
+        name: String,
+        dateMillis: Long,
+        rating: Float?,
+        cost: Float?,
+        notes: String?,
+        photoUris: List<Uri>
+    ) = RecordEntity(
+        tripId = tripId,
+        type = type,
+        name = name,
+        date = dateMillis,
+        rating = rating,
+        cost = cost,
+        notes = notes,
+        photoUris = photoUris.takeIf { it.isNotEmpty() }?.joinToString(",")
+    )
+
+    private companion object {
+        const val DAY_MILLIS = 86_400_000L
     }
 }

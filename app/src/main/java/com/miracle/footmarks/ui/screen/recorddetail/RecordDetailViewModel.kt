@@ -7,6 +7,7 @@ import com.miracle.footmarks.data.local.entity.CityEntity
 import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.repository.CityRepository
 import com.miracle.footmarks.data.repository.RecordRepository
+import com.miracle.footmarks.data.repository.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +26,7 @@ data class RecordDetailUiState(
 class RecordDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val recordRepository: RecordRepository,
+    private val tripRepository: TripRepository,
     private val cityRepository: CityRepository
 ) : ViewModel() {
 
@@ -43,7 +45,8 @@ class RecordDetailViewModel @Inject constructor(
             try {
                 val record = recordRepository.getRecordById(recordId)
                 if (record != null) {
-                    val city = cityRepository.getCityById(record.cityId)
+                    val trip = tripRepository.getTripById(record.tripId)
+                    val city = trip?.let { cityRepository.getCityById(it.cityId) }
                     _uiState.value = RecordDetailUiState(
                         record = record,
                         city = city,

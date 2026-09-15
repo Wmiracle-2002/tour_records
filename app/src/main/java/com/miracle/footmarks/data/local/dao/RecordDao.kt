@@ -24,7 +24,12 @@ interface RecordDao {
     @Query("SELECT * FROM records WHERE id = :id")
     suspend fun getById(id: Long): RecordEntity?
 
-    @Query("SELECT * FROM records WHERE cityId = :cityId ORDER BY date DESC")
+    @Query("""
+        SELECT records.* FROM records
+        INNER JOIN trips ON records.tripId = trips.id
+        WHERE trips.cityId = :cityId
+        ORDER BY records.date DESC
+    """)
     fun getRecordsByCity(cityId: Long): Flow<List<RecordEntity>>
 
     @Query("SELECT * FROM records ORDER BY date DESC")
@@ -36,7 +41,10 @@ interface RecordDao {
     @Query("SELECT COUNT(*) FROM records")
     fun getTotalRecordCount(): Flow<Int>
 
-    @Query("SELECT COUNT(DISTINCT cityId) FROM records")
+    @Query("""
+        SELECT COUNT(DISTINCT trips.cityId) FROM records
+        INNER JOIN trips ON records.tripId = trips.id
+    """)
     fun getTotalCityCount(): Flow<Int>
 
     @Query("SELECT COALESCE(SUM(cost), 0) FROM records WHERE cost IS NOT NULL")

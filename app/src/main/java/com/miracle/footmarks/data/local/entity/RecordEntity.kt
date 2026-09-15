@@ -9,18 +9,18 @@ import androidx.room.PrimaryKey
     tableName = "records",
     foreignKeys = [
         ForeignKey(
-            entity = CityEntity::class,
+            entity = TripEntity::class,
             parentColumns = ["id"],
-            childColumns = ["cityId"],
+            childColumns = ["tripId"],
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("cityId"), Index("date")]
+    indices = [Index("tripId"), Index("date")]
 )
 data class RecordEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val cityId: Long,
+    val tripId: Long,
     val type: RecordType,
     val name: String,
     val date: Long, // 时间戳（毫秒）

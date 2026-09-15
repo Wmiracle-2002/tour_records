@@ -4,10 +4,10 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
 import com.miracle.footmarks.data.repository.RecordRepository
+import com.miracle.footmarks.data.repository.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +36,7 @@ data class EditRecordUiState(
 class EditRecordViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val recordRepository: RecordRepository,
+    private val tripRepository: TripRepository,
     private val cityRepository: CityRepository
 ) : ViewModel() {
 
@@ -54,7 +55,8 @@ class EditRecordViewModel @Inject constructor(
             try {
                 val record = recordRepository.getRecordById(recordId)
                 if (record != null) {
-                    val city = cityRepository.getCityById(record.cityId)
+                    val trip = tripRepository.getTripById(record.tripId)
+                    val city = trip?.let { cityRepository.getCityById(it.cityId) }
                     val photoUris = record.photoUris?.split(",")
                         ?.filter { it.isNotBlank() }
                         ?.map { Uri.parse(it) }
@@ -63,7 +65,7 @@ class EditRecordViewModel @Inject constructor(
                     _uiState.value = EditRecordUiState(
                         recordId = record.id,
                         recordType = record.type,
-                        cityId = record.cityId,
+                        cityId = trip?.cityId,
                         cityName = city?.name ?: "",
                         name = record.name,
                         date = LocalDate.ofEpochDay(record.date / 86400000L),
@@ -154,9 +156,10 @@ class EditRecordViewModel @Inject constructor(
                     currentState.photoUris.joinToString(",") { it.toString() }
                 } else null
 
-                val record = RecordEntity(
-                    id = currentState.recordId,
-                    cityId = currentState.cityId!!,
+                val existingRecord = requireNotNull(
+                    recordRepository.getRecordById(currentState.recordId)
+                ) { "记录不存在" }
+                val record = existingRecord.copy(
                     type = currentState.recordType,
                     name = currentState.name,
                     date = currentState.date.toEpochDay() * 86400000L,
@@ -166,7 +169,11 @@ class EditRecordViewModel @Inject constructor(
                     photoUris = photoUrisStr
                 )
 
-                recordRepository.updateRecord(record)
+                recordRepository.updateRecordWithTrip(
+                    record = record,
+                    cityId = currentState.cityId,
+                    date = currentState.date
+                )
                 onSuccess()
             } catch (e: Exception) {
                 _uiState.value = currentState.copy(
