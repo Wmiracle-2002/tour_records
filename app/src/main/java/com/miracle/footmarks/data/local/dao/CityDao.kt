@@ -26,6 +26,9 @@ interface CityDao {
     @Query("SELECT * FROM cities WHERE id = :id")
     suspend fun getById(id: Long): CityEntity?
 
+    @Query("SELECT * FROM cities WHERE cityCode = :cityCode LIMIT 1")
+    suspend fun getByCityCode(cityCode: String): CityEntity?
+
     @Query("SELECT * FROM cities ORDER BY name ASC")
     fun getAllCities(): Flow<List<CityEntity>>
 

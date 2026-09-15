@@ -6,7 +6,7 @@
 
 - Android `versionName`：`1.0.0`
 - 开发分支：`feat/demo`
-- 当前开发里程碑：阶段 1～5 本地数据层、CRUD 与照片本地化
+- 当前开发里程碑：阶段 1～6 本地数据层、CRUD、照片本地化与完整行政区划
 - 构建环境：JDK 17、Android SDK 34、Gradle 8.4
 - 最低系统：Android 7.0（API 24）
 
@@ -18,10 +18,10 @@
 - 记录列表显示真实城市名称
 - 输入校验：名称、备注、人民币花费范围和最多 9 张照片
 - 记录字段：城市、类型、名称、日期、评分、人民币花费、备注、照片路径
-- 城市选择：20 个常用城市预置、中文名称搜索、手动创建城市
+- 地区选择：离线内置 2023 年 3429 条省/市/区县数据，支持省份筛选、中文名称全局搜索和层级路径展示
 - 本地存储：Room 2，采用 `City → Trip → Record` 三层关系
 - Trip 数据层：旅行起止日期、子记录日期范围校验、DAO/Repository CRUD 和级联删除
-- 自动化验证：2 个 JVM 校验测试及 API 34 模拟器上的 12 个仪器测试通过
+- 自动化验证：2 个 JVM 校验测试及 API 34 模拟器上的 16 个仪器测试通过
 - 图片选择与展示：系统照片选择器、1080px 长边与 JPEG 质量 80 压缩、App 内部存储、Coil 预览
 - 图片生命周期：最多 9 张；编辑时清理移除的副本，删除记录时清理全部内部照片
 
@@ -29,7 +29,6 @@
 
 - Trip 数据层已落地，但 Trip 卡片和时间段录入界面尚未实现；当前添加记录会自动创建一条起止日期相同的单日 Trip。
 - 本次未实现 Room 1 → 2 迁移脚本，Demo 使用破坏式升级；从旧版首次启动新版时会重建本地数据库并清除旧记录。
-- 国家统计局 3000+ 行政区划数据尚未接入，目前只有 20 个常用城市，并允许手动创建城市。
 - 智能规划和个人中心当前只显示“待实现”，对话输入框、发送提示和统计信息尚未完成。
 
 ## 项目结构
@@ -40,10 +39,10 @@ app/src/main/java/com/miracle/footmarks/
 │   ├── local/
 │   │   ├── dao/             # CityDao、TripDao、RecordDao
 │   │   ├── entity/          # CityEntity、TripEntity、RecordEntity
-│   │   ├── util/            # DatabaseInitializer、PhotoManager
+│   │   ├── util/            # PhotoManager
 │   │   ├── Converters.kt
 │   │   └── FootmarksDatabase.kt
-│   └── repository/          # CityRepository、TripRepository、RecordRepository
+│   └── repository/          # 行政区划、City、Trip、Record Repository
 ├── di/                      # Hilt 数据库模块
 ├── ui/
 │   ├── navigation/          # 底部导航与页面路由
@@ -105,13 +104,13 @@ Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。
 - [开发日志.md](./开发日志.md)：按日期记录已完成工作和验证结果
 - [测试指南.md](./测试指南.md)：构建、安装和 CRUD 手工回归步骤
 - [CRUD功能完成总结.md](./CRUD功能完成总结.md)：本次 CRUD 里程碑范围
+- [城市数据源.md](./城市数据源.md)：2023 年行政区划来源、条目数量、转换规则和许可证
 
 ## 下一步
 
-1. 接入 3000+ 行政区划 JSON 和省市级联选择。
-2. 完成 Trip 卡片、旅行时间段录入和出行次数统计界面。
-3. 设计 Room 1 → 2 数据迁移，保留旧版记录。
-4. 完成智能规划对话框架与个人中心。
+1. 完成 Trip 卡片、旅行时间段录入和出行次数统计界面。
+2. 设计 Room 1 → 2 数据迁移，保留旧版记录。
+3. 完成智能规划对话框架与个人中心。
 
 ## 许可证
 
