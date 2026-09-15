@@ -3,8 +3,10 @@ package com.miracle.footmarks.di
 import android.content.Context
 import androidx.room.Room
 import com.miracle.footmarks.data.local.FootmarksDatabase
+import com.miracle.footmarks.data.local.MIGRATION_1_2
 import com.miracle.footmarks.data.local.dao.CityDao
 import com.miracle.footmarks.data.local.dao.RecordDao
+import com.miracle.footmarks.data.local.dao.TripDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,7 +27,8 @@ object DatabaseModule {
             context,
             FootmarksDatabase::class.java,
             "footmarks_db"
-        ).build()
+        ).addMigrations(MIGRATION_1_2)
+            .build()
     }
 
     @Provides
@@ -36,5 +39,10 @@ object DatabaseModule {
     @Provides
     fun provideRecordDao(database: FootmarksDatabase): RecordDao {
         return database.recordDao()
+    }
+
+    @Provides
+    fun provideTripDao(database: FootmarksDatabase): TripDao {
+        return database.tripDao()
     }
 }

@@ -40,7 +40,7 @@ fun AddRecordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCityPicker by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    var datePickerTarget by remember { mutableStateOf<DatePickerTarget?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -48,11 +48,11 @@ fun AddRecordScreen(
         uri?.let { viewModel.addPhoto(it) }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            // Error is shown in UI, clear after display
-            viewModel.clearError()
+    if (uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
+        return
     }
 
     Scaffold(
@@ -117,22 +117,56 @@ fun AddRecordScreen(
                 )
             }
 
+            Text(
+                text = if (uiState.tripId == null) "新旅行" else "添加到已有旅行",
+                style = MaterialTheme.typography.titleMedium
+            )
+
             // City selector
             OutlinedCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showCityPicker = true }
+                    .then(
+                        if (uiState.tripId == null) Modifier.clickable { showCityPicker = true }
+                        else Modifier
+                    )
             ) {
-                Text(
-                    text = uiState.cityName.ifBlank { stringResource(R.string.hint_select_city) },
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (uiState.cityName.isBlank())
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    else
-                        MaterialTheme.colorScheme.onSurface
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "旅行城市",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = uiState.cityName.ifBlank { stringResource(R.string.hint_select_city) },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (uiState.cityName.isBlank())
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        else
+                            MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DateFieldCard(
+                    label = "旅行开始",
+                    date = uiState.tripStartDate,
+                    enabled = uiState.tripId == null,
+                    onClick = { datePickerTarget = DatePickerTarget.TRIP_START },
+                    modifier = Modifier.weight(1f)
+                )
+                DateFieldCard(
+                    label = "旅行结束",
+                    date = uiState.tripEndDate,
+                    enabled = uiState.tripId == null,
+                    onClick = { datePickerTarget = DatePickerTarget.TRIP_END },
+                    modifier = Modifier.weight(1f)
                 )
             }
+
+            Divider()
+            Text("景点 / 美食记录", style = MaterialTheme.typography.titleMedium)
 
             // Name input
             OutlinedTextField(
@@ -148,7 +182,7 @@ fun AddRecordScreen(
             OutlinedCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showDatePicker = true }
+                    .clickable { datePickerTarget = DatePickerTarget.RECORD }
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -229,7 +263,7 @@ fun AddRecordScreen(
                             onRemove = { viewModel.removePhoto(uri) }
                         )
                     }
-                    item {
+                    if (uiState.photoUris.size < 9) item {
                         AddPhotoButton(
                             onClick = {
                                 photoPickerLauncher.launch(
@@ -257,15 +291,54 @@ fun AddRecordScreen(
         )
     }
 
-    if (showDatePicker) {
+    datePickerTarget?.let { target ->
         DatePickerDialog(
-            currentDate = uiState.date,
-            onDismiss = { showDatePicker = false },
+            currentDate = when (target) {
+                DatePickerTarget.TRIP_START -> uiState.tripStartDate
+                DatePickerTarget.TRIP_END -> uiState.tripEndDate
+                DatePickerTarget.RECORD -> uiState.date
+            },
+            onDismiss = { datePickerTarget = null },
             onDateSelected = { date ->
-                viewModel.updateDate(date)
-                showDatePicker = false
+                when (target) {
+                    DatePickerTarget.TRIP_START -> viewModel.updateTripStartDate(date)
+                    DatePickerTarget.TRIP_END -> viewModel.updateTripEndDate(date)
+                    DatePickerTarget.RECORD -> viewModel.updateDate(date)
+                }
+                datePickerTarget = null
             }
         )
+    }
+}
+
+private enum class DatePickerTarget {
+    TRIP_START,
+    TRIP_END,
+    RECORD
+}
+
+@Composable
+private fun DateFieldCard(
+    label: String,
+    date: java.time.LocalDate,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedCard(
+        modifier = modifier.then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 

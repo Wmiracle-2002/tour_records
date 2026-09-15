@@ -4,10 +4,11 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
 import com.miracle.footmarks.data.repository.RecordRepository
+import com.miracle.footmarks.data.repository.TripRepository
+import com.miracle.footmarks.ui.validation.RecordInputValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,8 @@ data class EditRecordUiState(
     val recordType: RecordType = RecordType.ATTRACTION,
     val cityId: Long? = null,
     val cityName: String = "",
+    val tripStartDate: LocalDate = LocalDate.now(),
+    val tripEndDate: LocalDate = LocalDate.now(),
     val name: String = "",
     val date: LocalDate = LocalDate.now(),
     val rating: Float? = null,
@@ -36,6 +39,7 @@ data class EditRecordUiState(
 class EditRecordViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val recordRepository: RecordRepository,
+    private val tripRepository: TripRepository,
     private val cityRepository: CityRepository
 ) : ViewModel() {
 
@@ -54,7 +58,8 @@ class EditRecordViewModel @Inject constructor(
             try {
                 val record = recordRepository.getRecordById(recordId)
                 if (record != null) {
-                    val city = cityRepository.getCityById(record.cityId)
+                    val trip = tripRepository.getTripById(record.tripId)
+                    val city = trip?.let { cityRepository.getCityById(it.cityId) }
                     val photoUris = record.photoUris?.split(",")
                         ?.filter { it.isNotBlank() }
                         ?.map { Uri.parse(it) }
@@ -63,8 +68,14 @@ class EditRecordViewModel @Inject constructor(
                     _uiState.value = EditRecordUiState(
                         recordId = record.id,
                         recordType = record.type,
-                        cityId = record.cityId,
+                        cityId = trip?.cityId,
                         cityName = city?.name ?: "",
+                        tripStartDate = trip?.let {
+                            LocalDate.ofEpochDay(it.startDate / 86400000L)
+                        } ?: LocalDate.now(),
+                        tripEndDate = trip?.let {
+                            LocalDate.ofEpochDay(it.endDate / 86400000L)
+                        } ?: LocalDate.now(),
                         name = record.name,
                         date = LocalDate.ofEpochDay(record.date / 86400000L),
                         rating = record.rating,
@@ -117,9 +128,12 @@ class EditRecordViewModel @Inject constructor(
     }
 
     fun addPhoto(uri: Uri) {
-        _uiState.value = _uiState.value.copy(
-            photoUris = _uiState.value.photoUris + uri
-        )
+        val state = _uiState.value
+        _uiState.value = if (state.photoUris.size >= RecordInputValidator.MAX_PHOTO_COUNT) {
+            state.copy(error = "每条记录最多选择9张照片")
+        } else {
+            state.copy(photoUris = state.photoUris + uri, error = null)
+        }
     }
 
     fun removePhoto(uri: Uri) {
@@ -135,14 +149,15 @@ class EditRecordViewModel @Inject constructor(
     fun saveRecord(onSuccess: () -> Unit) {
         val currentState = _uiState.value
 
-        // 验证
-        if (currentState.cityId == null || currentState.cityName.isBlank()) {
-            _uiState.value = currentState.copy(error = "请选择城市")
-            return
-        }
-
-        if (currentState.name.isBlank()) {
-            _uiState.value = currentState.copy(error = "请输入名称")
+        val validationError = RecordInputValidator.validate(
+            cityId = currentState.cityId,
+            name = currentState.name,
+            cost = currentState.cost,
+            notes = currentState.notes,
+            photoCount = currentState.photoUris.size
+        )
+        if (validationError != null) {
+            _uiState.value = currentState.copy(error = validationError)
             return
         }
 
@@ -154,9 +169,10 @@ class EditRecordViewModel @Inject constructor(
                     currentState.photoUris.joinToString(",") { it.toString() }
                 } else null
 
-                val record = RecordEntity(
-                    id = currentState.recordId,
-                    cityId = currentState.cityId!!,
+                val existingRecord = requireNotNull(
+                    recordRepository.getRecordById(currentState.recordId)
+                ) { "记录不存在" }
+                val record = existingRecord.copy(
                     type = currentState.recordType,
                     name = currentState.name,
                     date = currentState.date.toEpochDay() * 86400000L,
@@ -166,7 +182,12 @@ class EditRecordViewModel @Inject constructor(
                     photoUris = photoUrisStr
                 )
 
-                recordRepository.updateRecord(record)
+                recordRepository.updateRecordWithTrip(
+                    record = record,
+                    cityId = requireNotNull(currentState.cityId),
+                    date = currentState.date,
+                    photoUris = currentState.photoUris
+                )
                 onSuccess()
             } catch (e: Exception) {
                 _uiState.value = currentState.copy(

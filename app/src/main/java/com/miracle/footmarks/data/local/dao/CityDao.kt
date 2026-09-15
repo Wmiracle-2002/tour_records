@@ -26,6 +26,9 @@ interface CityDao {
     @Query("SELECT * FROM cities WHERE id = :id")
     suspend fun getById(id: Long): CityEntity?
 
+    @Query("SELECT * FROM cities WHERE cityCode = :cityCode LIMIT 1")
+    suspend fun getByCityCode(cityCode: String): CityEntity?
+
     @Query("SELECT * FROM cities ORDER BY name ASC")
     fun getAllCities(): Flow<List<CityEntity>>
 
@@ -35,7 +38,8 @@ interface CityDao {
     @Query("""
         SELECT c.*, COUNT(DISTINCT r.id) as recordCount
         FROM cities c
-        LEFT JOIN records r ON c.id = r.cityId
+        LEFT JOIN trips t ON c.id = t.cityId
+        LEFT JOIN records r ON t.id = r.tripId
         GROUP BY c.id
         HAVING recordCount > 0
         ORDER BY recordCount DESC

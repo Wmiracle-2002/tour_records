@@ -44,4 +44,17 @@ class CityRepository @Inject constructor(
             insertCity(newCity)
         }
     }
+
+    suspend fun ensureDivisionExists(name: String, provinceCode: String, cityCode: String): Long {
+        val existing = cityDao.getByCityCode(cityCode)
+        if (existing != null) {
+            if (existing.name != name || existing.provinceCode != provinceCode) {
+                updateCity(existing.copy(name = name, provinceCode = provinceCode))
+            }
+            return existing.id
+        }
+        return insertCity(
+            CityEntity(name = name, provinceCode = provinceCode, cityCode = cityCode)
+        )
+    }
 }
