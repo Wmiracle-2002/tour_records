@@ -41,7 +41,12 @@ class RecordRepository @Inject constructor(
     suspend fun updateRecord(record: RecordEntity) = recordDao.update(record)
 
     suspend fun deleteRecord(record: RecordEntity) {
-        recordDao.delete(record)
+        database.withTransaction {
+            recordDao.delete(record)
+            if (recordDao.getRecordCountForTrip(record.tripId) == 0) {
+                tripDao.getById(record.tripId)?.let { tripDao.delete(it) }
+            }
+        }
         photoManager.deletePhotos(parsePhotoPaths(record.photoUris))
     }
 
@@ -54,16 +59,44 @@ class RecordRepository @Inject constructor(
         cost: Float?,
         notes: String?,
         photoUris: List<Uri>
+    ): Long = createTripWithRecord(
+        cityId = cityId,
+        startDate = date,
+        endDate = date,
+        type = type,
+        name = name,
+        recordDate = date,
+        rating = rating,
+        cost = cost,
+        notes = notes,
+        photoUris = photoUris
+    )
+
+    suspend fun createTripWithRecord(
+        cityId: Long,
+        startDate: LocalDate,
+        endDate: LocalDate,
+        type: RecordType,
+        name: String,
+        recordDate: LocalDate,
+        rating: Float?,
+        cost: Float?,
+        notes: String?,
+        photoUris: List<Uri>
     ): Long {
+        require(!endDate.isBefore(startDate)) { "结束日期不能早于开始日期" }
+        require(recordDate in startDate..endDate) { "记录日期必须在旅行日期范围内" }
         val storedPhotos = storePhotos(photoUris)
         return try {
             database.withTransaction {
-                val dateMillis = date.toEpochDay() * DAY_MILLIS
+                val startMillis = startDate.toEpochDay() * DAY_MILLIS
+                val endMillis = endDate.toEpochDay() * DAY_MILLIS
+                val recordMillis = recordDate.toEpochDay() * DAY_MILLIS
                 val tripId = tripDao.insert(
-                    TripEntity(cityId = cityId, startDate = dateMillis, endDate = dateMillis)
+                    TripEntity(cityId = cityId, startDate = startMillis, endDate = endMillis)
                 )
                 insertRecord(
-                    buildRecord(tripId, type, name, dateMillis, rating, cost, notes, storedPhotos)
+                    buildRecord(tripId, type, name, recordMillis, rating, cost, notes, storedPhotos)
                 )
             }
         } catch (error: Exception) {
@@ -107,7 +140,18 @@ class RecordRepository @Inject constructor(
             database.withTransaction {
                 val trip = requireNotNull(tripDao.getById(record.tripId)) { "旅行不存在" }
                 val dateMillis = date.toEpochDay() * DAY_MILLIS
-                tripDao.update(trip.copy(cityId = cityId, startDate = dateMillis, endDate = dateMillis))
+                val isOnlyRecordInSingleDayTrip =
+                    trip.startDate == trip.endDate && recordDao.getRecordCountForTrip(trip.id) == 1
+                if (isOnlyRecordInSingleDayTrip) {
+                    tripDao.update(
+                        trip.copy(cityId = cityId, startDate = dateMillis, endDate = dateMillis)
+                    )
+                } else {
+                    require(dateMillis in trip.startDate..trip.endDate) {
+                        "记录日期必须在旅行日期范围内"
+                    }
+                    tripDao.update(trip.copy(cityId = cityId))
+                }
                 recordDao.update(
                     record.copy(
                         date = dateMillis,

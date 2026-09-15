@@ -3,6 +3,7 @@ package com.miracle.footmarks.di
 import android.content.Context
 import androidx.room.Room
 import com.miracle.footmarks.data.local.FootmarksDatabase
+import com.miracle.footmarks.data.local.MIGRATION_1_2
 import com.miracle.footmarks.data.local.dao.CityDao
 import com.miracle.footmarks.data.local.dao.RecordDao
 import com.miracle.footmarks.data.local.dao.TripDao
@@ -26,7 +27,7 @@ object DatabaseModule {
             context,
             FootmarksDatabase::class.java,
             "footmarks_db"
-        ).fallbackToDestructiveMigration()
+        ).addMigrations(MIGRATION_1_2)
             .build()
     }
 

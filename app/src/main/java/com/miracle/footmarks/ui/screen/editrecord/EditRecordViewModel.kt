@@ -22,6 +22,8 @@ data class EditRecordUiState(
     val recordType: RecordType = RecordType.ATTRACTION,
     val cityId: Long? = null,
     val cityName: String = "",
+    val tripStartDate: LocalDate = LocalDate.now(),
+    val tripEndDate: LocalDate = LocalDate.now(),
     val name: String = "",
     val date: LocalDate = LocalDate.now(),
     val rating: Float? = null,
@@ -68,6 +70,12 @@ class EditRecordViewModel @Inject constructor(
                         recordType = record.type,
                         cityId = trip?.cityId,
                         cityName = city?.name ?: "",
+                        tripStartDate = trip?.let {
+                            LocalDate.ofEpochDay(it.startDate / 86400000L)
+                        } ?: LocalDate.now(),
+                        tripEndDate = trip?.let {
+                            LocalDate.ofEpochDay(it.endDate / 86400000L)
+                        } ?: LocalDate.now(),
                         name = record.name,
                         date = LocalDate.ofEpochDay(record.date / 86400000L),
                         rating = record.rating,

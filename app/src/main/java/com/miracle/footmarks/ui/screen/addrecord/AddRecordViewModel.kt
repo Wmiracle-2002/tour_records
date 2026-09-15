@@ -1,12 +1,15 @@
 package com.miracle.footmarks.ui.screen.addrecord
 
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
 import com.miracle.footmarks.data.repository.RecordRepository
+import com.miracle.footmarks.data.repository.TripRepository
 import com.miracle.footmarks.ui.validation.RecordInputValidator
+import com.miracle.footmarks.ui.validation.TripDateValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,23 +23,58 @@ data class AddRecordUiState(
     val cityId: Long? = null,
     val cityName: String = "",
     val name: String = "",
+    val tripId: Long? = null,
+    val tripStartDate: LocalDate = LocalDate.now(),
+    val tripEndDate: LocalDate = LocalDate.now(),
     val date: LocalDate = LocalDate.now(),
     val rating: Float? = null,
     val cost: Float? = null,
     val notes: String = "",
     val photoUris: List<Uri> = emptyList(),
+    val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null
 )
 
 @HiltViewModel
 class AddRecordViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val recordRepository: RecordRepository,
-    private val cityRepository: CityRepository
+    private val cityRepository: CityRepository,
+    private val tripRepository: TripRepository
 ) : ViewModel() {
+
+    private val requestedTripId = savedStateHandle.get<Long>("tripId")?.takeIf { it > 0 }
 
     private val _uiState = MutableStateFlow(AddRecordUiState())
     val uiState: StateFlow<AddRecordUiState> = _uiState.asStateFlow()
+
+    init {
+        requestedTripId?.let(::loadTrip)
+    }
+
+    private fun loadTrip(tripId: Long) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            try {
+                val trip = requireNotNull(tripRepository.getTripById(tripId)) { "旅行不存在" }
+                val city = requireNotNull(cityRepository.getCityById(trip.cityId)) { "城市不存在" }
+                val startDate = LocalDate.ofEpochDay(trip.startDate / DAY_MILLIS)
+                val endDate = LocalDate.ofEpochDay(trip.endDate / DAY_MILLIS)
+                _uiState.value = _uiState.value.copy(
+                    tripId = trip.id,
+                    cityId = trip.cityId,
+                    cityName = city.name,
+                    tripStartDate = startDate,
+                    tripEndDate = endDate,
+                    date = startDate,
+                    isLoading = false
+                )
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = error.message)
+            }
+        }
+    }
 
     fun updateRecordType(type: RecordType) {
         _uiState.value = _uiState.value.copy(recordType = type)
@@ -52,6 +90,14 @@ class AddRecordViewModel @Inject constructor(
 
     fun updateDate(date: LocalDate) {
         _uiState.value = _uiState.value.copy(date = date)
+    }
+
+    fun updateTripStartDate(date: LocalDate) {
+        _uiState.value = _uiState.value.copy(tripStartDate = date)
+    }
+
+    fun updateTripEndDate(date: LocalDate) {
+        _uiState.value = _uiState.value.copy(tripEndDate = date)
     }
 
     fun updateRating(rating: Float?) {
@@ -95,20 +141,44 @@ class AddRecordViewModel @Inject constructor(
             _uiState.value = state.copy(error = validationError)
             return
         }
+        val dateError = TripDateValidator.validate(
+            startDate = state.tripStartDate,
+            endDate = state.tripEndDate,
+            recordDate = state.date
+        )
+        if (dateError != null) {
+            _uiState.value = state.copy(error = dateError)
+            return
+        }
 
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
             try {
-                recordRepository.createRecord(
-                    cityId = requireNotNull(state.cityId),
-                    type = state.recordType,
-                    name = state.name,
-                    date = state.date,
-                    rating = state.rating,
-                    cost = state.cost,
-                    notes = state.notes.ifBlank { null },
-                    photoUris = state.photoUris
-                )
+                if (state.tripId == null) {
+                    recordRepository.createTripWithRecord(
+                        cityId = requireNotNull(state.cityId),
+                        startDate = state.tripStartDate,
+                        endDate = state.tripEndDate,
+                        type = state.recordType,
+                        name = state.name,
+                        recordDate = state.date,
+                        rating = state.rating,
+                        cost = state.cost,
+                        notes = state.notes.ifBlank { null },
+                        photoUris = state.photoUris
+                    )
+                } else {
+                    recordRepository.createRecordForTrip(
+                        tripId = state.tripId,
+                        type = state.recordType,
+                        name = state.name,
+                        date = state.date,
+                        rating = state.rating,
+                        cost = state.cost,
+                        notes = state.notes.ifBlank { null },
+                        photoUris = state.photoUris
+                    )
+                }
                 onSuccess()
             } catch (e: Exception) {
                 _uiState.value = state.copy(
@@ -121,5 +191,9 @@ class AddRecordViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    private companion object {
+        const val DAY_MILLIS = 86_400_000L
     }
 }

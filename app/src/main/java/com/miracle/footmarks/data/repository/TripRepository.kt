@@ -1,6 +1,8 @@
 package com.miracle.footmarks.data.repository
 
 import com.miracle.footmarks.data.local.dao.TripDao
+import com.miracle.footmarks.data.local.dao.TravelStats
+import com.miracle.footmarks.data.local.dao.TripWithCityAndRecords
 import com.miracle.footmarks.data.local.entity.TripEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -11,6 +13,10 @@ class TripRepository @Inject constructor(
     fun getAllTrips(): Flow<List<TripEntity>> = tripDao.getAllTrips()
 
     fun getTripsByCity(cityId: Long): Flow<List<TripEntity>> = tripDao.getTripsByCity(cityId)
+
+    fun getTimeline(): Flow<List<TripWithCityAndRecords>> = tripDao.getTimeline()
+
+    fun getTravelStats(): Flow<TravelStats> = tripDao.getTravelStats()
 
     suspend fun getTripById(id: Long): TripEntity? = tripDao.getById(id)
 

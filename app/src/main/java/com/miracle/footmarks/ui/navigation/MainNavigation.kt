@@ -83,7 +83,10 @@ fun MainNavHost(
                     navController.navigate(Screen.RecordDetail.createRoute(recordId))
                 },
                 onAddClick = {
-                    navController.navigate(Screen.AddRecord.route)
+                    navController.navigate(Screen.AddRecord.createRoute())
+                },
+                onAddToTrip = { tripId ->
+                    navController.navigate(Screen.AddRecord.createRoute(tripId))
                 }
             )
         }
@@ -96,7 +99,15 @@ fun MainNavHost(
             ProfileScreen()
         }
 
-        composable(Screen.AddRecord.route) {
+        composable(
+            route = Screen.AddRecord.route,
+            arguments = listOf(
+                navArgument("tripId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) {
             AddRecordScreen(
                 onSaved = {
                     navController.popBackStack()

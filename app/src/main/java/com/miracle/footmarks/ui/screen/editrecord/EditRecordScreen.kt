@@ -136,6 +136,29 @@ fun EditRecordScreen(
                 }
             }
 
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "旅行时间",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Text(
+                        text = if (uiState.tripStartDate == uiState.tripEndDate) {
+                            uiState.tripStartDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        } else {
+                            "${uiState.tripStartDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))} ～ " +
+                                uiState.tripEndDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        },
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = "记录日期需在此范围内",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             // 名称
             OutlinedTextField(
                 value = uiState.name,

@@ -25,6 +25,12 @@ interface RecordDao {
     @Query("SELECT * FROM records WHERE id = :id")
     suspend fun getById(id: Long): RecordEntity?
 
+    @Query("SELECT * FROM records WHERE tripId = :tripId ORDER BY date ASC, createdAt ASC")
+    suspend fun getRecordsForTrip(tripId: Long): List<RecordEntity>
+
+    @Query("SELECT COUNT(*) FROM records WHERE tripId = :tripId")
+    suspend fun getRecordCountForTrip(tripId: Long): Int
+
     @Query("""
         SELECT records.* FROM records
         INNER JOIN trips ON records.tripId = trips.id

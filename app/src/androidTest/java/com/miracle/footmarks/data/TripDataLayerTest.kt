@@ -319,6 +319,49 @@ class TripDataLayerTest {
     }
 
     @Test
+    fun editingRecordInMultiDayTripKeepsRangeAndRejectsOutsideDate() = runBlocking {
+        val cityId = database.cityDao().insert(testCity())
+        val tripId = database.tripDao().insert(
+            TripEntity(
+                cityId = cityId,
+                startDate = LocalDate.of(2026, 9, 10).toEpochDay() * DAY_MILLIS,
+                endDate = LocalDate.of(2026, 9, 15).toEpochDay() * DAY_MILLIS
+            )
+        )
+        val repository = RecordRepository(
+            database = database,
+            recordDao = database.recordDao(),
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
+        )
+        val recordId = repository.createRecordForTrip(
+            tripId = tripId,
+            type = RecordType.ATTRACTION,
+            name = "故宫",
+            date = LocalDate.of(2026, 9, 12),
+            rating = null,
+            cost = null,
+            notes = null,
+            photoUris = emptyList()
+        )
+        val record = repository.getRecordById(recordId)!!
+
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking {
+                repository.updateRecordWithTrip(
+                    record = record,
+                    cityId = cityId,
+                    date = LocalDate.of(2026, 9, 16)
+                )
+            }
+        }
+
+        val trip = database.tripDao().getById(tripId)!!
+        assertEquals(LocalDate.of(2026, 9, 10).toEpochDay() * DAY_MILLIS, trip.startDate)
+        assertEquals(LocalDate.of(2026, 9, 15).toEpochDay() * DAY_MILLIS, trip.endDate)
+    }
+
+    @Test
     fun deletingCityCascadesToTripsAndRecords() = runBlocking {
         val city = testCity()
         val cityId = database.cityDao().insert(city)
@@ -375,6 +418,123 @@ class TripDataLayerTest {
 
         repository.deleteTrip(inserted.copy(endDate = 3_000L))
         assertNull(repository.getTripById(tripId))
+    }
+
+    @Test
+    fun timelineGroupsRecordsByTripAndSortsNewestTripFirst() = runBlocking {
+        val cityId = database.cityDao().insert(testCity())
+        val olderTripId = database.tripDao().insert(
+            TripEntity(cityId = cityId, startDate = 1_000L, endDate = 2_000L)
+        )
+        val newerTripId = database.tripDao().insert(
+            TripEntity(cityId = cityId, startDate = 3_000L, endDate = 4_000L)
+        )
+        database.recordDao().insert(
+            com.miracle.footmarks.data.local.entity.RecordEntity(
+                tripId = olderTripId,
+                type = RecordType.ATTRACTION,
+                name = "旧旅行景点",
+                date = 1_000L
+            )
+        )
+        database.recordDao().insert(
+            com.miracle.footmarks.data.local.entity.RecordEntity(
+                tripId = newerTripId,
+                type = RecordType.FOOD,
+                name = "新旅行美食",
+                date = 3_000L
+            )
+        )
+
+        val timeline = database.tripDao().getTimeline().first()
+
+        assertEquals(listOf(newerTripId, olderTripId), timeline.map { it.trip.id })
+        assertEquals("北京", timeline.first().cityName)
+        assertEquals("新旅行美食", timeline.first().records.single().name)
+    }
+
+    @Test
+    fun travelStatsCountDistinctCitiesTripsAndTotalCost() = runBlocking {
+        val firstCityId = database.cityDao().insert(testCity())
+        val secondCityId = database.cityDao().insert(
+            CityEntity(name = "上海", provinceCode = "310000", cityCode = "310000")
+        )
+        val firstTripId = database.tripDao().insert(testTrip(firstCityId))
+        val secondTripId = database.tripDao().insert(testTrip(firstCityId))
+        val thirdTripId = database.tripDao().insert(testTrip(secondCityId))
+        listOf(firstTripId to 10f, secondTripId to null, thirdTripId to 25.5f).forEach { (tripId, cost) ->
+            database.recordDao().insert(
+                com.miracle.footmarks.data.local.entity.RecordEntity(
+                    tripId = tripId,
+                    type = RecordType.ATTRACTION,
+                    name = "测试记录",
+                    date = 0L,
+                    cost = cost
+                )
+            )
+        }
+
+        val stats = database.tripDao().getTravelStats().first()
+
+        assertEquals(2, stats.cityCount)
+        assertEquals(3, stats.tripCount)
+        assertEquals(35.5f, stats.totalCost)
+    }
+
+    @Test
+    fun createTripWithFirstRecordUsesRequestedRange() = runBlocking {
+        val cityId = database.cityDao().insert(testCity())
+        val repository = RecordRepository(
+            database = database,
+            recordDao = database.recordDao(),
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
+        )
+
+        val recordId = repository.createTripWithRecord(
+            cityId = cityId,
+            startDate = LocalDate.of(2026, 9, 10),
+            endDate = LocalDate.of(2026, 9, 15),
+            type = RecordType.ATTRACTION,
+            name = "故宫",
+            recordDate = LocalDate.of(2026, 9, 12),
+            rating = null,
+            cost = null,
+            notes = null,
+            photoUris = emptyList()
+        )
+
+        val record = repository.getRecordById(recordId)!!
+        val trip = database.tripDao().getById(record.tripId)!!
+        assertEquals(LocalDate.of(2026, 9, 10).toEpochDay() * DAY_MILLIS, trip.startDate)
+        assertEquals(LocalDate.of(2026, 9, 15).toEpochDay() * DAY_MILLIS, trip.endDate)
+        assertEquals(LocalDate.of(2026, 9, 12).toEpochDay() * DAY_MILLIS, record.date)
+    }
+
+    @Test
+    fun deletingLastRecordAlsoDeletesEmptyTrip() = runBlocking {
+        val cityId = database.cityDao().insert(testCity())
+        val repository = RecordRepository(
+            database = database,
+            recordDao = database.recordDao(),
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
+        )
+        val recordId = repository.createRecord(
+            cityId = cityId,
+            type = RecordType.ATTRACTION,
+            name = "唯一记录",
+            date = LocalDate.of(2026, 9, 15),
+            rating = null,
+            cost = null,
+            notes = null,
+            photoUris = emptyList()
+        )
+        val record = repository.getRecordById(recordId)!!
+
+        repository.deleteRecord(record)
+
+        assertNull(database.tripDao().getById(record.tripId))
     }
 
     private fun testCity() = CityEntity(
