@@ -2,7 +2,7 @@ package com.miracle.footmarks.ui.screen.records
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.miracle.footmarks.data.local.entity.RecordEntity
+import com.miracle.footmarks.data.local.dao.RecordWithCity
 import com.miracle.footmarks.data.repository.RecordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class RecordsUiState(
-    val records: List<RecordEntity> = emptyList(),
+    val records: List<RecordWithCity> = emptyList(),
     val isLoading: Boolean = false
 )
 
@@ -31,9 +31,9 @@ class RecordsViewModel @Inject constructor(
     private fun loadRecords() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            repository.getAllRecords().collect { records ->
+            repository.getAllRecordsWithCity().collect { records ->
                 _uiState.value = RecordsUiState(
-                    records = records.sortedByDescending { it.date },
+                    records = records,
                     isLoading = false
                 )
             }

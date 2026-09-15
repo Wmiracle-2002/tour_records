@@ -88,6 +88,31 @@ class TripDataLayerTest {
     }
 
     @Test
+    fun recordListQueryIncludesRealCityName() = runBlocking {
+        val cityId = database.cityDao().insert(testCity())
+        val repository = RecordRepository(
+            database = database,
+            recordDao = database.recordDao(),
+            tripDao = database.tripDao()
+        )
+        repository.createRecord(
+            cityId = cityId,
+            type = RecordType.ATTRACTION,
+            name = "故宫",
+            date = LocalDate.of(2026, 9, 15),
+            rating = null,
+            cost = null,
+            notes = null,
+            photoUris = emptyList()
+        )
+
+        val item = repository.getAllRecordsWithCity().first().single()
+
+        assertEquals("北京", item.cityName)
+        assertEquals("故宫", item.record.name)
+    }
+
+    @Test
     fun recordDateMustBeInsideTripRange() = runBlocking {
         val cityId = database.cityDao().insert(testCity())
         val tripId = database.tripDao().insert(testTrip(cityId))

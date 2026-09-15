@@ -48,13 +48,6 @@ fun AddRecordScreen(
         uri?.let { viewModel.addPhoto(it) }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            // Error is shown in UI, clear after display
-            viewModel.clearError()
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -229,7 +222,7 @@ fun AddRecordScreen(
                             onRemove = { viewModel.removePhoto(uri) }
                         )
                     }
-                    item {
+                    if (uiState.photoUris.size < 9) item {
                         AddPhotoButton(
                             onClick = {
                                 photoPickerLauncher.launch(

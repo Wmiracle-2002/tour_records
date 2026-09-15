@@ -49,12 +49,6 @@ fun EditRecordScreen(
         uri?.let { viewModel.addPhoto(it) }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            viewModel.clearError()
-        }
-    }
-
     if (uiState.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -218,7 +212,7 @@ fun EditRecordScreen(
                         onRemove = { viewModel.removePhoto(uri) }
                     )
                 }
-                item {
+                if (uiState.photoUris.size < 9) item {
                     AddPhotoButton(
                         onClick = {
                             photoPickerLauncher.launch(

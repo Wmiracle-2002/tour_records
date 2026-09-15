@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.miracle.footmarks.data.local.entity.RecordEntity
+import com.miracle.footmarks.data.local.dao.RecordWithCity
 import com.miracle.footmarks.data.local.entity.RecordType
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -59,10 +59,10 @@ fun RecordsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(uiState.records, key = { it.id }) { record ->
+                items(uiState.records, key = { it.record.id }) { record ->
                     RecordCard(
-                        record = record,
-                        onClick = { onRecordClick(record.id) }
+                        item = record,
+                        onClick = { onRecordClick(record.record.id) }
                     )
                 }
             }
@@ -82,10 +82,11 @@ fun RecordsScreen(
 
 @Composable
 private fun RecordCard(
-    record: RecordEntity,
+    item: RecordWithCity,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val record = item.record
     val photoList = record.photoUris?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
 
     Card(
@@ -165,9 +166,8 @@ private fun RecordCard(
                     )
                 }
 
-                // 城市 - 暂时占位，后续需要关联查询
                 Text(
-                    text = "城市名称", // TODO: 关联查询城市名称
+                    text = item.cityName,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

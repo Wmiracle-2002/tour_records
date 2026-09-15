@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
 import com.miracle.footmarks.data.repository.RecordRepository
+import com.miracle.footmarks.ui.validation.RecordInputValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,9 +67,12 @@ class AddRecordViewModel @Inject constructor(
     }
 
     fun addPhoto(uri: Uri) {
-        _uiState.value = _uiState.value.copy(
-            photoUris = _uiState.value.photoUris + uri
-        )
+        val state = _uiState.value
+        _uiState.value = if (state.photoUris.size >= RecordInputValidator.MAX_PHOTO_COUNT) {
+            state.copy(error = "每条记录最多选择9张照片")
+        } else {
+            state.copy(photoUris = state.photoUris + uri, error = null)
+        }
     }
 
     fun removePhoto(uri: Uri) {
@@ -80,8 +84,15 @@ class AddRecordViewModel @Inject constructor(
     fun saveRecord(onSuccess: () -> Unit) {
         val state = _uiState.value
 
-        if (state.cityId == null || state.name.isBlank()) {
-            _uiState.value = state.copy(error = "请填写必填项")
+        val validationError = RecordInputValidator.validate(
+            cityId = state.cityId,
+            name = state.name,
+            cost = state.cost,
+            notes = state.notes,
+            photoCount = state.photoUris.size
+        )
+        if (validationError != null) {
+            _uiState.value = state.copy(error = validationError)
             return
         }
 
@@ -89,7 +100,7 @@ class AddRecordViewModel @Inject constructor(
             _uiState.value = state.copy(isSaving = true, error = null)
             try {
                 recordRepository.createRecord(
-                    cityId = state.cityId,
+                    cityId = requireNotNull(state.cityId),
                     type = state.recordType,
                     name = state.name,
                     date = state.date,

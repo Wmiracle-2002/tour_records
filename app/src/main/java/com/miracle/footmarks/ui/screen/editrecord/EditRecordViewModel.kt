@@ -8,6 +8,7 @@ import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
 import com.miracle.footmarks.data.repository.RecordRepository
 import com.miracle.footmarks.data.repository.TripRepository
+import com.miracle.footmarks.ui.validation.RecordInputValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -119,9 +120,12 @@ class EditRecordViewModel @Inject constructor(
     }
 
     fun addPhoto(uri: Uri) {
-        _uiState.value = _uiState.value.copy(
-            photoUris = _uiState.value.photoUris + uri
-        )
+        val state = _uiState.value
+        _uiState.value = if (state.photoUris.size >= RecordInputValidator.MAX_PHOTO_COUNT) {
+            state.copy(error = "每条记录最多选择9张照片")
+        } else {
+            state.copy(photoUris = state.photoUris + uri, error = null)
+        }
     }
 
     fun removePhoto(uri: Uri) {
@@ -137,14 +141,15 @@ class EditRecordViewModel @Inject constructor(
     fun saveRecord(onSuccess: () -> Unit) {
         val currentState = _uiState.value
 
-        // 验证
-        if (currentState.cityId == null || currentState.cityName.isBlank()) {
-            _uiState.value = currentState.copy(error = "请选择城市")
-            return
-        }
-
-        if (currentState.name.isBlank()) {
-            _uiState.value = currentState.copy(error = "请输入名称")
+        val validationError = RecordInputValidator.validate(
+            cityId = currentState.cityId,
+            name = currentState.name,
+            cost = currentState.cost,
+            notes = currentState.notes,
+            photoCount = currentState.photoUris.size
+        )
+        if (validationError != null) {
+            _uiState.value = currentState.copy(error = validationError)
             return
         }
 
@@ -171,7 +176,7 @@ class EditRecordViewModel @Inject constructor(
 
                 recordRepository.updateRecordWithTrip(
                     record = record,
-                    cityId = currentState.cityId,
+                    cityId = requireNotNull(currentState.cityId),
                     date = currentState.date
                 )
                 onSuccess()

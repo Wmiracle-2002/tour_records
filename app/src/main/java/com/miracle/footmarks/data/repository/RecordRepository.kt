@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.room.withTransaction
 import com.miracle.footmarks.data.local.FootmarksDatabase
 import com.miracle.footmarks.data.local.dao.RecordDao
+import com.miracle.footmarks.data.local.dao.RecordWithCity
 import com.miracle.footmarks.data.local.dao.TripDao
 import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.local.entity.RecordType
@@ -18,6 +19,8 @@ class RecordRepository @Inject constructor(
     private val tripDao: TripDao
 ) {
     fun getAllRecords(): Flow<List<RecordEntity>> = recordDao.getAllRecords()
+
+    fun getAllRecordsWithCity(): Flow<List<RecordWithCity>> = recordDao.getAllRecordsWithCity()
 
     fun getRecordsByCity(cityId: Long): Flow<List<RecordEntity>> = recordDao.getRecordsByCity(cityId)
 
