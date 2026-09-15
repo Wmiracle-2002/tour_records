@@ -9,6 +9,7 @@ import com.miracle.footmarks.data.local.dao.TripDao
 import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.local.entity.TripEntity
+import com.miracle.footmarks.data.local.util.PhotoManager
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -16,7 +17,8 @@ import javax.inject.Inject
 class RecordRepository @Inject constructor(
     private val database: FootmarksDatabase,
     private val recordDao: RecordDao,
-    private val tripDao: TripDao
+    private val tripDao: TripDao,
+    private val photoManager: PhotoManager
 ) {
     fun getAllRecords(): Flow<List<RecordEntity>> = recordDao.getAllRecords()
 
@@ -38,7 +40,10 @@ class RecordRepository @Inject constructor(
 
     suspend fun updateRecord(record: RecordEntity) = recordDao.update(record)
 
-    suspend fun deleteRecord(record: RecordEntity) = recordDao.delete(record)
+    suspend fun deleteRecord(record: RecordEntity) {
+        recordDao.delete(record)
+        photoManager.deletePhotos(parsePhotoPaths(record.photoUris))
+    }
 
     suspend fun createRecord(
         cityId: Long,
@@ -49,14 +54,22 @@ class RecordRepository @Inject constructor(
         cost: Float?,
         notes: String?,
         photoUris: List<Uri>
-    ): Long = database.withTransaction {
-        val dateMillis = date.toEpochDay() * DAY_MILLIS
-        val tripId = tripDao.insert(
-            TripEntity(cityId = cityId, startDate = dateMillis, endDate = dateMillis)
-        )
-        insertRecord(
-            buildRecord(tripId, type, name, dateMillis, rating, cost, notes, photoUris)
-        )
+    ): Long {
+        val storedPhotos = storePhotos(photoUris)
+        return try {
+            database.withTransaction {
+                val dateMillis = date.toEpochDay() * DAY_MILLIS
+                val tripId = tripDao.insert(
+                    TripEntity(cityId = cityId, startDate = dateMillis, endDate = dateMillis)
+                )
+                insertRecord(
+                    buildRecord(tripId, type, name, dateMillis, rating, cost, notes, storedPhotos)
+                )
+            }
+        } catch (error: Exception) {
+            photoManager.deletePhotos(storedPhotos)
+            throw error
+        }
     }
 
     suspend fun createRecordForTrip(
@@ -72,20 +85,41 @@ class RecordRepository @Inject constructor(
         val trip = requireNotNull(tripDao.getById(tripId)) { "旅行不存在" }
         val dateMillis = date.toEpochDay() * DAY_MILLIS
         require(dateMillis in trip.startDate..trip.endDate) { "记录日期必须在旅行日期范围内" }
-        return insertRecord(
-            buildRecord(tripId, type, name, dateMillis, rating, cost, notes, photoUris)
-        )
+        val storedPhotos = storePhotos(photoUris)
+        return try {
+            insertRecord(buildRecord(tripId, type, name, dateMillis, rating, cost, notes, storedPhotos))
+        } catch (error: Exception) {
+            photoManager.deletePhotos(storedPhotos)
+            throw error
+        }
     }
 
     suspend fun updateRecordWithTrip(
         record: RecordEntity,
         cityId: Long,
-        date: LocalDate
-    ) = database.withTransaction {
-        val trip = requireNotNull(tripDao.getById(record.tripId)) { "旅行不存在" }
-        val dateMillis = date.toEpochDay() * DAY_MILLIS
-        tripDao.update(trip.copy(cityId = cityId, startDate = dateMillis, endDate = dateMillis))
-        recordDao.update(record.copy(date = dateMillis))
+        date: LocalDate,
+        photoUris: List<Uri>? = null
+    ) {
+        val previousPhotos = parsePhotoPaths(record.photoUris)
+        val storedPhotos = photoUris?.let { storePhotos(it) } ?: previousPhotos
+        val addedPhotos = storedPhotos - previousPhotos.toSet()
+        try {
+            database.withTransaction {
+                val trip = requireNotNull(tripDao.getById(record.tripId)) { "旅行不存在" }
+                val dateMillis = date.toEpochDay() * DAY_MILLIS
+                tripDao.update(trip.copy(cityId = cityId, startDate = dateMillis, endDate = dateMillis))
+                recordDao.update(
+                    record.copy(
+                        date = dateMillis,
+                        photoUris = storedPhotos.takeIf { it.isNotEmpty() }?.joinToString(",")
+                    )
+                )
+            }
+        } catch (error: Exception) {
+            photoManager.deletePhotos(addedPhotos)
+            throw error
+        }
+        photoManager.deletePhotos(previousPhotos - storedPhotos.toSet())
     }
 
     private fun buildRecord(
@@ -96,7 +130,7 @@ class RecordRepository @Inject constructor(
         rating: Float?,
         cost: Float?,
         notes: String?,
-        photoUris: List<Uri>
+        photoPaths: List<String>
     ) = RecordEntity(
         tripId = tripId,
         type = type,
@@ -105,8 +139,20 @@ class RecordRepository @Inject constructor(
         rating = rating,
         cost = cost,
         notes = notes,
-        photoUris = photoUris.takeIf { it.isNotEmpty() }?.joinToString(",")
+        photoUris = photoPaths.takeIf { it.isNotEmpty() }?.joinToString(",")
     )
+
+    private suspend fun storePhotos(photoUris: List<Uri>): List<String> = photoUris.map { uri ->
+        val existingPath = uri.toString()
+        if (photoManager.isManagedPhoto(existingPath)) {
+            existingPath
+        } else {
+            requireNotNull(photoManager.savePhoto(uri)) { "照片保存失败" }
+        }
+    }
+
+    private fun parsePhotoPaths(value: String?): List<String> =
+        value?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
 
     private companion object {
         const val DAY_MILLIS = 86_400_000L

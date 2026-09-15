@@ -1,6 +1,9 @@
 package com.miracle.footmarks.data
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -8,14 +11,19 @@ import com.miracle.footmarks.data.local.FootmarksDatabase
 import com.miracle.footmarks.data.local.entity.CityEntity
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.local.entity.TripEntity
+import com.miracle.footmarks.data.local.util.PhotoManager
 import com.miracle.footmarks.data.repository.RecordRepository
 import com.miracle.footmarks.data.repository.TripRepository
 import java.time.LocalDate
+import java.io.File
+import java.io.FileOutputStream
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
@@ -24,10 +32,11 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TripDataLayerTest {
     private lateinit var database: FootmarksDatabase
+    private lateinit var context: Context
 
     @Before
     fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        context = ApplicationProvider.getApplicationContext()
         database = Room.inMemoryDatabaseBuilder(
             context,
             FootmarksDatabase::class.java
@@ -62,7 +71,8 @@ class TripDataLayerTest {
         val repository = RecordRepository(
             database = database,
             recordDao = database.recordDao(),
-            tripDao = database.tripDao()
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
         )
 
         val recordId = repository.createRecordForTrip(
@@ -93,7 +103,8 @@ class TripDataLayerTest {
         val repository = RecordRepository(
             database = database,
             recordDao = database.recordDao(),
-            tripDao = database.tripDao()
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
         )
         repository.createRecord(
             cityId = cityId,
@@ -113,13 +124,111 @@ class TripDataLayerTest {
     }
 
     @Test
+    fun repositoryCompressesStoresAndDeletesLocalPhotos() = runBlocking {
+        val source = File(context.cacheDir, "footmarks-photo-source.png")
+        Bitmap.createBitmap(2_160, 1_080, Bitmap.Config.ARGB_8888).also { bitmap ->
+            FileOutputStream(source).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        }
+        val cityId = database.cityDao().insert(testCity())
+        val repository = RecordRepository(
+            database = database,
+            recordDao = database.recordDao(),
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
+        )
+
+        val recordId = repository.createRecord(
+            cityId = cityId,
+            type = RecordType.ATTRACTION,
+            name = "照片测试",
+            date = LocalDate.of(2026, 9, 15),
+            rating = null,
+            cost = null,
+            notes = null,
+            photoUris = listOf(Uri.fromFile(source))
+        )
+        val record = repository.getRecordById(recordId)!!
+        val storedPhoto = File(record.photoUris!!)
+        val storedBitmap = BitmapFactory.decodeFile(storedPhoto.absolutePath)
+
+        assertTrue(storedPhoto.exists())
+        assertTrue(storedPhoto.absolutePath.startsWith(File(context.filesDir, "photos").absolutePath))
+        assertEquals(1_080, maxOf(storedBitmap.width, storedBitmap.height))
+        storedBitmap.recycle()
+
+        repository.deleteRecord(record)
+
+        assertFalse(storedPhoto.exists())
+        source.delete()
+        Unit
+    }
+
+    @Test
+    fun updatingRecordReplacesAndDeletesOldLocalPhoto() = runBlocking {
+        val firstSource = createSourcePhoto("footmarks-photo-first.png")
+        val secondSource = createSourcePhoto("footmarks-photo-second.png")
+        val cityId = database.cityDao().insert(testCity())
+        val repository = RecordRepository(
+            database = database,
+            recordDao = database.recordDao(),
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
+        )
+        val date = LocalDate.of(2026, 9, 15)
+        val recordId = repository.createRecord(
+            cityId = cityId,
+            type = RecordType.ATTRACTION,
+            name = "照片替换测试",
+            date = date,
+            rating = null,
+            cost = null,
+            notes = null,
+            photoUris = listOf(Uri.fromFile(firstSource))
+        )
+        val original = repository.getRecordById(recordId)!!
+        val oldPhoto = File(original.photoUris!!)
+
+        repository.updateRecordWithTrip(
+            record = original,
+            cityId = cityId,
+            date = date,
+            photoUris = listOf(Uri.fromFile(secondSource))
+        )
+
+        val updated = repository.getRecordById(recordId)!!
+        val newPhoto = File(updated.photoUris!!)
+        assertFalse(oldPhoto.exists())
+        assertTrue(newPhoto.exists())
+
+        repository.deleteRecord(updated)
+        assertFalse(newPhoto.exists())
+        firstSource.delete()
+        secondSource.delete()
+        Unit
+    }
+
+    @Test
+    fun photoManagerNeverDeletesFilesOutsideManagedDirectory() = runBlocking {
+        val externalFile = createSourcePhoto("footmarks-external-photo.png")
+        val photoManager = PhotoManager(context)
+
+        photoManager.deletePhoto(externalFile.absolutePath)
+
+        assertTrue(externalFile.exists())
+        externalFile.delete()
+        Unit
+    }
+
+    @Test
     fun recordDateMustBeInsideTripRange() = runBlocking {
         val cityId = database.cityDao().insert(testCity())
         val tripId = database.tripDao().insert(testTrip(cityId))
         val repository = RecordRepository(
             database = database,
             recordDao = database.recordDao(),
-            tripDao = database.tripDao()
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
         )
 
         assertThrows(IllegalArgumentException::class.java) {
@@ -145,7 +254,8 @@ class TripDataLayerTest {
         val repository = RecordRepository(
             database = database,
             recordDao = database.recordDao(),
-            tripDao = database.tripDao()
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
         )
         val date = LocalDate.of(2026, 9, 15)
 
@@ -177,7 +287,8 @@ class TripDataLayerTest {
         val repository = RecordRepository(
             database = database,
             recordDao = database.recordDao(),
-            tripDao = database.tripDao()
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
         )
         val recordId = repository.createRecord(
             cityId = firstCityId,
@@ -215,7 +326,8 @@ class TripDataLayerTest {
         val repository = RecordRepository(
             database = database,
             recordDao = database.recordDao(),
-            tripDao = database.tripDao()
+            tripDao = database.tripDao(),
+            photoManager = PhotoManager(context)
         )
         val recordId = repository.createRecordForTrip(
             tripId = tripId,
@@ -276,6 +388,15 @@ class TripDataLayerTest {
         startDate = 0L,
         endDate = 2_000L
     )
+
+    private fun createSourcePhoto(name: String): File {
+        val source = File(context.cacheDir, name)
+        Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888).also { bitmap ->
+            FileOutputStream(source).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        }
+        return source
+    }
 
     private companion object {
         const val DAY_MILLIS = 86_400_000L

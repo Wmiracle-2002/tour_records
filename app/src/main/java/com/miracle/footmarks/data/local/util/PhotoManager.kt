@@ -46,7 +46,7 @@ class PhotoManager @Inject constructor(
 
     suspend fun deletePhoto(path: String) = withContext(Dispatchers.IO) {
         try {
-            File(path).delete()
+            if (isManagedPhoto(path)) File(path).delete()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -54,6 +54,15 @@ class PhotoManager @Inject constructor(
 
     suspend fun deletePhotos(paths: List<String>) = withContext(Dispatchers.IO) {
         paths.forEach { deletePhoto(it) }
+    }
+
+    fun isManagedPhoto(path: String): Boolean {
+        val file = File(path)
+        return try {
+            file.canonicalFile.parentFile == photoDir.canonicalFile
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun compressBitmap(bitmap: Bitmap, targetLongEdge: Int): Bitmap {

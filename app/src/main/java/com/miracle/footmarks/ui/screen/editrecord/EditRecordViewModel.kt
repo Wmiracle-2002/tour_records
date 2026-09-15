@@ -177,7 +177,8 @@ class EditRecordViewModel @Inject constructor(
                 recordRepository.updateRecordWithTrip(
                     record = record,
                     cityId = requireNotNull(currentState.cityId),
-                    date = currentState.date
+                    date = currentState.date,
+                    photoUris = currentState.photoUris
                 )
                 onSuccess()
             } catch (e: Exception) {
