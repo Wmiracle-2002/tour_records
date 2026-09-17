@@ -15,7 +15,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("tripId"), Index("date")]
+    indices = [Index("tripId"), Index("date"), Index(value = ["serverId"], unique = true)]
 )
 data class RecordEntity(
     @PrimaryKey(autoGenerate = true)
@@ -28,7 +28,8 @@ data class RecordEntity(
     val cost: Float? = null, // 花费（元），可选
     val notes: String? = null,
     val photoUris: String? = null, // 多张照片路径，逗号分隔
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val serverId: Long? = null
 )
 
 enum class RecordType {

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.miracle.footmarks.data.local.entity.CityEntity
 import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.repository.CityRepository
+import com.miracle.footmarks.data.repository.CloudCoordinator
 import com.miracle.footmarks.data.repository.RecordRepository
 import com.miracle.footmarks.data.repository.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +28,8 @@ class RecordDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val recordRepository: RecordRepository,
     private val tripRepository: TripRepository,
-    private val cityRepository: CityRepository
+    private val cityRepository: CityRepository,
+    private val cloud: CloudCoordinator
 ) : ViewModel() {
 
     private val recordId: Long = savedStateHandle.get<Long>("recordId") ?: 0L
@@ -71,7 +73,8 @@ class RecordDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value.record?.let { record ->
                 try {
-                    recordRepository.deleteRecord(record)
+                    if (cloud.isCloudMode) cloud.deleteRecord(record)
+                    else recordRepository.deleteRecord(record)
                     onSuccess()
                 } catch (e: Exception) {
                     _uiState.value = _uiState.value.copy(error = "删除失败: ${e.message}")

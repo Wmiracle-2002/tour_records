@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
+import com.miracle.footmarks.data.repository.CloudCoordinator
 import com.miracle.footmarks.data.repository.RecordRepository
 import com.miracle.footmarks.data.repository.TripRepository
 import com.miracle.footmarks.ui.validation.RecordInputValidator
@@ -41,7 +42,8 @@ class AddRecordViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val recordRepository: RecordRepository,
     private val cityRepository: CityRepository,
-    private val tripRepository: TripRepository
+    private val tripRepository: TripRepository,
+    private val cloud: CloudCoordinator
 ) : ViewModel() {
 
     private val requestedTripId = savedStateHandle.get<Long>("tripId")?.takeIf { it > 0 }
@@ -154,7 +156,20 @@ class AddRecordViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
             try {
-                if (state.tripId == null) {
+                if (cloud.isCloudMode && state.tripId == null) {
+                    val city = requireNotNull(cityRepository.getCityById(requireNotNull(state.cityId)))
+                    cloud.createTripWithRecord(
+                        city, state.tripStartDate, state.tripEndDate,
+                        state.recordType, state.name, state.date, state.rating,
+                        state.cost, state.notes.ifBlank { null }, state.photoUris
+                    )
+                } else if (cloud.isCloudMode) {
+                    cloud.createRecordForTrip(
+                        requireNotNull(state.tripId), state.recordType, state.name,
+                        state.date, state.rating, state.cost,
+                        state.notes.ifBlank { null }, state.photoUris
+                    )
+                } else if (state.tripId == null) {
                     recordRepository.createTripWithRecord(
                         cityId = requireNotNull(state.cityId),
                         startDate = state.tripStartDate,

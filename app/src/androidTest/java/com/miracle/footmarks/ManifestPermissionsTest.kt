@@ -11,7 +11,7 @@ import org.junit.runner.RunWith
 class ManifestPermissionsTest {
 
     @Test
-    fun localDemoRequestsNoSystemPermissions() {
+    fun networkIsOnlyRequestedSystemPermission() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val packageInfo = context.packageManager.getPackageInfo(
             context.packageName,
@@ -20,7 +20,7 @@ class ManifestPermissionsTest {
 
         assertTrue(
             packageInfo.requestedPermissions.orEmpty().all {
-                it.startsWith("${context.packageName}.")
+                it.startsWith("${context.packageName}.") || it == android.Manifest.permission.INTERNET
             }
         )
     }

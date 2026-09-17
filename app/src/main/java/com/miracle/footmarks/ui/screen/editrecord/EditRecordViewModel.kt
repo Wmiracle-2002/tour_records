@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
+import com.miracle.footmarks.data.repository.CloudCoordinator
 import com.miracle.footmarks.data.repository.RecordRepository
 import com.miracle.footmarks.data.repository.TripRepository
 import com.miracle.footmarks.ui.validation.RecordInputValidator
@@ -40,7 +41,8 @@ class EditRecordViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val recordRepository: RecordRepository,
     private val tripRepository: TripRepository,
-    private val cityRepository: CityRepository
+    private val cityRepository: CityRepository,
+    private val cloud: CloudCoordinator
 ) : ViewModel() {
 
     private val recordId: Long = savedStateHandle.get<Long>("recordId") ?: 0L
@@ -182,12 +184,17 @@ class EditRecordViewModel @Inject constructor(
                     photoUris = photoUrisStr
                 )
 
-                recordRepository.updateRecordWithTrip(
-                    record = record,
-                    cityId = requireNotNull(currentState.cityId),
-                    date = currentState.date,
-                    photoUris = currentState.photoUris
-                )
+                if (cloud.isCloudMode) {
+                    val city = requireNotNull(cityRepository.getCityById(requireNotNull(currentState.cityId)))
+                    cloud.updateRecordWithTrip(record, city, currentState.date, currentState.photoUris)
+                } else {
+                    recordRepository.updateRecordWithTrip(
+                        record = record,
+                        cityId = requireNotNull(currentState.cityId),
+                        date = currentState.date,
+                        photoUris = currentState.photoUris
+                    )
+                }
                 onSuccess()
             } catch (e: Exception) {
                 _uiState.value = currentState.copy(

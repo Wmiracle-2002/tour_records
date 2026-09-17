@@ -23,7 +23,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            val apiUrl = providers.gradleProperty("footmarksApiBaseUrl")
+                .getOrElse("http://10.0.2.2:8000/").trimEnd('/') + "/"
+            buildConfigField("String", "FOOTMARKS_API_BASE_URL", "\"$apiUrl\"")
+        }
         release {
+            val apiUrl = providers.gradleProperty("footmarksApiBaseUrl")
+                .getOrElse("https://example.invalid/").trimEnd('/') + "/"
+            buildConfigField("String", "FOOTMARKS_API_BASE_URL", "\"$apiUrl\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -90,14 +98,20 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
+    // Local server API
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+
     // Desugaring for Java 8+ APIs (LocalDate)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation(platform("androidx.compose:compose-bom:2023.10.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
