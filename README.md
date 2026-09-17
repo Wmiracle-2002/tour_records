@@ -124,9 +124,15 @@ Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在
 - 部署目录：`/opt/footmarks/server`；Docker 和 Docker Compose 已安装并设置为开机启动。
 - 服务容器：`server-api-1`，使用 `restart: unless-stopped`，SQLite 数据持久化在 `/opt/footmarks/server/data/footmarks.db`。
 - Alembic 已迁移到 `20260916_01 (head)`；服务器本机访问 `/api/v1/health` 已返回正常状态。
-- 当前 Compose 仅绑定服务器本机 `127.0.0.1:8000`，尚未配置 Caddy、域名、HTTPS 和公网 API 地址；共享账号 `shared` 已初始化。
+- Compose 默认绑定服务器本机 `127.0.0.1:8000`；本次临时联调已在服务器 `.env` 设置 `FOOTMARKS_BIND_ADDRESS=0.0.0.0`，容器映射为公网 `8000`。共享账号 `shared` 已初始化，Caddy、域名和 HTTPS 尚未配置。
 
 服务器更新时先在本地完成测试，再将 `server/` 上传到 `/opt/footmarks/server`，执行 `sudo docker compose up -d --build`。不要覆盖 `data/` 和 `.env`；部署前后检查 `sudo docker compose ps`、`sudo docker compose logs --tail=100 api` 和健康接口。Token Secret 只保存在服务器 `.env` 中。
+
+本次临时公网联调地址为 `http://43.135.114.5:8000/`。云厂商安全组需要放行 TCP 8000；联调结束后将 `FOOTMARKS_BIND_ADDRESS` 改回 `127.0.0.1`，再执行 `sudo docker compose up -d`。Debug APK 可使用下面的构建参数指向该地址，Release 版本仍应等待域名 HTTPS：
+
+```powershell
+.\gradlew.bat assembleDebug -PfootmarksApiBaseUrl=http://43.135.114.5:8000/
+```
 
 本地 SQLite 备份和恢复需要先停止 Uvicorn 或 Docker 服务。备份文件包含旅行数据和账号哈希，请保存到安全位置，不要提交到 Git：
 
