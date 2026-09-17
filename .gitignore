@@ -91,3 +91,6 @@ __pycache__/
 *.py[cod]
 server/.env
 server/data/
+
+# Deployment credentials
+.deploy/ssh/

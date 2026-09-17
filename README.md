@@ -6,7 +6,7 @@
 
 - Android `versionName`：`1.0.0`
 - 当前工作分支：`feat/server-local`
-- 当前开发里程碑：阶段 11～13 已完成，阶段 15 的文字记录同步已实现并通过本机联调；COS/云服务器/Agent 暂缓
+- 当前开发里程碑：阶段 11～13 已完成，阶段 15 的文字记录同步已实现；阶段 17 已完成服务器基础部署，COS/Agent 暂缓
 - 构建环境：JDK 17、Android SDK 34、Gradle 8.4
 - 最低系统：Android 7.0（API 24）
 
@@ -24,7 +24,7 @@
 - 本地存储：Room 3，采用 `City → Trip → Record` 三层关系；云端记录另保存服务端 ID
 - Trip 数据层：旅行起止日期、子记录日期范围校验、DAO/Repository CRUD 和级联删除
 - 数据库升级：Room 1 → 2 → 3 迁移保留旧旅行、子记录和照片路径，旧记录的服务端 ID 为空
-- 自动化验证：18 个服务端 pytest、8 个 Android JVM 测试，以及 API 34 和 API 24 模拟器各 34 个仪器测试通过
+- 自动化验证：19 个服务端 pytest、8 个 Android JVM 测试，以及 API 34 和 API 24 模拟器各 34 个仪器测试通过
 - 权限：仅增加 `INTERNET`；Photo Picker 无需相册、存储或相机权限，Debug 版本允许本机 HTTP
 - 图片选择与展示：系统照片选择器、1080px 长边与 JPEG 质量 80 压缩、App 内部存储、Coil 预览
 - 图片生命周期：最多 9 张；编辑时清理移除的副本，删除记录时清理全部内部照片
@@ -35,7 +35,7 @@
 
 ## 当前限制
 
-- 智能规划仍提示“暂未开放”；COS 原图上传、远程图片加载、Agent 和云服务器部署均未实现。
+- 智能规划仍提示“暂未开放”；COS 原图上传、远程图片加载和 Agent 尚未实现。云服务器已完成 FastAPI + SQLite 基础部署，但公网 HTTPS 和真实设备联调尚未完成。
 - 登录云端前要求本机没有未同步的旧旅行，以免把两套数据混在同一时间线；旧本地数据不会被自动上传或删除。云端模式暂不支持新增照片，已有纯本地 Demo 继续支持照片。
 - 服务端不可用时可以浏览已缓存的云端记录；云端模式的新增、编辑、删除和刷新会报错，不自动改为本地写入。API 24 的本地完整仪器回归已通过，真实设备服务端联调和弱网回归尚待补测。
 - 最低版本配置为 API 24；已使用临时 `Pixel_2_API24` 模拟器完成完整仪器测试，API 24 的真实服务端同步仍需手工验收。
@@ -100,7 +100,7 @@ adb shell am start -n com.miracle.footmarks/.MainActivity
 
 Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。
 
-## 服务端开发（阶段 11～13、18 本地工具）
+## 服务端开发（阶段 11～13、17～18）
 
 需要 Python 3.12。在 `server` 目录执行：
 
@@ -117,6 +117,16 @@ py -3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
 
 Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
+
+### 云服务器当前部署状态
+
+- 服务器系统：Ubuntu 24.04 LTS。
+- 部署目录：`/opt/footmarks/server`；Docker 和 Docker Compose 已安装并设置为开机启动。
+- 服务容器：`server-api-1`，使用 `restart: unless-stopped`，SQLite 数据持久化在 `/opt/footmarks/server/data/footmarks.db`。
+- Alembic 已迁移到 `20260916_01 (head)`；服务器本机访问 `/api/v1/health` 已返回正常状态。
+- 当前 Compose 仅绑定服务器本机 `127.0.0.1:8000`，尚未配置 Caddy、域名、HTTPS 和公网 API 地址；共享账号也尚未初始化。
+
+服务器更新时先在本地完成测试，再将 `server/` 上传到 `/opt/footmarks/server`，执行 `sudo docker compose up -d --build`。不要覆盖 `data/` 和 `.env`；部署前后检查 `sudo docker compose ps`、`sudo docker compose logs --tail=100 api` 和健康接口。Token Secret 只保存在服务器 `.env` 中。
 
 本地 SQLite 备份和恢复需要先停止 Uvicorn 或 Docker 服务。备份文件包含旅行数据和账号哈希，请保存到安全位置，不要提交到 Git：
 
@@ -159,9 +169,9 @@ py -3.12 -m app.backup restore --input $backupPath
 
 ## 下一步
 
-1. 在第二台真实 Android 设备上补跑共享账号的新增、编辑、删除和刷新一致性。
-2. 对实际服务端补跑 API 24 真机同步，以及 Wi-Fi、移动网络、弱网、断网和服务端不可用场景。
-3. COS 原图、云服务器部署和 Agent 按服务端开发计划继续安排。
+1. 初始化服务器共享账号，并完成 Caddy/HTTPS 或临时公网 API 地址配置。
+2. 在真实 Android 设备上补跑共享账号的新增、编辑、删除和刷新一致性，以及 Wi-Fi、移动网络、弱网和断网场景。
+3. COS 原图和 Agent 按服务端开发计划继续安排。
 
 ## 许可证
 
