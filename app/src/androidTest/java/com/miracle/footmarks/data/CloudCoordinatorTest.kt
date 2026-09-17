@@ -9,6 +9,8 @@ import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.local.entity.TripEntity
 import com.miracle.footmarks.data.remote.CloudSession
 import com.miracle.footmarks.data.remote.FootmarksApi
+import com.miracle.footmarks.data.remote.RemoteRecord
+import com.miracle.footmarks.data.remote.RemoteTrip
 import com.miracle.footmarks.data.remote.TokenStore
 import com.miracle.footmarks.data.remote.Tokens
 import com.miracle.footmarks.data.repository.CloudCache
@@ -18,6 +20,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -104,6 +107,44 @@ class CloudCoordinatorTest {
             }.exceptionOrNull()
             assertTrue(failure is IllegalArgumentException)
             assertEquals(0, server.requestCount)
+        }
+        db.close()
+    }
+
+    @Test
+    fun refreshFailureKeepsCachedTripsForOfflineBrowsing() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FootmarksDatabase::class.java).build()
+        MockWebServer().use { server ->
+            server.start()
+            val cache = CloudCache(db)
+            cache.replaceRemoteTrips(
+                listOf(
+                    RemoteTrip(
+                        9,
+                        "stress-province",
+                        "stress-city",
+                        "Offline City",
+                        "2026-09-01",
+                        "2026-09-03",
+                        listOf(RemoteRecord(17, 9, "FOOD", "Cached Food", "2026-09-02", null, null, null))
+                    )
+                )
+            )
+            server.enqueue(MockResponse().setResponseCode(503))
+            val store = object : TokenStore {
+                override var tokens: Tokens? = Tokens("access", "refresh")
+            }
+            val coordinator = CloudCoordinator(
+                cache,
+                CloudSession(FootmarksApi.create(server.url("/").toString()), store)
+            )
+
+            val failure = runCatching { coordinator.refresh() }.exceptionOrNull()
+
+            assertNotNull(failure)
+            assertEquals("Cached Food", db.recordDao().getByServerId(17)?.name)
+            assertNotNull(db.tripDao().getByServerId(9))
         }
         db.close()
     }
