@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      FOOTMARKS_DATABASE_URL: sqlite:////app/data/footmarks.db
+      FOOTMARKS_TOKEN_SECRET: ${FOOTMARKS_TOKEN_SECRET:?Set FOOTMARKS_TOKEN_SECRET in server/.env}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

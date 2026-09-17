@@ -52,3 +52,12 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         db.execSQL("CREATE INDEX IF NOT EXISTS index_records_date ON records (date)")
     }
 }
+
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE trips ADD COLUMN serverId INTEGER")
+        db.execSQL("ALTER TABLE records ADD COLUMN serverId INTEGER")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_trips_serverId ON trips(serverId)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_records_serverId ON records(serverId)")
+    }
+}

@@ -25,6 +25,9 @@ interface RecordDao {
     @Query("SELECT * FROM records WHERE id = :id")
     suspend fun getById(id: Long): RecordEntity?
 
+    @Query("SELECT * FROM records WHERE serverId = :serverId LIMIT 1")
+    suspend fun getByServerId(serverId: Long): RecordEntity?
+
     @Query("SELECT * FROM records WHERE tripId = :tripId ORDER BY date ASC, createdAt ASC")
     suspend fun getRecordsForTrip(tripId: Long): List<RecordEntity>
 

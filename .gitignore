@@ -84,3 +84,10 @@ lint-results.xml
 
 # Photos storage
 app/src/main/photos/
+
+# Python service
+__pycache__/
+.pytest_cache/
+*.py[cod]
+server/.env
+server/data/

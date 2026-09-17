@@ -27,6 +27,15 @@ interface TripDao {
     @Query("SELECT * FROM trips WHERE id = :id")
     suspend fun getById(id: Long): TripEntity?
 
+    @Query("SELECT * FROM trips WHERE serverId = :serverId LIMIT 1")
+    suspend fun getByServerId(serverId: Long): TripEntity?
+
+    @Query("SELECT * FROM trips WHERE serverId IS NOT NULL")
+    suspend fun getServerTrips(): List<TripEntity>
+
+    @Query("SELECT COUNT(*) FROM trips WHERE serverId IS NULL")
+    suspend fun countLocalTrips(): Int
+
     @Query("SELECT * FROM trips WHERE cityId = :cityId ORDER BY startDate DESC")
     fun getTripsByCity(cityId: Long): Flow<List<TripEntity>>
 

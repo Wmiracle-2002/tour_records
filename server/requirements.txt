@@ -1,0 +1,6 @@
+fastapi==0.136.1
+pydantic-settings==2.14.0
+sqlalchemy==2.0.48
+alembic==1.16.5
+uvicorn[standard]==0.35.0
+PyJWT==2.12.1
