@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -36,6 +37,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "error": {
                     "code": "http_error",
                     "message": str(exception.detail),
+                }
+            },
+        )
+
+    @application.exception_handler(RequestValidationError)
+    async def handle_validation_error(
+        _request: Request, exception: RequestValidationError
+    ) -> JSONResponse:
+        details = [
+            {
+                "field": ".".join(str(part) for part in error["loc"]),
+                "message": error["msg"],
+            }
+            for error in exception.errors()
+        ]
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "validation_error",
+                    "message": "Request validation failed",
+                    "details": details,
                 }
             },
         )

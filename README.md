@@ -24,7 +24,7 @@
 - 本地存储：Room 3，采用 `City → Trip → Record` 三层关系；云端记录另保存服务端 ID
 - Trip 数据层：旅行起止日期、子记录日期范围校验、DAO/Repository CRUD 和级联删除
 - 数据库升级：Room 1 → 2 → 3 迁移保留旧旅行、子记录和照片路径，旧记录的服务端 ID 为空
-- 自动化验证：14 个服务端 pytest、8 个 Android JVM 测试，以及 API 34 和 API 24 模拟器各 34 个仪器测试通过
+- 自动化验证：18 个服务端 pytest、8 个 Android JVM 测试，以及 API 34 和 API 24 模拟器各 34 个仪器测试通过
 - 权限：仅增加 `INTERNET`；Photo Picker 无需相册、存储或相机权限，Debug 版本允许本机 HTTP
 - 图片选择与展示：系统照片选择器、1080px 长边与 JPEG 质量 80 压缩、App 内部存储、Coil 预览
 - 图片生命周期：最多 9 张；编辑时清理移除的副本，删除记录时清理全部内部照片
@@ -78,7 +78,7 @@ CityEntity 1 ─── * TripEntity 1 ─── * RecordEntity
 
 `TripEntity` 通过 `cityId` 关联城市并保存旅行起止日期；`RecordEntity` 通过 `tripId` 关联旅行，包含 `ATTRACTION`/`FOOD` 类型、名称、实际游览日期、可选评分、可选花费、备注和逗号分隔的内部照片路径。删除记录时 Repository 会清理对应照片。
 
-服务端采用 `User → Trip → Record → RecordImage`，照片表只预留元数据；文字记录在服务端 SQLite 保存。Android 的 `serverId` 只映射来自服务端的旅行与子记录，旧本地行保持为空。
+服务端采用 `User → Trip → Record → RecordImage`，照片表只预留元数据；文字记录在服务端 SQLite 保存。Android 的 `serverId` 只映射来自服务端的旅行与子记录，旧本地行保持为空。服务端提供 `app.backup` 本地备份/恢复命令，恢复前必须停止服务。
 
 ## 构建与安装
 
@@ -100,7 +100,7 @@ adb shell am start -n com.miracle.footmarks/.MainActivity
 
 Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。
 
-## 服务端开发（阶段 11～13）
+## 服务端开发（阶段 11～13、18 本地工具）
 
 需要 Python 3.12。在 `server` 目录执行：
 
@@ -117,6 +117,19 @@ py -3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
 
 Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
+
+本地 SQLite 备份和恢复需要先停止 Uvicorn 或 Docker 服务。备份文件包含旅行数据和账号哈希，请保存到安全位置，不要提交到 Git：
+
+```powershell
+# 在 server 目录执行；默认读取 server/.env 中的 FOOTMARKS_DATABASE_URL
+$backupPath = "data/backups/footmarks-$(Get-Date -Format yyyyMMdd-HHmmss).db"
+py -3.12 -m app.backup backup --output $backupPath
+
+# 恢复前确认服务已停止；恢复完成后再执行 alembic upgrade head 并启动服务
+py -3.12 -m app.backup restore --input $backupPath
+```
+
+备份和恢复都会执行 SQLite 完整性检查，并要求存在应用的四张核心表；恢复通过临时文件和原子替换完成。也可以通过 `--database-url` 指定其他文件型 SQLite 地址，内存数据库不支持备份。
 
 业务 API 提供 `POST/GET /api/v1/trips`、`GET/PATCH/DELETE /api/v1/trips/{id}`、`POST /api/v1/trips/{id}/records`、`GET/PATCH/DELETE /api/v1/records/{id}` 和 `GET /api/v1/stats`。`POST /api/v1/auth/login` 接收用户名与密码，返回 Access Token/Refresh Token；`POST /api/v1/auth/refresh` 接收 `refresh_token`，`GET /api/v1/auth/me` 查询当前用户。业务请求带 `Authorization: Bearer <access_token>`。日期使用 ISO `YYYY-MM-DD`，金额为人民币元。
 
