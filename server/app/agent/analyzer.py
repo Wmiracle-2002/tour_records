@@ -38,5 +38,3 @@ class RequirementAnalyzer:
             output_model=TravelRequirement,
         )
         return TravelRequirement.model_validate(output)
-
-\n

@@ -333,5 +333,3 @@ def normalize_tool_result(
             error_code="invalid_tool_response",
         )
     return ToolResult.completed(data, message=result.message)
-
-\n

@@ -90,5 +90,3 @@ def test_estimate_budget_keeps_missing_destination_explicit() -> None:
 
     assert result.status == "completed"
     assert any("未指定目的地" in assumption for assumption in result.data.assumptions)
-
-\n

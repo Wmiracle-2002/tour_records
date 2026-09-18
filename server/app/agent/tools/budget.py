@@ -123,5 +123,3 @@ class EstimateBudgetTool:
 def create_budget_tools() -> tuple[EstimateBudgetTool, ...]:
     """创建预算工具。"""
     return (EstimateBudgetTool(),)
-
-\n

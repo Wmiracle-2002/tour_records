@@ -109,5 +109,3 @@ def test_unknown_tool_returns_failed_result() -> None:
 
     assert result.status == "failed"
     assert result.error_code == "tool_not_found"
-
-\n

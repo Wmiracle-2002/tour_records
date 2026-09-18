@@ -107,5 +107,3 @@ class ToolLayer:
                 "Tool returned an invalid result", error_code="invalid_tool_result"
             )
         return result
-
-\n

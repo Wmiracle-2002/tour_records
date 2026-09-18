@@ -18,5 +18,3 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 - 不要直接生成面向用户的最终回答；
 - 只返回符合 TravelRequirement 的结构化结果。
 """.strip()
-
-\n
