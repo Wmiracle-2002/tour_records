@@ -2,10 +2,17 @@ services:
   api:
     build: .
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${FOOTMARKS_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     environment:
       FOOTMARKS_DATABASE_URL: sqlite:////app/data/footmarks.db
       FOOTMARKS_TOKEN_SECRET: ${FOOTMARKS_TOKEN_SECRET:?Set FOOTMARKS_TOKEN_SECRET in server/.env}
+      FOOTMARKS_COS_BUCKET: ${FOOTMARKS_COS_BUCKET:-footmark-1489262329}
+      FOOTMARKS_COS_REGION: ${FOOTMARKS_COS_REGION:-ap-hongkong}
+      FOOTMARKS_COS_DOMAIN: ${FOOTMARKS_COS_DOMAIN:-https://footmark-1489262329.cos.ap-hongkong.myqcloud.com}
+      FOOTMARKS_COS_SECRET_ID: ${FOOTMARKS_COS_SECRET_ID:-}
+      FOOTMARKS_COS_SECRET_KEY: ${FOOTMARKS_COS_SECRET_KEY:-}
+      FOOTMARKS_COS_SESSION_TOKEN: ${FOOTMARKS_COS_SESSION_TOKEN:-}
+      FOOTMARKS_COS_URL_EXPIRE_SECONDS: ${FOOTMARKS_COS_URL_EXPIRE_SECONDS:-3600}
     volumes:
       - ./data:/app/data
     restart: unless-stopped

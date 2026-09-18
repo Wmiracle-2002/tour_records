@@ -1,14 +1,18 @@
 from datetime import date as Date, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pathlib import PurePosixPath
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.api.auth import current_user
-from app.models import Record, RecordType, Trip, User
+from app.models import Record, RecordImage, RecordType, Trip, User
+from app.storage import ObjectStorage, StorageError, StorageNotConfigured
 
 router = APIRouter(tags=["travel"])
 
@@ -68,12 +72,24 @@ class RecordPatch(BaseModel):
     trip: TripPatch | None = None
 
 
+class ImageOut(BaseModel):
+    id: int
+    record_id: int
+    object_key: str
+    original_filename: str
+    content_type: str | None
+    size_bytes: int | None
+    created_at: datetime
+    url: str
+
+
 class RecordOut(RecordFields):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     trip_id: int
     created_at: datetime
+    images: list[ImageOut] = Field(default_factory=list)
 
 
 class TripOut(TripFields):
@@ -97,7 +113,7 @@ def find_trip(db: Session, trip_id: int, user_id: int) -> Trip:
     trip = db.scalar(
         select(Trip)
         .where(Trip.id == trip_id, Trip.user_id == user_id)
-        .options(selectinload(Trip.records))
+        .options(selectinload(Trip.records).selectinload(Record.images))
     )
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
@@ -109,16 +125,74 @@ def find_record(db: Session, record_id: int, user_id: int) -> Record:
         select(Record)
         .join(Trip)
         .where(Record.id == record_id, Trip.user_id == user_id)
+        .options(selectinload(Record.images))
     )
     if record is None:
         raise HTTPException(status_code=404, detail="Record not found")
     return record
 
 
-def trip_detail(trip: Trip) -> TripDetail:
-    result = TripDetail.model_validate(trip)
+def image_detail(image: RecordImage, storage: ObjectStorage) -> ImageOut:
+    return ImageOut(
+        id=image.id,
+        record_id=image.record_id,
+        object_key=image.object_key,
+        original_filename=image.original_filename,
+        content_type=image.content_type,
+        size_bytes=image.size_bytes,
+        created_at=image.created_at,
+        url=storage.url(image.object_key),
+    )
+
+
+def record_detail(record: Record, storage: ObjectStorage) -> RecordOut:
+    return RecordOut(
+        id=record.id,
+        trip_id=record.trip_id,
+        type=record.type,
+        name=record.name,
+        date=record.date,
+        rating=record.rating,
+        cost=record.cost,
+        notes=record.notes,
+        created_at=record.created_at,
+        images=[image_detail(image, storage) for image in record.images],
+    )
+
+
+def trip_detail(trip: Trip, storage: ObjectStorage) -> TripDetail:
+    result = TripDetail(
+        id=trip.id,
+        province_code=trip.province_code,
+        city_code=trip.city_code,
+        city_name=trip.city_name,
+        start_date=trip.start_date,
+        end_date=trip.end_date,
+        created_at=trip.created_at,
+        records=[record_detail(record, storage) for record in trip.records],
+    )
     result.records.sort(key=lambda item: (item.date, item.id), reverse=True)
     return result
+
+
+def storage_from(request: Request) -> ObjectStorage:
+    return request.app.state.storage
+
+
+def storage_http_error(error: StorageError) -> HTTPException:
+    if isinstance(error, StorageNotConfigured):
+        return HTTPException(status_code=503, detail="COS storage is not configured")
+    return HTTPException(status_code=502, detail="COS storage operation failed")
+
+
+def delete_objects(images: list[RecordImage], storage: ObjectStorage) -> None:
+    try:
+        for image in images:
+            storage.delete(image.object_key)
+    except StorageError as error:
+        raise storage_http_error(error) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="COS storage operation failed") from error
 
 
 @router.post("/trips", response_model=TripOut, status_code=201)
@@ -134,28 +208,28 @@ def create_trip(
 
 @router.get("/trips", response_model=list[TripDetail])
 def list_trips(
-    db: Session = Depends(get_db), user: User = Depends(current_user)
+    request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> list[TripDetail]:
     trips = db.scalars(
         select(Trip)
         .where(Trip.user_id == user.id)
-        .options(selectinload(Trip.records))
+        .options(selectinload(Trip.records).selectinload(Record.images))
         .order_by(Trip.start_date.desc(), Trip.id.desc())
     ).all()
-    return [trip_detail(trip) for trip in trips]
+    return [trip_detail(trip, storage_from(request)) for trip in trips]
 
 
 @router.get("/trips/{trip_id}", response_model=TripDetail)
 def get_trip(
-    trip_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+    trip_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> TripDetail:
-    return trip_detail(find_trip(db, trip_id, user.id))
+    return trip_detail(find_trip(db, trip_id, user.id), storage_from(request))
 
 
 @router.patch("/trips/{trip_id}", response_model=TripDetail)
 def update_trip(
-    trip_id: int, payload: TripPatch, db: Session = Depends(get_db),
-    user: User = Depends(current_user),
+    trip_id: int, payload: TripPatch, request: Request,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
 ) -> TripDetail:
     trip = find_trip(db, trip_id, user.id)
     changes = payload.model_dump(exclude_unset=True)
@@ -173,14 +247,15 @@ def update_trip(
         setattr(trip, key, value)
     db.commit()
     db.refresh(trip)
-    return trip_detail(trip)
+    return trip_detail(trip, storage_from(request))
 
 
 @router.delete("/trips/{trip_id}", status_code=204)
 def delete_trip(
-    trip_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+    trip_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> Response:
     trip = find_trip(db, trip_id, user.id)
+    delete_objects([image for record in trip.records for image in record.images], storage_from(request))
     db.delete(trip)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -188,8 +263,8 @@ def delete_trip(
 
 @router.post("/trips/{trip_id}/records", response_model=RecordOut, status_code=201)
 def create_record(
-    trip_id: int, payload: RecordFields, db: Session = Depends(get_db),
-    user: User = Depends(current_user),
+    trip_id: int, payload: RecordFields, request: Request,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
 ) -> Record:
     trip = find_trip(db, trip_id, user.id)
     if not trip.start_date <= payload.date <= trip.end_date:
@@ -198,20 +273,20 @@ def create_record(
     db.add(record)
     db.commit()
     db.refresh(record)
-    return record
+    return record_detail(record, storage_from(request))
 
 
 @router.get("/records/{record_id}", response_model=RecordOut)
 def get_record(
-    record_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+    record_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> Record:
-    return find_record(db, record_id, user.id)
+    return record_detail(find_record(db, record_id, user.id), storage_from(request))
 
 
 @router.patch("/records/{record_id}", response_model=RecordOut)
 def update_record(
-    record_id: int, payload: RecordPatch, db: Session = Depends(get_db),
-    user: User = Depends(current_user),
+    record_id: int, payload: RecordPatch, request: Request,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
 ) -> Record:
     record = find_record(db, record_id, user.id)
     changes = payload.model_dump(exclude_unset=True)
@@ -243,19 +318,110 @@ def update_record(
         setattr(record, key, value)
     db.commit()
     db.refresh(record)
-    return record
+    return record_detail(record, storage_from(request))
 
 
 @router.delete("/records/{record_id}", status_code=204)
 def delete_record(
-    record_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+    record_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> Response:
     record = find_record(db, record_id, user.id)
     trip = db.get(Trip, record.trip_id)
+    delete_objects(record.images, storage_from(request))
     db.delete(record)
     db.flush()
     if not db.scalar(select(Record.id).where(Record.trip_id == trip.id).limit(1)):
         db.delete(trip)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+MAX_IMAGE_COUNT = 9
+
+
+def image_object_key(record_id: int, filename: str | None) -> str:
+    suffix = PurePosixPath(filename or "").suffix.lower()
+    if len(suffix) > 10 or not suffix.isascii() or not suffix[1:].isalnum():
+        suffix = ""
+    return f"records/{record_id}/{uuid4().hex}{suffix}"
+
+
+@router.post("/records/{record_id}/images", response_model=ImageOut, status_code=201)
+def upload_image(
+    record_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> ImageOut:
+    record = find_record(db, record_id, user.id)
+    if len(record.images) >= MAX_IMAGE_COUNT:
+        raise HTTPException(status_code=422, detail="A record can have at most 9 images")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="Only image files are supported")
+
+    storage = storage_from(request)
+    object_key = image_object_key(record_id, file.filename)
+    try:
+        file.file.seek(0)
+        storage.upload(object_key, file.file, file.content_type)
+    except StorageError as error:
+        raise storage_http_error(error) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="COS storage operation failed") from error
+
+    image = RecordImage(
+        record_id=record_id,
+        object_key=object_key,
+        original_filename=(file.filename or "image")[:255],
+        content_type=file.content_type,
+        size_bytes=file.size,
+    )
+    try:
+        db.add(image)
+        db.commit()
+        db.refresh(image)
+    except Exception:
+        try:
+            storage.delete(object_key)
+        except Exception:
+            pass
+        raise
+    return image_detail(image, storage)
+
+
+@router.get("/records/{record_id}/images", response_model=list[ImageOut])
+def list_images(
+    record_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> list[ImageOut]:
+    record = find_record(db, record_id, user.id)
+    storage = storage_from(request)
+    try:
+        return [image_detail(image, storage) for image in record.images]
+    except StorageError as error:
+        raise storage_http_error(error) from error
+
+
+@router.delete("/images/{image_id}", status_code=204)
+def delete_image(
+    image_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> Response:
+    image = db.scalar(
+        select(RecordImage)
+        .join(Record)
+        .join(Trip)
+        .where(RecordImage.id == image_id, Trip.user_id == user.id)
+    )
+    if image is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    delete_objects([image], storage_from(request))
+    db.delete(image)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
