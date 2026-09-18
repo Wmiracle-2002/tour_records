@@ -332,6 +332,26 @@ validate
 
 此阶段不要求 Agent 可以运行。
 
+## Phase 1 执行记录（2026-09-18）
+
+### 新增代码
+
+- `server/app/agent/models.py`：新增 `TravelRequirement`、`InfoRequirement`、`InformationStatus`、`CollectedInfo`、POI、天气、路线、距离、预算、行程和校验结果模型。
+- `server/app/agent/state.py`：新增 `TravelAgentState`，组合需求、信息状态、已收集信息、行程、校验结果、轮次和最终回答字段。
+- `server/app/agent/__init__.py`：建立 Agent Python 包。
+- `server/tests/test_agent_models.py`：覆盖默认值、Optional、Literal、结构化业务模型、行程 JSON 往返、校验结果序列化和完整 State 往返。
+
+### 设计说明
+
+- 所有列表字段使用 `default_factory`，避免不同 State 实例共享可变默认值。
+- `TravelAgentState.messages` 暂时使用 `list[Any]`，因为当前项目还没有引入 LangGraph；等 Phase 11 组装 Graph 时再接入 `add_messages` reducer。
+- 本阶段只定义数据契约，不调用 LLM、MCP、数据库 Tool，也不修改现有 CRUD 和 Android 页面。
+
+### 回归结果
+
+- Agent 模型测试：7/7 通过。
+- 服务端全量测试：26/26 通过。
+
 ---
 
 # Phase 2：实现 Requirement Analyzer
@@ -471,11 +491,32 @@ TravelRequirement
 
 ---
 
+## Phase 2 执行记录（2026-09-18）
+
+### 完成内容
+
+- 新增 `server/app/agent/prompts/requirement_analyzer.py`，定义需求分析器 Prompt。
+- 新增 `server/app/agent/analyzer.py`，通过 `StructuredOutputClient` 接收结构化输出并校验为 `TravelRequirement`。
+- Requirement Analyzer 只负责需求理解，不传入 Tool、不规划 Tool 调用、不生成旅行方案。
+- 缺失字段继续保持为空，不强行猜测出发地、预算或人数。
+- 新增 `server/tests/test_agent_analyzer.py`，覆盖复杂需求、缺失字段、典型 Intent、空输入和非法结构化输出。
+
+### 当前集成边界
+
+Phase 0 已确认项目暂时没有 LLM SDK 或现成 LLM 封装，因此本阶段只定义了结构化输出接口，并使用测试客户端验证调用契约。后续接入具体模型时，实现 `StructuredOutputClient.complete_structured()` 即可，不需要修改 Requirement Analyzer 的业务逻辑。
+
+### 回归结果
+
+- Agent Analyzer 测试：11/11 通过。
+- 服务端全量测试：48/48 通过。
+
+---
+
 # Phase 3：建立统一 Tool Layer
 
 ## 目标
 
-让 ReAct 不直接依赖数据库实现或 AMap MCP 返回格式。
+让 ReAct 不直接依赖数据库实现或 AMap Web Service API 返回格式。
 
 统一：
 
@@ -484,8 +525,30 @@ Agent
  ↓
 Tool Layer
  ↓
-Internal DB / Budget / AMap MCP
+Internal DB / Budget / AMap Web Service API
 ```
+
+---
+
+## Phase 3 执行记录（2026-09-18）
+
+### 完成内容
+
+- 新增 `server/app/agent/tools/layer.py`，建立统一工具接口和执行边界。
+- 新增 `ToolResult`，统一表示 `completed`、`unavailable` 和 `failed`。
+- 新增 `ToolRegistry`，按名称注册和查找工具，并拒绝重复注册。
+- 新增 `ToolLayer`，统一转发参数并将工具异常转换为结构化结果。
+- 增加 `ToolUnavailableError`，用于区分外部服务暂时不可用和工具执行失败。
+- 新增 `server/tests/test_agent_tool_layer.py`，覆盖正常执行、参数转发、重复注册、工具不存在、服务不可用和异常隔离。
+
+### 当前范围
+
+本阶段只完成 Tool Layer 的统一契约，没有实现具体的数据库、预算或高德工具。后续分别由 Phase 3A、Phase 3B 和 Phase 3C 实现，并通过本阶段的 `ToolResult` 和 `ToolLayer` 接入。
+
+### 回归结果
+
+- Tool Layer 测试：7/7 通过。
+- 服务端全量测试：55/55 通过。
 
 ---
 
@@ -553,6 +616,28 @@ trip_id
 
 ---
 
+## Phase 3A 执行记录（2026-09-18）
+
+### 完成内容
+
+- 新增 `server/app/agent/tools/internal_db.py`。
+- 实现 `get_travel_summary`：返回旅行次数、城市数、总花费和平均评分。
+- 实现 `search_trip_history`：支持城市和重叠日期区间筛选。
+- 实现 `search_records`：支持旅行、城市、记录类型、评分区间和花费区间筛选。
+- 实现 `get_trip_detail`：返回指定旅行及其全部记录。
+- 所有工具都绑定 `user_id`，只能查询当前用户的数据。
+- 所有查询结果都转换为 Pydantic 结构化模型，不直接返回 ORM 对象。
+- 复查后将重复的 `TripHistoryItem` 和 `TripDetailInfo` 合并为 `TripInfo`，由同一模型同时承载旅行摘要和详情。
+- 查询参数包含日期范围、评分、花费和旅行 ID 的边界校验。
+- 新增 `server/tests/test_agent_internal_db_tools.py`，覆盖汇总、筛选、用户隔离、详情、不存在旅行和非法参数。
+
+### 回归结果
+
+- Internal DB Tools 测试：5/5 通过。
+- 服务端全量测试：60/60 通过。
+
+---
+
 # Phase 3B：Budget Tool
 
 ## Step 3.5：实现 estimate_budget
@@ -590,9 +675,28 @@ assumptions
 
 ---
 
-# Phase 3C：AMap MCP Adapter
+## Phase 3B 执行记录（2026-09-18）
 
-## Step 3.6：接入 AMap MCP
+### 完成内容
+
+- 新增 `server/app/agent/tools/budget.py`，实现 `estimate_budget`。
+- 支持目的地、天数、人数、住宿档次、餐饮档次、交通方式和景点列表。
+- 按住宿、餐饮、交通和景点门票拆分预算。
+- 返回人民币估算下限、上限、明细和假设说明。
+- 对天数、人数、消费档次和景点名称进行输入校验。
+- 明确说明当前是通用 Demo 估算，不是实时精确价格。
+- 新增 `server/tests/test_agent_budget_tool.py`，覆盖计算结果、默认值和边界输入。
+
+### 回归结果
+
+- Budget Tool 测试：4/4 通过。
+- 服务端全量测试：64/64 通过。
+
+---
+
+# Phase 3C：AMap Web Service API Adapter
+
+## Step 3.6：接入 AMap Web Service API
 
 封装当前需要的能力：
 
@@ -610,7 +714,36 @@ geocoding
 reverse geocoding
 ```
 
-Agent Node 不直接处理 MCP 协议细节。
+Agent Node 不直接处理高德 Web Service API 协议细节。
+
+---
+
+## Phase 3C 执行记录（2026-09-18）
+
+### 完成内容
+
+- 新增 `server/app/agent/tools/amap.py`，实现高德 Web 服务 API 适配器。
+- 支持关键词搜索、周边搜索、POI 详情、天气、地理编码、逆地理编码、距离测量，以及驾车、公交、步行、骑行路线。
+- 高德接口返回的原始 JSON 先保持原样，后续由 Phase 3D Normalizer 转换为 `POIInfo`、`WeatherInfo`、`RouteInfo` 等业务模型。
+- 统一处理 Key 未配置、网络不可用和高德业务错误。
+- 新增 `amap_web_key`、`amap_base_url` 和 `amap_timeout_seconds` 配置。
+- 更新 `server/.env.example`、`server/compose.yaml` 和 `README.md`，说明 Key 只填服务器 `server/.env`。
+- 新增 `server/tests/test_agent_amap.py`，使用假传输层测试请求参数和接口路径，不消耗高德额度。
+
+### 配置位置
+
+在服务器的 `server/.env` 中填写：
+
+```text
+FOOTMARKS_AMAP_WEB_KEY=你的高德Web服务Key
+```
+
+不要把真实 Key 写进代码、APK 或 Git。
+
+### 回归结果
+
+- AMap Adapter 测试：6/6 通过。
+- 服务端全量测试：70/70 通过。
 
 ---
 
@@ -689,6 +822,29 @@ Normalizer
 ↓
 Agent Business Model
 ```
+
+---
+
+## Phase 3D 执行记录（2026-09-18）
+
+### 完成内容
+
+- 新增 `server/app/agent/normalizer.py`，将高德 POI、天气、路线、距离原始响应转换为 `POIInfo`、`WeatherInfo`、`RouteInfo` 和 `DistanceInfo`。
+- 将内部数据库旅行查询结果汇总为 `TravelHistoryInfo`，将预算结果转换为 `BudgetInfo`。
+- 新增 `normalize_tool_result()`，保留 `completed`、`unavailable` 和 `failed` 状态；无效原始响应统一返回 `invalid_tool_response`。
+- 空列表、`null` 和空对象按“查询成功但没有数据”处理，不转换成异常。
+- 实时天气没有可靠温度范围时保留未知值，不自行推断最低温和最高温。
+
+### 测试结果
+
+- 新增 `server/tests/test_agent_normalizer.py`，覆盖 POI、实时天气、天气预报、路线、距离、历史、预算、空数据和异常响应。
+- Normalizer 专项测试：9/9 通过。
+- 不依赖数据库临时目录的 Agent 测试：55/55 通过。
+- Phase 3A 的数据库 Tool 测试此前已通过 5/5；本次本机全量回归另外受到 pytest 临时目录访问权限限制，未发现业务断言失败。
+
+### 当前边界
+
+Normalizer 已完成独立转换和错误边界处理，但尚未接入 Phase 4 Information Status 或后续 ReAct Graph。
 
 ---
 

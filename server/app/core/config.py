@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     cos_secret_key: str | None = None
     cos_session_token: str | None = None
     cos_url_expire_seconds: int = 3600
+    amap_web_key: str | None = None
+    amap_base_url: str = "https://restapi.amap.com"
+    amap_timeout_seconds: float = 10.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

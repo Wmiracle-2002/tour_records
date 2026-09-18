@@ -5,8 +5,8 @@
 ## 当前状态
 
 - Android `versionName`：`1.0.0`
-- 当前工作分支：`feat/server-local`
-- 当前开发里程碑：阶段 11～13 已完成，阶段 15 的文字记录同步已实现并通过本机联调；COS/云服务器/Agent 暂缓
+- 当前工作分支：`feat/demo`
+- 当前开发里程碑：阶段 11～13 已完成，阶段 15 的文字记录同步已实现并通过本机联调；Agent Phase 1～3D 基础模块已完成，Phase 4 起待实施
 - 构建环境：JDK 17、Android SDK 34、Gradle 8.4
 - 最低系统：Android 7.0（API 24）
 
@@ -35,7 +35,7 @@
 
 ## 当前限制
 
-- 智能规划仍提示“暂未开放”；COS 原图上传、远程图片加载、Agent 和云服务器部署均未实现。
+- 智能规划仍提示“暂未开放”；Agent 基础模块尚未接入对话 API、LLM 和 ReAct 流程，COS 原图上传与远程图片加载仍待完善。
 - 登录云端前要求本机没有未同步的旧旅行，以免把两套数据混在同一时间线；旧本地数据不会被自动上传或删除。云端模式暂不支持新增照片，已有纯本地 Demo 继续支持照片。
 - 服务端不可用时可以浏览已缓存的云端记录；云端模式的新增、编辑、删除和刷新会报错，不自动改为本地写入。两台真实设备和 API 24 网络回归尚待补测。
 - 最低版本配置为 API 24；本机只有 API 34 镜像，API 24 设备回归需在镜像可下载后补跑。
@@ -116,7 +116,9 @@ py -3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
 
-Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
+Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose --env-file server/.env -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose --env-file server/.env -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
+
+高德能力由后端通过 Web 服务 API 调用，不使用 Android SDK。申请高德 Web 服务 API Key 后，编辑服务器上的 `server/.env`，填入 `FOOTMARKS_AMAP_WEB_KEY=你的Key`，然后重新构建或重启服务端容器。Key 只保存在服务器环境变量中，不要写入代码、APK 或提交到 Git。天气接口使用城市 `adcode`，POI、地理编码、距离和路线查询也由后端适配器统一调用。
 
 业务 API 提供 `POST/GET /api/v1/trips`、`GET/PATCH/DELETE /api/v1/trips/{id}`、`POST /api/v1/trips/{id}/records`、`GET/PATCH/DELETE /api/v1/records/{id}` 和 `GET /api/v1/stats`。`POST /api/v1/auth/login` 接收用户名与密码，返回 Access Token/Refresh Token；`POST /api/v1/auth/refresh` 接收 `refresh_token`，`GET /api/v1/auth/me` 查询当前用户。业务请求带 `Authorization: Bearer <access_token>`。日期使用 ISO `YYYY-MM-DD`，金额为人民币元。
 
