@@ -176,7 +176,9 @@ private fun TripCard(
 
 @Composable
 private fun RecordRow(record: RecordEntity, onClick: () -> Unit) {
-    val photo = record.photoUris?.split(",")?.firstOrNull { it.isNotBlank() }
+    val photo = (record.photoUris?.split(",") ?: emptyList())
+        .plus(record.remotePhotoUrls?.split(",") ?: emptyList())
+        .firstOrNull { it.isNotBlank() }
     Row(
         modifier = Modifier
             .fillMaxWidth()

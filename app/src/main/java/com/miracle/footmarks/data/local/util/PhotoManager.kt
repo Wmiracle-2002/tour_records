@@ -4,9 +4,14 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.provider.OpenableColumns
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okio.BufferedSink
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -54,6 +59,35 @@ class PhotoManager @Inject constructor(
 
     suspend fun deletePhotos(paths: List<String>) = withContext(Dispatchers.IO) {
         paths.forEach { deletePhoto(it) }
+    }
+
+    fun createOriginalUploadPart(uri: Uri): MultipartBody.Part? {
+        val resolver = context.contentResolver
+        val contentType = resolver.getType(uri) ?: "image/jpeg"
+        if (!contentType.startsWith("image/")) return null
+        val fileName = resolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } ?: uri.lastPathSegment?.substringAfterLast('/') ?: "image"
+        val body = object : RequestBody() {
+            override fun contentType() = contentType.toMediaTypeOrNull()
+
+            override fun contentLength(): Long = runCatching {
+                resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+            }.getOrDefault(-1L)
+
+            override fun writeTo(sink: BufferedSink) {
+                resolver.openInputStream(uri)?.use { input ->
+                    input.copyTo(sink.outputStream())
+                } ?: error("Unable to open selected image")
+            }
+        }
+        return MultipartBody.Part.createFormData("file", fileName, body)
     }
 
     fun isManagedPhoto(path: String): Boolean {

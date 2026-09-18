@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.miracle.footmarks.data.local.FootmarksDatabase
 import com.miracle.footmarks.data.local.MIGRATION_1_2
 import com.miracle.footmarks.data.local.MIGRATION_2_3
+import com.miracle.footmarks.data.local.MIGRATION_3_4
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -34,7 +35,7 @@ class DatabaseMigrationTest {
         }
 
         val database = Room.databaseBuilder(context, FootmarksDatabase::class.java, databaseName)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
         val record = database.recordDao().getById(7)!!
@@ -79,7 +80,7 @@ class DatabaseMigrationTest {
             }
         }
         val database = Room.databaseBuilder(context, FootmarksDatabase::class.java, databaseName)
-            .addMigrations(MIGRATION_2_3).build()
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4).build()
         assertEquals(null, database.tripDao().getById(3)?.serverId)
         assertEquals(null, database.recordDao().getById(4)?.serverId)
         assertEquals("烤鸭", database.recordDao().getById(4)?.name)

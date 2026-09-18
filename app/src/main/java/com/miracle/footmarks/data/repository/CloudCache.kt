@@ -58,8 +58,9 @@ class CloudCache @Inject constructor(private val database: FootmarksDatabase) {
                     tripDao.update(trip)
                     trip.id
                 }
-                for (item in remote.records) {
+                for (item in remote.records.orEmpty()) {
                     val oldRecord = recordDao.getByServerId(item.id)
+                    val remoteImages = item.images
                     val record = RecordEntity(
                         id = oldRecord?.id ?: 0,
                         tripId = localTripId,
@@ -69,12 +70,22 @@ class CloudCache @Inject constructor(private val database: FootmarksDatabase) {
                         rating = item.rating?.toFloat(),
                         cost = item.cost?.toFloat(),
                         notes = item.notes,
+                        remotePhotoIds = when {
+                            remoteImages == null -> oldRecord?.remotePhotoIds
+                            remoteImages.isEmpty() -> null
+                            else -> remoteImages.joinToString(",") { it.id.toString() }
+                        },
+                        remotePhotoUrls = when {
+                            remoteImages == null -> oldRecord?.remotePhotoUrls
+                            remoteImages.isEmpty() -> null
+                            else -> remoteImages.joinToString(",") { it.url }
+                        },
                         createdAt = oldRecord?.createdAt ?: System.currentTimeMillis(),
                         serverId = item.id
                     )
                     if (oldRecord == null) recordDao.insert(record) else recordDao.update(record)
                 }
-                val serverRecordIds = remote.records.map { it.id }.toSet()
+                val serverRecordIds = remote.records.orEmpty().map { it.id }.toSet()
                 recordDao.getRecordsForTrip(localTripId)
                     .filter { it.serverId != null && it.serverId !in serverRecordIds }
                     .forEach { recordDao.delete(it) }

@@ -117,7 +117,9 @@ private fun RecordDetailContent(
     cityName: String,
     modifier: Modifier = Modifier
 ) {
-    val photoList = record.photoUris?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
+    val photoList = (record.photoUris?.split(",") ?: emptyList())
+        .plus(record.remotePhotoUrls?.split(",") ?: emptyList())
+        .filter { it.isNotBlank() }
 
     Column(
         modifier = modifier
