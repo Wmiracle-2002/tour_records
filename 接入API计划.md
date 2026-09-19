@@ -188,7 +188,7 @@ git commit -m "Agent API: add LLM configuration"
 - Produces: `LLMNotConfiguredError`、`LLMTimeoutError`、`LLMUpstreamError`、`LLMInvalidResponseError`。
 - Consumes: Task 1 的 LLM Settings。
 
-- [ ] **Step 1: 编写传输层和结构化输出失败测试**
+- [x] **Step 1: 编写传输层和结构化输出失败测试**
 
 测试函数固定为：
 
@@ -205,13 +205,13 @@ test_api_key_is_absent_from_exception_text
 
 使用 `httpx.MockTransport`，测试不得访问真实网络。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd server && pytest tests/test_agent_llm.py -q`
 
 Expected: FAIL，提示 `app.agent.llm` 不存在。
 
-- [ ] **Step 3: 实现最小传输接口**
+- [x] **Step 3: 实现最小传输接口**
 
 ```python
 T = TypeVar("T", bound=BaseModel)
@@ -269,13 +269,13 @@ class StructuredLLMClient:
 
 只重试连接错误、超时、HTTP 429 和 HTTP 5xx；HTTP 4xx、JSON 解析失败和 Pydantic 校验失败不重试。异常和日志中不得包含 API Key、完整 Prompt 或原始模型响应。
 
-- [ ] **Step 4: 运行客户端测试和既有 Analyzer/Generator/Reviser 测试**
+- [x] **Step 4: 运行客户端测试和既有 Analyzer/Generator/Reviser 测试**
 
 Run: `cd server && pytest tests/test_agent_llm.py tests/test_agent_analyzer.py tests/test_agent_generator.py tests/test_agent_reviser.py -q`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add server/app/agent/llm.py server/tests/test_agent_llm.py
