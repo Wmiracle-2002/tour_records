@@ -10,8 +10,17 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 - 提取用户偏好 preferences；
 - 提取必须满足的条件 constraints。
 
+输出 JSON 必须严格使用以下字段名，不得改名：
+- intent：只能是 trip_planning、poi_recommendation、route_query、weather_query、budget_query、history_query、general_query 之一；
+- origin、destination、start_date、end_date：字符串或 null；
+- duration_days、travelers：整数或 null；
+- budget：数字或 null；
+- preferences、constraints：字符串数组。
+
 规则：
 - 缺失的信息保持为空，不要猜测或补全；
+- preferences 和 constraints 没有内容时使用空数组；
+- 不要使用 task_type 或其他字段名代替 intent；
 - 不要决定调用哪些 Tool；
 - 不要规划 Tool 调用顺序；
 - 不要生成旅行方案；

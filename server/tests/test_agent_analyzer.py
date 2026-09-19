@@ -103,3 +103,10 @@ def test_provider_output_is_validated_as_travel_requirement() -> None:
 def test_requirement_analyzer_prompt_has_a_narrow_responsibility() -> None:
     assert "不要决定调用哪些 Tool" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
     assert "不要生成旅行方案" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
+
+
+def test_requirement_analyzer_prompt_declares_exact_output_fields() -> None:
+    assert "intent" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
+    assert "preferences" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
+    assert "constraints" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
+    assert "不要使用 task_type" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
