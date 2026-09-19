@@ -109,6 +109,20 @@ TOOL_INFORMATION_NEEDS: dict[str, InformationNeedName] = {
     "cycling_route": "routes",
 }
 
+_TOOL_ARGUMENT_ALIASES: dict[str, dict[str, str]] = {
+    "keyword_search": {"keyword": "keywords", "query": "keywords"},
+    "around_search": {"keyword": "keywords", "query": "keywords"},
+}
+
+
+def _normalize_tool_arguments(call: ToolCall) -> dict[str, Any]:
+    """Normalize common LLM argument aliases before calling a concrete Tool."""
+    arguments = dict(call.arguments)
+    for alias, canonical in _TOOL_ARGUMENT_ALIASES.get(call.name, {}).items():
+        if canonical not in arguments and alias in arguments:
+            arguments[canonical] = arguments.pop(alias)
+    return arguments
+
 
 class ReActCollector:
     """执行有限轮次的 Tool Calling，并把结果写入结构化 State。"""
@@ -191,7 +205,9 @@ class ReActCollector:
             tool_name=call.name,
             react_round=working["react_round"],
         )
-        raw_result = self._tool_layer.execute(call.name, **call.arguments)
+        raw_result = self._tool_layer.execute(
+            call.name, **_normalize_tool_arguments(call)
+        )
         normalized_result = self._normalize(call, raw_result)
         self._emit(
             "tool_completed",

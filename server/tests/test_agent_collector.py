@@ -202,6 +202,42 @@ def test_trip_planning_decisions_can_collect_multiple_needs_in_any_order() -> No
     assert result["collected_info"].budget.estimated_max == 1200
 
 
+def test_collector_normalizes_common_keyword_search_argument_alias() -> None:
+    tool = FakeTool(
+        "keyword_search",
+        [
+            ToolResult.completed(
+                {
+                    "status": "1",
+                    "pois": [
+                        {
+                            "id": "B1",
+                            "name": "中山陵",
+                            "location": "118.858,32.058",
+                        }
+                    ],
+                }
+            )
+        ],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(
+                    name="keyword_search", arguments={"keyword": "历史建筑"}
+                )
+            )
+        ]
+    )
+
+    result = ReActCollector(
+        build_layer(tool), client
+    ).collect(build_state(TravelRequirement(intent="poi_recommendation")))
+
+    assert result["information_status"].pois.status == "completed"
+    assert tool.calls == [{"keywords": "历史建筑"}]
+
+
 def test_empty_result_retries_three_times_then_stops() -> None:
     tool = FakeTool(
         "weather",
