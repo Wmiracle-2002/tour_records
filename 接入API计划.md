@@ -124,7 +124,7 @@ Content-Type: application/json
 - Produces: `Settings.llm_base_url`、`llm_api_key`、`llm_model`、`llm_timeout_seconds`、`llm_max_retries`。
 - Consumes: 现有 `FOOTMARKS_` 环境变量前缀。
 
-- [ ] **Step 1: 编写配置失败测试**
+- [x] **Step 1: 编写配置失败测试**
 
 ```python
 def test_llm_settings_are_loaded_from_environment(monkeypatch):
@@ -137,13 +137,13 @@ def test_llm_settings_are_loaded_from_environment(monkeypatch):
     assert settings.llm_model == "test-model"
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd server && pytest tests/test_agent_llm_config.py -q`
 
 Expected: FAIL，提示 `Settings` 没有 LLM 配置字段。
 
-- [ ] **Step 3: 增加配置字段**
+- [x] **Step 3: 增加配置字段**
 
 ```python
 llm_base_url: str | None = None
@@ -155,7 +155,7 @@ llm_max_retries: int = 1
 
 在 `server/.env.example` 和 `server/compose.yaml` 增加对应 `FOOTMARKS_LLM_*` 变量。将 `httpx==0.28.1` 移到生产 `requirements.txt`，从 `requirements-dev.txt` 删除重复声明。
 
-- [ ] **Step 4: 验证配置和 Compose**
+- [x] **Step 4: 验证配置和 Compose**
 
 Run: `cd server && pytest tests/test_agent_llm_config.py -q`
 
@@ -165,7 +165,7 @@ Run: `docker compose --env-file server/.env.example -f server/compose.yaml confi
 
 Expected: exit code 0，且不输出真实密钥。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add server/app/core/config.py server/.env.example server/compose.yaml server/requirements.txt server/requirements-dev.txt server/tests/test_agent_llm_config.py
