@@ -740,7 +740,7 @@ git commit -m "Agent API: connect smart planning UI"
 
 ### Task 9: 真实 LLM 与服务器部署验收
 
-**当前进度（2026-09-19）：** Step 1、Step 2 和 Step 5 已完成。服务器五项 LLM 环境变量已从本机 `.env` 合并到服务器现有 `.env`，没有覆盖其他配置；容器已重建，`/api/v1/health` 返回 200，APK 已生成。真实 Agent 请求已到达 API，但当前 `FOOTMARKS_LLM_BASE_URL` 不是带 `http://` 或 `https://` 的完整 URL，触发 `UnsupportedProtocol`，因此 Step 3～4、Step 6 和最终提交暂未完成。修正 Base URL 后从 Step 3 继续。
+**当前进度（2026-09-19）：** Step 1～5 已完成。服务器五项 LLM 环境变量已从本机 `.env` 合并到服务器现有 `.env`，没有覆盖其他配置；修正 Base URL 后容器已重建，公网 HTTPS Agent API 已通过天气、历史、POI、预算、路线和三日行程六类真实场景。APK 已按公网 HTTPS 地址重新构建。Step 6 仍需在用户自己的手机上进行手工验收，Step 7 在本次文档更新提交后完成。
 
 **Files:**
 
@@ -777,7 +777,7 @@ sudo docker compose --env-file server/.env -f server/compose.yaml logs --tail=10
 
 Expected: API 容器为 `Up`，日志中没有 Key、Prompt 或原始 LLM 响应。
 
-- [ ] **Step 3: 执行真实 HTTPS 冒烟测试**
+- [x] **Step 3: 执行真实 HTTPS 冒烟测试**
 
 先调用现有登录接口获得 Access Token，再执行：
 
@@ -790,7 +790,7 @@ curl -X POST "https://www.cq-footmark.online/api/v1/agent/chat" \
 
 Expected: HTTP 200，包含非空 `request_id` 和 `answer`；日志包含结构化事件，不包含敏感内容。
 
-- [ ] **Step 4: 执行六类真实场景**
+- [x] **Step 4: 执行六类真实场景**
 
 ```text
 1. 天气查询
@@ -825,7 +825,7 @@ app/build/outputs/apk/debug/app-debug.apk
 - 断网时显示错误且保留已有消息。
 - 连续点击发送不会产生重复请求。
 
-- [ ] **Step 7: 更新文档并提交**
+- [x] **Step 7: 更新文档并提交**
 
 ```bash
 git add README.md 开发日志.md 测试指南.md
@@ -861,7 +861,7 @@ git commit -m "Agent API: document LLM deployment and testing"
 - [ ] 手机只访问 `https://www.cq-footmark.online/`。
 - [ ] 服务端可以访问 LLM 和高德 API。
 - [ ] Nginx、Docker 和 FastAPI 超时足以覆盖正常 Agent 请求。
-- [ ] 六类真实场景均返回最终回答，没有内部 State、Tool Raw Response 或 ReAct 决策泄露。
+- [x] 六类真实场景均返回最终回答，没有内部 State、Tool Raw Response 或 ReAct 决策泄露。
 
 ---
 
