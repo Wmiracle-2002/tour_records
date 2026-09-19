@@ -28,6 +28,8 @@ data class RecordEntity(
     val cost: Float? = null, // 花费（元），可选
     val notes: String? = null,
     val photoUris: String? = null, // 多张照片路径，逗号分隔
+    val remotePhotoIds: String? = null,
+    val remotePhotoUrls: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val serverId: Long? = null
 )

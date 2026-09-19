@@ -9,7 +9,10 @@ import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.DELETE
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 import retrofit2.http.Path
+import okhttp3.MultipartBody
 
 data class TripRequest(
     @SerializedName("province_code") val provinceCode: String,
@@ -53,7 +56,18 @@ data class RemoteRecord(
     val date: String,
     val rating: String?,
     val cost: String?,
-    val notes: String?
+    val notes: String?,
+    val images: List<RemoteImage>? = emptyList()
+)
+
+data class RemoteImage(
+    val id: Long,
+    @SerializedName("record_id") val recordId: Long,
+    @SerializedName("object_key") val objectKey: String,
+    @SerializedName("original_filename") val originalFilename: String,
+    @SerializedName("content_type") val contentType: String?,
+    @SerializedName("size_bytes") val sizeBytes: Long?,
+    val url: String
 )
 
 data class RemoteTrip(
@@ -110,6 +124,26 @@ interface FootmarksApi {
     suspend fun deleteTrip(
         @Header("Authorization") authorization: String,
         @Path("tripId") tripId: Long
+    )
+
+    @Multipart
+    @POST("api/v1/records/{recordId}/images")
+    suspend fun uploadImage(
+        @Header("Authorization") authorization: String,
+        @Path("recordId") recordId: Long,
+        @Part file: MultipartBody.Part
+    ): RemoteImage
+
+    @GET("api/v1/records/{recordId}/images")
+    suspend fun getImages(
+        @Header("Authorization") authorization: String,
+        @Path("recordId") recordId: Long
+    ): List<RemoteImage>
+
+    @DELETE("api/v1/images/{imageId}")
+    suspend fun deleteImage(
+        @Header("Authorization") authorization: String,
+        @Path("imageId") imageId: Long
     )
 
     @POST("api/v1/auth/refresh")

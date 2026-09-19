@@ -16,7 +16,7 @@ import com.miracle.footmarks.data.local.entity.TripEntity
         TripEntity::class,
         RecordEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

@@ -62,10 +62,10 @@ class EditRecordViewModel @Inject constructor(
                 if (record != null) {
                     val trip = tripRepository.getTripById(record.tripId)
                     val city = trip?.let { cityRepository.getCityById(it.cityId) }
-                    val photoUris = record.photoUris?.split(",")
-                        ?.filter { it.isNotBlank() }
-                        ?.map { Uri.parse(it) }
-                        ?: emptyList()
+                    val photoUris = (record.photoUris?.split(",") ?: emptyList())
+                        .plus(record.remotePhotoUrls?.split(",") ?: emptyList())
+                        .filter { it.isNotBlank() }
+                        .map { Uri.parse(it) }
 
                     _uiState.value = EditRecordUiState(
                         recordId = record.id,

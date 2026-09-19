@@ -2,6 +2,7 @@ package com.miracle.footmarks.data.remote
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import okhttp3.MultipartBody
 import retrofit2.HttpException
 import javax.inject.Inject
 
@@ -55,6 +56,14 @@ class CloudSession @Inject constructor(
     suspend fun deleteRecord(recordId: Long) = authorized { api.deleteRecord(it, recordId) }
 
     suspend fun deleteTrip(tripId: Long) = authorized { api.deleteTrip(it, tripId) }
+
+    suspend fun uploadImage(recordId: Long, file: MultipartBody.Part): RemoteImage =
+        authorized { api.uploadImage(it, recordId, file) }
+
+    suspend fun getImages(recordId: Long): List<RemoteImage> =
+        authorized { api.getImages(it, recordId) }
+
+    suspend fun deleteImage(imageId: Long) = authorized { api.deleteImage(it, imageId) }
 
     private suspend fun <T> authorized(block: suspend (String) -> T): T {
         val tokens = requireNotNull(store.tokens) { "请先在个人中心登录" }

@@ -3,6 +3,7 @@ package com.miracle.footmarks.ui
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import com.miracle.footmarks.data.local.dao.TravelStats
 import com.miracle.footmarks.ui.screen.profile.ProfileContent
 import org.junit.Rule
@@ -26,6 +27,8 @@ class ProfileScreenTest {
         composeRule.onNodeWithText("3").assertIsDisplayed()
         composeRule.onNodeWithText("5").assertIsDisplayed()
         composeRule.onNodeWithText("¥ 1234.50").assertIsDisplayed()
-        composeRule.onNodeWithText("版本 1.0.0").assertIsDisplayed()
+        composeRule.onNodeWithText("版本 1.0.0")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 }

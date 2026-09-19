@@ -5,14 +5,17 @@ import com.miracle.footmarks.data.local.entity.CityEntity
 import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.remote.CloudSession
+import com.miracle.footmarks.data.remote.RemoteImage
 import com.miracle.footmarks.data.remote.RecordRequest
 import com.miracle.footmarks.data.remote.TripRequest
+import com.miracle.footmarks.data.local.util.PhotoManager
 import java.time.LocalDate
 import javax.inject.Inject
 
 class CloudCoordinator @Inject constructor(
     private val cache: CloudCache,
-    private val session: CloudSession
+    private val session: CloudSession,
+    private val photoManager: PhotoManager
 ) {
     val isCloudMode: Boolean get() = session.isCloudMode
 
@@ -40,7 +43,7 @@ class CloudCoordinator @Inject constructor(
         notes: String?,
         photos: List<Uri>
     ): Long {
-        requireNoPhotos(photos)
+        requirePhotoCount(photos)
         val remoteTrip = session.createTrip(tripRequest(city, startDate, endDate))
         val record = try {
             session.createRecord(remoteTrip.id, recordRequest(type, name, date, rating, cost, notes))
@@ -50,6 +53,13 @@ class CloudCoordinator @Inject constructor(
             } catch (_: Exception) {
                 // Next refresh exposes the incomplete trip so it can be handled explicitly.
             }
+            throw error
+        }
+        try {
+            uploadImages(record.id, photos)
+        } catch (error: Exception) {
+            val recordDeleted = runCatching { session.deleteRecord(record.id) }.isSuccess
+            if (!recordDeleted) runCatching { session.deleteTrip(remoteTrip.id) }
             throw error
         }
         refresh()
@@ -66,13 +76,19 @@ class CloudCoordinator @Inject constructor(
         notes: String?,
         photos: List<Uri>
     ): Long {
-        requireNoPhotos(photos)
+        requirePhotoCount(photos)
         val remoteTripId = requireNotNull(cache.getTrip(localTripId)?.serverId) {
             "本地旅行不能加入云端记录"
         }
         val created = session.createRecord(
             remoteTripId, recordRequest(type, name, date, rating, cost, notes)
         )
+        try {
+            uploadImages(created.id, photos)
+        } catch (error: Exception) {
+            runCatching { session.deleteRecord(created.id) }
+            throw error
+        }
         refresh()
         return requireNotNull(cache.getLocalRecord(created.id)).id
     }
@@ -83,7 +99,7 @@ class CloudCoordinator @Inject constructor(
         date: LocalDate,
         photos: List<Uri>
     ) {
-        requireNoPhotos(photos)
+        requirePhotoCount(photos)
         val remoteRecordId = requireNotNull(record.serverId) { "本地记录不能同步到云端" }
         val trip = requireNotNull(cache.getTrip(record.tripId))
         val remoteTripId = requireNotNull(trip.serverId)
@@ -99,6 +115,7 @@ class CloudCoordinator @Inject constructor(
             remoteRecordId,
             if (isSingleDayOnly) payload.copy(trip = tripRequest(city, start, end)) else payload
         )
+        syncImages(record, remoteRecordId, photos)
         refresh()
     }
 
@@ -115,8 +132,45 @@ class CloudCoordinator @Inject constructor(
         type: RecordType, name: String, date: LocalDate, rating: Float?, cost: Float?, notes: String?
     ) = RecordRequest(type.name, name, date.toString(), rating?.toString(), cost?.toString(), notes)
 
-    private fun requireNoPhotos(photos: List<Uri>) {
-        check(photos.isEmpty()) { "云端照片上传暂未开放，请先创建不带照片的记录" }
+    private suspend fun uploadImages(recordId: Long, photos: List<Uri>): List<RemoteImage> =
+        photos.map { uri ->
+            val part = photoManager.createOriginalUploadPart(uri)
+                ?: throw IllegalArgumentException("无法读取照片: $uri")
+            session.uploadImage(recordId, part)
+        }
+
+    private suspend fun syncImages(record: RecordEntity, remoteRecordId: Long, photos: List<Uri>) {
+        val previousIds = record.remotePhotoIds.csvValues().mapNotNull { it.toLongOrNull() }
+        val previousUrls = record.remotePhotoUrls.csvValues()
+        val currentPhotos = photos.map(Uri::toString).toSet()
+        val newlyUploaded = mutableListOf<RemoteImage>()
+
+        try {
+            photos.filter { it.toString() !in previousUrls }
+                .forEach { uri ->
+                    val part = photoManager.createOriginalUploadPart(uri)
+                        ?: throw IllegalArgumentException("无法读取照片: $uri")
+                    newlyUploaded += session.uploadImage(remoteRecordId, part)
+                }
+        } catch (error: Exception) {
+            newlyUploaded.forEach { image -> runCatching { session.deleteImage(image.id) } }
+            throw error
+        }
+
+        previousIds.zip(previousUrls)
+            .filter { (_, url) -> url !in currentPhotos }
+            .forEach { (imageId, _) -> session.deleteImage(imageId) }
+    }
+
+    private fun requirePhotoCount(photos: List<Uri>) {
+        require(photos.size <= MAX_PHOTO_COUNT) { "每条记录最多选择9张照片" }
+    }
+
+    private fun String?.csvValues(): List<String> =
+        this?.split(",")?.filter(String::isNotBlank) ?: emptyList()
+
+    private companion object {
+        const val MAX_PHOTO_COUNT = 9
     }
 
     private fun Long.toLocalDate() = LocalDate.ofEpochDay(this / 86_400_000L)
