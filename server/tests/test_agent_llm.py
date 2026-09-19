@@ -141,6 +141,8 @@ def test_schema_violation_is_retried_once() -> None:
 
     assert result.answer == "recovered"
     assert len(requests) == 2
+    second_payload = json.loads(requests[1].content)
+    assert "上一响应没有通过结构化校验" in second_payload["messages"][1]["content"]
 
 
 def test_upstream_error_does_not_expose_api_key() -> None:

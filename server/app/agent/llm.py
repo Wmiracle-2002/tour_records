@@ -157,10 +157,16 @@ class StructuredLLMClient:
         output_model: type[T],
     ) -> T:
         for attempt in range(self._transport.max_retries + 1):
+            current_user_prompt = user_prompt
+            if attempt > 0:
+                current_user_prompt += (
+                    "\n\n上一响应没有通过结构化校验。请重新输出，严格遵守 system prompt，"
+                    "只返回符合目标 Schema 的 JSON 对象，不要输出解释或额外包装字段。"
+                )
             try:
                 payload = self._transport.complete_json(
                     system_prompt=system_prompt,
-                    user_prompt=user_prompt,
+                    user_prompt=current_user_prompt,
                     output_model=output_model,
                 )
                 return output_model.model_validate(payload)
