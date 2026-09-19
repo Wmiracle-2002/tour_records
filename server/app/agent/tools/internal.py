@@ -141,7 +141,7 @@ class GetTravelSummaryTool(_UserScopedTool):
     """获取当前用户的旅行统计。"""
 
     name = "get_travel_summary"
-    description = "获取旅行次数、城市数、总花费和平均评分"
+    description = "只能获取旅行次数、城市数、总花费和平均评分，不返回去过的城市或景点列表"
 
     def run(self, **arguments: Any) -> ToolResult[TravelSummary]:
         if arguments:
@@ -180,7 +180,7 @@ class SearchTripHistoryTool(_UserScopedTool):
     """按城市和日期区间查询当前用户的历史旅行。"""
 
     name = "search_trip_history"
-    description = "按城市和日期区间查询历史旅行"
+    description = "查询去过哪些城市及每次旅行时间段，支持城市和日期筛选"
 
     def run(self, **arguments: Any) -> ToolResult[list[TripInfo]]:
         query = SearchTripHistoryInput.model_validate(arguments)
@@ -231,7 +231,7 @@ class SearchRecordsTool(_UserScopedTool):
     """按旅行、城市、类型、评分和花费查询当前用户的记录。"""
 
     name = "search_records"
-    description = "查询景点和美食记录"
+    description = "查询去过的具体景点和美食记录，支持城市、类型、评分和花费筛选"
 
     def run(self, **arguments: Any) -> ToolResult[list[RecordSearchItem]]:
         query = SearchRecordsInput.model_validate(arguments)

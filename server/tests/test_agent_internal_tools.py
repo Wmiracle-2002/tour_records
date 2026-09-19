@@ -66,6 +66,20 @@ def tool_layer(db: Session, user_id: int) -> ToolLayer:
     return ToolLayer(registry)
 
 
+def test_history_tool_descriptions_distinguish_summary_and_places(
+    db_session: Session,
+) -> None:
+    descriptions = {
+        tool.name: tool.description
+        for tool in create_internal_db_tools(db_session, 1)
+    }
+
+    assert "只能" in descriptions["get_travel_summary"]
+    assert "次数、城市数、总花费和平均评分" in descriptions["get_travel_summary"]
+    assert "去过哪些城市" in descriptions["search_trip_history"]
+    assert "景点和美食" in descriptions["search_records"]
+
+
 def test_get_travel_summary_returns_aggregates(db_session: Session) -> None:
     user = add_user(db_session, "summary-user")
     beijing = add_trip(

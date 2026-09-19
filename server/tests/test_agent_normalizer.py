@@ -17,6 +17,7 @@ from app.agent.normalizer import (
     normalize_weather,
 )
 from app.agent.tools.layer import ToolResult
+from app.agent.tools.internal import TravelSummary
 
 
 def test_normalize_amap_poi_response_to_business_models() -> None:
@@ -163,6 +164,19 @@ def test_normalize_history_collects_unique_cities_and_pois() -> None:
         visited_names=["中山陵", "夫子庙"],
         visited_poi_ids=["B1", "B2"],
     )
+
+
+def test_normalize_history_accepts_travel_summary_model() -> None:
+    result = normalize_history(
+        TravelSummary(
+            trip_count=2,
+            city_count=1,
+            total_spending=100,
+            avg_rating=None,
+        )
+    )
+
+    assert result == TravelHistoryInfo(trip_count=2)
 
 
 def test_normalize_record_search_collects_history_facts() -> None:

@@ -8,7 +8,11 @@ from app.agent.collector import (
     ToolCall,
     ToolDescriptor,
 )
-from app.agent.llm import LLMInvalidResponseError, LLMReActDecisionClient
+from app.agent.llm import (
+    REACT_DECISION_SYSTEM_PROMPT,
+    LLMInvalidResponseError,
+    LLMReActDecisionClient,
+)
 from app.agent.models import (
     CollectedInfo,
     InfoRequirement,
@@ -113,3 +117,7 @@ def test_react_client_prompt_declares_exact_decision_shape() -> None:
     assert "不要使用 decision 字段包裹" in prompt
     assert "arguments 必须是对象" in prompt
     assert "information_need 只能是" in prompt
+
+
+def test_react_prompt_distinguishes_history_tools() -> None:
+    assert "询问去过哪些城市、景点或美食" in REACT_DECISION_SYSTEM_PROMPT

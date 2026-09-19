@@ -263,6 +263,8 @@ def normalize_history(raw: Any) -> TravelHistoryInfo:
         return TravelHistoryInfo()
     if isinstance(raw, TravelHistoryInfo):
         return raw
+    if isinstance(raw, BaseModel):
+        raw = raw.model_dump()
 
     payload: Mapping[str, Any] | None = None
     if isinstance(raw, Mapping):
