@@ -111,6 +111,7 @@ def test_generator_prompt_declares_exact_itinerary_shape() -> None:
     assert "根对象只能包含 days" in ITINERARY_GENERATOR_SYSTEM_PROMPT
     assert "不要使用 itinerary 字段包裹" in ITINERARY_GENERATOR_SYSTEM_PROMPT
     assert "poi_id、poi_name、start_time、end_time、activity_type" in ITINERARY_GENERATOR_SYSTEM_PROMPT
+    assert "days 必须恰好包含 duration_days 天" in ITINERARY_GENERATOR_SYSTEM_PROMPT
 
 
 def test_generator_rejects_poi_that_is_not_in_collected_info() -> None:

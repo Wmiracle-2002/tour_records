@@ -20,6 +20,7 @@ ITINERARY_GENERATOR_SYSTEM_PROMPT = """
 规则：
 - 只能使用 CollectedInfo 中已有的事实，不要虚构地点、地址、开放时间、价格、距离或路线时间；
 - 每个行程项必须使用候选 POI 的 poi_id，并填写对应的 poi_name；
+- 如果 TravelRequirement.duration_days 有值，days 必须恰好包含 duration_days 天，不得省略、合并或追加；
 - 遵守用户的 preferences 和 constraints；
 - 日期格式必须是 YYYY-MM-DD，时间格式必须是 HH:MM；
 - 只返回符合 Itinerary 的结构化数据，不要输出自然语言旅行攻略。
