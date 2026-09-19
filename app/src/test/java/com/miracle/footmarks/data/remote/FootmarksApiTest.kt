@@ -8,6 +8,14 @@ import org.junit.Test
 
 class FootmarksApiTest {
     @Test
+    fun defaultClientAllowsLongRunningAgentResponses() {
+        val client = FootmarksApi.defaultClient()
+
+        assertEquals(120_000, client.readTimeoutMillis)
+        assertEquals(120_000, client.callTimeoutMillis)
+    }
+
+    @Test
     fun loginAndReadTripsMatchServerContract() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(
@@ -89,6 +97,66 @@ class FootmarksApiTest {
             assertEquals("PATCH", request.method)
             assertEquals("/api/v1/records/12", request.path)
             org.junit.Assert.assertTrue(request.body.readUtf8().contains("\"start_date\":\"2026-09-05\""))
+        }
+    }
+
+    @Test
+    fun agentChatUsesAuthenticatedEndpointAndParsesResponse() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setBody("""{"request_id":"req-1","answer":"行程结果"}""")
+                    .addHeader("Content-Type", "application/json")
+            )
+            server.start()
+            val api = FootmarksApi.create(server.url("/").toString())
+
+            val response = api.chat(
+                "Bearer access",
+                AgentChatRequest("北京三日游")
+            )
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/agent/chat", request.path)
+            assertEquals("Bearer access", request.getHeader("Authorization"))
+            assertEquals("{\"message\":\"北京三日游\"}", request.body.readUtf8())
+            assertEquals("req-1", response.requestId)
+            assertEquals("行程结果", response.answer)
+        }
+    }
+
+    @Test
+    fun agentChatRefreshesExpiredAccessTokenOnce() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(401))
+            server.enqueue(
+                MockResponse()
+                    .setBody("""{"access_token":"new-access","refresh_token":"new-refresh","token_type":"bearer"}""")
+                    .addHeader("Content-Type", "application/json")
+            )
+            server.enqueue(
+                MockResponse()
+                    .setBody("""{"request_id":"req-2","answer":"规划完成"}""")
+                    .addHeader("Content-Type", "application/json")
+            )
+            server.start()
+            val store = MemoryTokenStore().apply {
+                tokens = Tokens("old-access", "refresh")
+            }
+            val session = CloudSession(FootmarksApi.create(server.url("/").toString()), store)
+
+            val response = session.askAgent("北京三日游")
+
+            val expiredRequest = server.takeRequest()
+            val refreshRequest = server.takeRequest()
+            val retriedRequest = server.takeRequest()
+            assertEquals("/api/v1/agent/chat", expiredRequest.path)
+            assertEquals("Bearer old-access", expiredRequest.getHeader("Authorization"))
+            assertEquals("/api/v1/auth/refresh", refreshRequest.path)
+            assertEquals("Bearer new-access", retriedRequest.getHeader("Authorization"))
+            assertEquals("req-2", response.requestId)
+            assertEquals("new-refresh", store.tokens?.refreshToken)
         }
     }
 

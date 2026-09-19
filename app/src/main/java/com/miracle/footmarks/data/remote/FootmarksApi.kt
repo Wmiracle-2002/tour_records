@@ -1,6 +1,7 @@
 package com.miracle.footmarks.data.remote
 
 import com.google.gson.annotations.SerializedName
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -13,6 +14,7 @@ import retrofit2.http.Multipart
 import retrofit2.http.Part
 import retrofit2.http.Path
 import okhttp3.MultipartBody
+import java.util.concurrent.TimeUnit
 
 data class TripRequest(
     @SerializedName("province_code") val provinceCode: String,
@@ -42,6 +44,13 @@ data class RemoteTripSummary(
 )
 
 data class LoginRequest(val username: String, val password: String)
+
+data class AgentChatRequest(val message: String)
+
+data class AgentChatResponse(
+    @SerializedName("request_id") val requestId: String,
+    val answer: String
+)
 
 data class Tokens(
     @SerializedName("access_token") val accessToken: String,
@@ -83,6 +92,12 @@ data class RemoteTrip(
 interface FootmarksApi {
     @POST("api/v1/auth/login")
     suspend fun login(@Body request: LoginRequest): Tokens
+
+    @POST("api/v1/agent/chat")
+    suspend fun chat(
+        @Header("Authorization") authorization: String,
+        @Body request: AgentChatRequest
+    ): AgentChatResponse
 
     @GET("api/v1/trips")
     suspend fun getTrips(@Header("Authorization") authorization: String): List<RemoteTrip>
@@ -150,8 +165,16 @@ interface FootmarksApi {
     suspend fun refresh(@Body request: RefreshRequest): Tokens
 
     companion object {
+        internal fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .build()
+
         fun create(baseUrl: String): FootmarksApi = Retrofit.Builder()
             .baseUrl(baseUrl)
+            .client(defaultClient())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(FootmarksApi::class.java)

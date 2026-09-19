@@ -5,8 +5,8 @@
 ## 当前状态
 
 - Android `versionName`：`1.0.0`
-- 当前工作分支：`feat/server-local`
-- 当前开发里程碑：阶段 11～14 已完成（阶段 14 为 Mock 回归），阶段 15 的文字与照片同步代码已完成；真实 COS、设备回归和 Agent 待后续验收
+- 当前工作分支：`develop`
+- 当前开发里程碑：阶段 11～15、Agent Phase 1～15 和接入 API Task 1～9 已合并；文字记录与云端照片同步代码已完成，真实 COS 和手机真机业务回归待验收
 - 构建环境：JDK 17、Android SDK 34、Gradle 8.4
 - 最低系统：Android 7.0（API 24）
 
@@ -24,21 +24,22 @@
 - 本地存储：Room 3，采用 `City → Trip → Record` 三层关系；云端记录另保存服务端 ID
 - Trip 数据层：旅行起止日期、子记录日期范围校验、DAO/Repository CRUD 和级联删除
 - 数据库升级：Room 1 → 2 → 3 迁移保留旧旅行、子记录和照片路径，旧记录的服务端 ID 为空
-- 自动化验证：24 个服务端 pytest、8 个 Android JVM 测试；本次 Android 主代码和仪器测试代码编译通过，真实设备回归待执行
+- 自动化验证：服务端全量回归、8 个 Android JVM 测试与 API 34 模拟器 34 个仪器测试通过
 - 权限：仅增加 `INTERNET`；Photo Picker 无需相册、存储或相机权限，Debug 版本允许本机 HTTP
-- 图片选择与展示：系统照片选择器、1080px 长边与 JPEG 质量 80 压缩、App 内部存储、Coil 预览；云端记录上传原始图片并通过 COS 预签名地址加载
-- 图片生命周期：最多 9 张；本地编辑时清理移除的副本，云端编辑时删除对应 COS 对象，删除记录时清理全部照片
-- 智能规划框架：欢迎消息、消息展示区、可保留草稿的多行输入框，以及发送时的“暂未开放，待完善”提示
+- 图片选择与展示：系统照片选择器、1080px 长边与 JPEG 质量 80 压缩、App 内部存储、Coil 预览
+- 图片生命周期：最多 9 张；编辑时清理移除的副本，删除记录时清理全部内部照片
+- 云端照片：服务端通过 COS 保存原图，支持上传、查询、编辑时删除和删除记录时联动清理
+- 智能规划：欢迎消息、消息展示区、可保留草稿的多行输入框，已接入受认证的 Agent API；发送后立即清空输入框，失败时恢复草稿供重试，并显示加载、成功和失败状态
 - 个人中心：本地用户说明、城市数、出行次数、人民币总花费和应用版本
-- 可选本机服务端模式：共享账号登录、Access Token 过期刷新、旅行记录和照片增删改查、手动刷新远端变更；Room 缓存用于浏览，云端写入先成功后更新缓存
+- 可选本机服务端模式：共享账号登录、Access Token 过期刷新、文字旅行记录增删改查、手动刷新远端变更；Room 缓存用于浏览，云端写入先成功后更新缓存
 - 会话凭据保存在 App 私有偏好设置中，并从系统云备份及设备迁移中排除；原有本地旅行数据仍按应用备份设置处理
 
 ## 当前限制
 
-- 智能规划仍提示“暂未开放”；COS 原图上传代码和远程图片加载已实现，但真实 COS 需要服务器 `.env` 配置 SecretId、SecretKey 后验证。云服务器已完成 FastAPI + SQLite 基础部署，公网 HTTPS 健康接口已验证，真实设备业务联调尚未完成。
-- 登录云端前要求本机没有未同步的旧旅行，以免把两套数据混在同一时间线；旧本地数据不会被自动上传或删除。云端照片每条记录最多 9 张，新增、编辑和删除均会同步到 COS。
-- 服务端不可用时可以浏览已缓存的云端记录；云端模式的新增、编辑、删除和刷新会报错，不自动改为本地写入。API 24 的本地完整仪器回归已通过，真实设备服务端联调和弱网回归尚待补测。
-- 最低版本配置为 API 24；已使用临时 `Pixel_2_API24` 模拟器完成完整仪器测试，API 24 的真实服务端同步仍需手工验收。
+- 服务端 Agent 已完成 Phase 1～15，并已部署受认证的 HTTPS Agent API；Android 智能规划页已接入该接口。服务器真实 LLM 冒烟、天气/历史/POI/预算/路线/三日行程六类场景均已通过。手机真机手工验收和真实 COS 凭据验证仍待完善。
+- 登录云端前要求本机没有未同步的旧旅行，以免把两套数据混在同一时间线；旧本地数据不会被自动上传或删除。云端模式支持新增、编辑和删除照片，但需要服务端 `.env` 配置 COS SecretId、SecretKey。
+- 服务端不可用时可以浏览已缓存的云端记录；云端模式的新增、编辑、删除和刷新会报错，不自动改为本地写入。两台真实设备和 API 24 网络回归尚待补测。
+- 最低版本配置为 API 24；本机只有 API 34 镜像，API 24 设备回归需在镜像可下载后补跑。
 
 ## 项目结构
 
@@ -70,15 +71,15 @@ app/src/main/java/com/miracle/footmarks/
 
 ## 数据模型
 
-当前 Room 数据库版本为 4，包含三张表：
+当前 Room 数据库版本为 3，包含三张表：
 
 ```text
 CityEntity 1 ─── * TripEntity 1 ─── * RecordEntity
 ```
 
-`TripEntity` 通过 `cityId` 关联城市并保存旅行起止日期；`RecordEntity` 通过 `tripId` 关联旅行，包含 `ATTRACTION`/`FOOD` 类型、名称、实际游览日期、可选评分、可选花费、备注、本地预览图路径以及逗号分隔的远端图片 ID/URL。删除记录时本地 Repository 或服务端会清理对应照片。
+`TripEntity` 通过 `cityId` 关联城市并保存旅行起止日期；`RecordEntity` 通过 `tripId` 关联旅行，包含 `ATTRACTION`/`FOOD` 类型、名称、实际游览日期、可选评分、可选花费、备注和逗号分隔的内部照片路径。删除记录时 Repository 会清理对应照片。
 
-服务端采用 `User → Trip → Record → RecordImage`，照片表只预留元数据；文字记录在服务端 SQLite 保存。Android 的 `serverId` 只映射来自服务端的旅行与子记录，旧本地行保持为空。服务端提供 `app.backup` 本地备份/恢复命令，恢复前必须停止服务。
+服务端采用 `User → Trip → Record → RecordImage`，照片表只预留元数据；文字记录在服务端 SQLite 保存。Android 的 `serverId` 只映射来自服务端的旅行与子记录，旧本地行保持为空。
 
 ## 构建与安装
 
@@ -100,7 +101,7 @@ adb shell am start -n com.miracle.footmarks/.MainActivity
 
 Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。
 
-## 服务端开发（阶段 11～15、17～18）
+## 服务端开发（阶段 11～13）
 
 需要 Python 3.12。在 `server` 目录执行：
 
@@ -114,46 +115,17 @@ Remove-Item Env:FOOTMARKS_INITIAL_PASSWORD
 py -3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
+浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。也可以使用固定的开发测试容器：首次在仓库根目录执行 `docker compose -f server/compose.dev.yaml up -d --build agent-test`，之后执行 `docker compose -f server/compose.dev.yaml exec agent-test pytest -q`。源码通过目录挂载到容器，代码修改后直接重新执行测试即可；只有 `requirements.txt` 或 `requirements-dev.txt` 变化时才需要重新构建。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
 
-Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
+Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose --env-file server/.env -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose --env-file server/.env -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
 
-启用照片云存储时，在服务端 `.env` 增加 `FOOTMARKS_COS_BUCKET=footmark-1489262329`、`FOOTMARKS_COS_REGION=ap-hongkong`、`FOOTMARKS_COS_DOMAIN=https://footmark-1489262329.cos.ap-hongkong.myqcloud.com`、`FOOTMARKS_COS_SECRET_ID` 和 `FOOTMARKS_COS_SECRET_KEY`，然后重启容器。密钥只放服务器；服务端使用 COS 预签名地址返回图片，未配置密钥时文字 API 仍可用但图片接口返回 503。
+高德能力由后端通过 Web 服务 API 调用，不使用 Android SDK。申请高德 Web 服务 API Key 后，编辑服务器上的 `server/.env`，填入 `FOOTMARKS_AMAP_WEB_KEY=你的Key`，然后重新构建或重启服务端容器。Key 只保存在服务器环境变量中，不要写入代码、APK 或提交到 Git。天气接口使用城市 `adcode`，POI、地理编码、距离和路线查询也由后端适配器统一调用。
 
-### 云服务器当前部署状态
+真实 Agent 还需要在服务器 `server/.env` 配置 `FOOTMARKS_LLM_BASE_URL`、`FOOTMARKS_LLM_API_KEY`、`FOOTMARKS_LLM_MODEL`、`FOOTMARKS_LLM_TIMEOUT_SECONDS` 和 `FOOTMARKS_LLM_MAX_RETRIES`。`FOOTMARKS_LLM_BASE_URL` 必须是供应商提供的 OpenAI 兼容接口地址，并包含 `http://` 或 `https://` 协议；修改后需要重建或重启 API 容器。不要把这些值写入代码、APK 或提交到 Git。
 
-- 服务器系统：Ubuntu 24.04 LTS。
-- 部署目录：`/opt/footmarks/server`；Docker 和 Docker Compose 已安装并设置为开机启动。
-- 服务容器：`server-api-1`，使用 `restart: unless-stopped`，SQLite 数据持久化在 `/opt/footmarks/server/data/footmarks.db`。
-- Alembic 已迁移到 `20260916_01 (head)`；服务器本机访问 `/api/v1/health` 已返回正常状态。
-- 2026-09-18 已部署并验证阶段 14 图片接口、COS SDK 依赖和 Compose 环境变量映射；运行中的容器已注册图片上传、查询和删除路由，上传接口已返回 `201 Created`。
-- 2026-09-18 Nginx HTTPS 代理已设置 `client_max_body_size 50m`，用于接收手机原图上传；配置已检查并热重载。
-- Compose 绑定服务器本机 `127.0.0.1:8000`，由 Nginx 提供公网 HTTPS 反向代理；共享账号 `shared` 已初始化，`https://www.cq-footmark.online/api/v1/health` 已返回正常状态。
+业务 API 提供 `POST/GET /api/v1/trips`、`GET/PATCH/DELETE /api/v1/trips/{id}`、`POST /api/v1/trips/{id}/records`、`GET/PATCH/DELETE /api/v1/records/{id}` 和 `GET /api/v1/stats`。`POST /api/v1/auth/login` 接收用户名与密码，返回 Access Token/Refresh Token；`POST /api/v1/auth/refresh` 接收 `refresh_token`，`GET /api/v1/auth/me` 查询当前用户。业务请求带 `Authorization: Bearer <access_token>`。日期使用 ISO `YYYY-MM-DD`，金额为人民币元。
 
-服务器更新时先在本地完成测试，再将 `server/` 上传到 `/opt/footmarks/server`，执行 `sudo docker compose up -d --build`。不要覆盖 `data/` 和 `.env`；部署前后检查 `sudo docker compose ps`、`sudo docker compose logs --tail=100 api` 和健康接口。Token Secret 只保存在服务器 `.env` 中。
-
-当前手机联调地址为 `https://www.cq-footmark.online/`，公网 HTTPS 健康接口已验证。Debug APK 使用下面的构建参数指向该地址，Release 也使用 HTTPS：
-
-```powershell
-.\gradlew.bat assembleDebug -PfootmarksApiBaseUrl=https://www.cq-footmark.online/
-```
-
-本地 SQLite 备份和恢复需要先停止 Uvicorn 或 Docker 服务。备份文件包含旅行数据和账号哈希，请保存到安全位置，不要提交到 Git：
-
-```powershell
-# 在 server 目录执行；默认读取 server/.env 中的 FOOTMARKS_DATABASE_URL
-$backupPath = "data/backups/footmarks-$(Get-Date -Format yyyyMMdd-HHmmss).db"
-py -3.12 -m app.backup backup --output $backupPath
-
-# 恢复前确认服务已停止；恢复完成后再执行 alembic upgrade head 并启动服务
-py -3.12 -m app.backup restore --input $backupPath
-```
-
-备份和恢复都会执行 SQLite 完整性检查，并要求存在应用的四张核心表；恢复通过临时文件和原子替换完成。也可以通过 `--database-url` 指定其他文件型 SQLite 地址，内存数据库不支持备份。
-
-业务 API 提供 `POST/GET /api/v1/trips`、`GET/PATCH/DELETE /api/v1/trips/{id}`、`POST /api/v1/trips/{id}/records`、`GET/PATCH/DELETE /api/v1/records/{id}`、`POST/GET /api/v1/records/{id}/images`、`DELETE /api/v1/images/{id}` 和 `GET /api/v1/stats`。`POST /api/v1/auth/login` 接收用户名与密码，返回 Access Token/Refresh Token；`POST /api/v1/auth/refresh` 接收 `refresh_token`，`GET /api/v1/auth/me` 查询当前用户。业务请求带 `Authorization: Bearer <access_token>`。日期使用 ISO `YYYY-MM-DD`，金额为人民币元。
-
-模拟器先启动服务端，再安装 Debug APK，在“个人中心 → 共享账号”输入用户名和密码，点“登录并同步”。切回记录页查看云端旅行；其他设备改动后，在个人中心点“刷新共享记录”。真机需要能访问服务端的地址，建议使用 HTTPS；默认 `10.0.2.2` 只适用于 Android 模拟器。Release 默认指向不可用占位地址，需要构建时指定 HTTPS。配置 COS 密钥后，选择 1 张或 9 张照片保存，重启或刷新后详情页应能加载远端图片；编辑移除照片及删除记录后，服务端应删除对应 COS 对象。
+模拟器先启动服务端，再安装 Debug APK，在“个人中心 → 共享账号”输入用户名和密码，点“登录并同步”。切回记录页查看云端旅行；其他设备改动后，在个人中心点“刷新共享记录”。真机需要能访问服务端的地址，建议使用 HTTPS；默认 `10.0.2.2` 只适用于 Android 模拟器。Release 默认指向不可用占位地址，需要构建时指定 HTTPS。服务端模式的本机缓存保存文字记录和远端图片元数据，原图由 COS 保存。
 
 ## 快速回归
 
@@ -177,11 +149,18 @@ py -3.12 -m app.backup restore --input $backupPath
 - [CRUD功能完成总结.md](./CRUD功能完成总结.md)：本次 CRUD 里程碑范围
 - [城市数据源.md](./城市数据源.md)：2023 年行政区划来源、条目数量、转换规则和许可证
 
+## Agent 开发进度
+
+Agent Phase 1～15 的 State、Requirement Analyzer、Tool Layer、ReAct Collector、基础 Workflow、Itinerary Generator、Validator、Local Reviser、最终响应生成器、LangGraph 主流程、异常边界测试、端到端场景测试、结构化可观测性和最终代码检查已经完成。Graph 已接入普通请求和行程规划的条件分支，以及 Validator/Reviser 回路。
+
+Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件日志，Phase 15 完成架构、可靠性、反幻觉和用户输出检查；服务端全量回归 211 项通过。接入 API Task 1～9 的服务端实现、HTTPS 部署和六类真实 LLM 场景已完成。
+
 ## 下一步
 
-1. 在服务器 `.env` 配置 COS 密钥，完成真实 COS 上传、加载和删除回归。
-2. 在真实 Android 设备上补跑共享账号的新增、编辑、删除和刷新一致性，以及 Wi-Fi、移动网络、弱网和断网场景。
-3. 按服务端开发计划继续实现 Agent。
+1. 在真实手机上安装 HTTPS APK，完成登录、天气请求、三日行程请求、失败重试和重复发送检查。
+2. 下载条件恢复后补跑 API 24 最低版本回归。
+3. 补充大量记录的页面滚动压力测试。
+4. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
 
 ## 许可证
 

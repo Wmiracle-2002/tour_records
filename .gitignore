@@ -85,15 +85,37 @@ lint-results.xml
 # Photos storage
 app/src/main/photos/
 
-# Python service
+# Python caches and test artifacts
 __pycache__/
-.pytest_cache/
 *.py[cod]
-server/.env
-server/data/
+*$py.class
+.pytest_cache/
+.pytest-tmp/
 .test-run-*/
 pytest-tmp-*/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Python local environments and build output
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+
+# Local server state and secrets
+server/.env
+server/.env.*
+!server/.env.example
+server/data/*
+!server/data/.gitkeep
+server/**/*.db
+server/**/*.db-*
 server/.pytest-basetemp/
 
 # Deployment credentials
-.deploy/ssh/
+.deploy/
