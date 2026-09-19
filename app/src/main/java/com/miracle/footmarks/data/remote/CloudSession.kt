@@ -38,6 +38,9 @@ class CloudSession @Inject constructor(
         store.tokens = api.login(LoginRequest(username, password))
     }
 
+    suspend fun askAgent(message: String): AgentChatResponse =
+        authorized { api.chat(it, AgentChatRequest(message)) }
+
     suspend fun getTrips(): List<RemoteTrip> = authorized { api.getTrips(it) }
 
     suspend fun createTrip(trip: TripRequest): RemoteTripSummary =

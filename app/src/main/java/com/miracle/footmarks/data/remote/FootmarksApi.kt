@@ -40,6 +40,13 @@ data class RemoteTripSummary(
 
 data class LoginRequest(val username: String, val password: String)
 
+data class AgentChatRequest(val message: String)
+
+data class AgentChatResponse(
+    @SerializedName("request_id") val requestId: String,
+    val answer: String
+)
+
 data class Tokens(
     @SerializedName("access_token") val accessToken: String,
     @SerializedName("refresh_token") val refreshToken: String
@@ -69,6 +76,12 @@ data class RemoteTrip(
 interface FootmarksApi {
     @POST("api/v1/auth/login")
     suspend fun login(@Body request: LoginRequest): Tokens
+
+    @POST("api/v1/agent/chat")
+    suspend fun chat(
+        @Header("Authorization") authorization: String,
+        @Body request: AgentChatRequest
+    ): AgentChatResponse
 
     @GET("api/v1/trips")
     suspend fun getTrips(@Header("Authorization") authorization: String): List<RemoteTrip>

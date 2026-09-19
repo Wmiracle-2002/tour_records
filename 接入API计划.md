@@ -582,7 +582,7 @@ git commit -m "Agent API: cover LLM failure boundaries"
 - Produces: `FootmarksApi.chat(authorization: String, request: AgentChatRequest)` 和 `CloudSession.askAgent(message: String)`。
 - Consumes: 现有 Token、401 刷新和 Retrofit Base URL。
 
-- [ ] **Step 1: 编写 Android API 契约失败测试**
+- [x] **Step 1: 编写 Android API 契约失败测试**
 
 ```text
 agentChatUsesAuthenticatedEndpointAndParsesResponse
@@ -599,13 +599,13 @@ Authorization: Bearer access
 {"message":"北京三日游"}
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `.\gradlew.bat testDebugUnitTest --tests "*FootmarksApiTest"`
 
 Expected: FAIL，提示 Agent 数据类型或接口不存在。
 
-- [ ] **Step 3: 增加 Retrofit 和 Session 方法**
+- [x] **Step 3: 增加 Retrofit 和 Session 方法**
 
 ```kotlin
 data class AgentChatRequest(val message: String)
@@ -627,13 +627,13 @@ suspend fun askAgent(message: String): AgentChatResponse =
     authorized { api.chat(it, AgentChatRequest(message)) }
 ```
 
-- [ ] **Step 4: 运行 Android API 回归**
+- [x] **Step 4: 运行 Android API 回归**
 
 Run: `.\gradlew.bat testDebugUnitTest --tests "*FootmarksApiTest"`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add app/src/main/java/com/miracle/footmarks/data/remote/FootmarksApi.kt app/src/main/java/com/miracle/footmarks/data/remote/CloudSession.kt app/src/test/java/com/miracle/footmarks/data/remote/FootmarksApiTest.kt
