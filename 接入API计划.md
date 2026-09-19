@@ -740,6 +740,8 @@ git commit -m "Agent API: connect smart planning UI"
 
 ### Task 9: 真实 LLM 与服务器部署验收
 
+**当前进度（2026-09-19）：** Step 1、Step 2 和 Step 5 已完成。服务器五项 LLM 环境变量已从本机 `.env` 合并到服务器现有 `.env`，没有覆盖其他配置；容器已重建，`/api/v1/health` 返回 200，APK 已生成。真实 Agent 请求已到达 API，但当前 `FOOTMARKS_LLM_BASE_URL` 不是带 `http://` 或 `https://` 的完整 URL，触发 `UnsupportedProtocol`，因此 Step 3～4、Step 6 和最终提交暂未完成。修正 Base URL 后从 Step 3 继续。
+
 **Files:**
 
 - Modify: `README.md`
@@ -751,7 +753,7 @@ git commit -m "Agent API: connect smart planning UI"
 - Consumes: 用户提供的 LLM Base URL、API Key、模型名，以及现有高德 Key。
 - Produces: 可通过 HTTPS 调用的生产 `POST /api/v1/agent/chat`。
 
-- [ ] **Step 1: 在服务器 `.env` 追加 LLM 配置**
+- [x] **Step 1: 在服务器 `.env` 追加 LLM 配置**
 
 ```env
 FOOTMARKS_LLM_BASE_URL=https://provider.example/v1
@@ -763,7 +765,7 @@ FOOTMARKS_LLM_MAX_RETRIES=1
 
 这三个供应商值必须由用户提供或确认。不得删除现有 Token、COS、高德或数据库配置。
 
-- [ ] **Step 2: 重建并检查服务端**
+- [x] **Step 2: 重建并检查服务端**
 
 在服务器项目目录执行：
 
@@ -801,7 +803,7 @@ Expected: HTTP 200，包含非空 `request_id` 和 `answer`；日志包含结构
 
 逐项确认：无虚构开放时间、天气/路线失败会降级、预算明确是估算、行程经过 Validator。
 
-- [ ] **Step 5: 在本机生成真机 APK**
+- [x] **Step 5: 在本机生成真机 APK**
 
 ```powershell
 .\gradlew.bat assembleDebug -PfootmarksApiBaseUrl=https://www.cq-footmark.online/
