@@ -367,7 +367,7 @@ git commit -m "Agent API: connect LLM ReAct decisions"
 - Produces: `AgentRuntime.run(message: str, user_id: int, db: Session) -> AgentRunResult`。
 - Consumes: `StructuredLLMClient`、`LLMReActDecisionClient`、Internal DB Tool、预算 Tool、高德 Tool、LangGraph 和 `StructuredLoggingObserver`。
 
-- [ ] **Step 1: 编写运行时失败测试**
+- [x] **Step 1: 编写运行时失败测试**
 
 ```text
 test_runtime_builds_user_scoped_tools_and_returns_final_response
@@ -380,13 +380,13 @@ test_runtime_propagates_typed_llm_errors
 
 使用 Fake LLM Transport、测试数据库和 Fake AMap Transport，禁止真实网络。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd server && pytest tests/test_agent_runtime.py -q`
 
 Expected: FAIL，提示 `app.agent.runtime` 不存在。
 
-- [ ] **Step 3: 实现运行时组装**
+- [x] **Step 3: 实现运行时组装**
 
 ```python
 class AgentRunResult(BaseModel):
@@ -422,13 +422,13 @@ class AgentRuntime:
 
 同一个 `StructuredLLMClient` 注入 Analyzer、Itinerary Generator 和 Local Reviser；`LLMReActDecisionClient` 包装该客户端后注入 Collector。`geocode` 和 `reverse_geocode` 暂无对应结构化 State，不暴露给 ReAct。
 
-- [ ] **Step 4: 运行运行时、Graph 和端到端场景回归**
+- [x] **Step 4: 运行运行时、Graph 和端到端场景回归**
 
 Run: `cd server && pytest tests/test_agent_runtime.py tests/test_agent_graph.py tests/test_agent_phase13.py -q`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add server/app/agent/runtime.py server/tests/test_agent_runtime.py
