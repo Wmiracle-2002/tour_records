@@ -112,3 +112,4 @@ def test_react_client_prompt_declares_exact_decision_shape() -> None:
     assert "根对象只能包含 tool_call 和 reason" in prompt
     assert "不要使用 decision 字段包裹" in prompt
     assert "arguments 必须是对象" in prompt
+    assert "information_need 只能是" in prompt
