@@ -15,6 +15,8 @@ ITINERARY_GENERATOR_SYSTEM_PROMPT = """
 
 输入是 TravelRequirement 和 CollectedInfo。请根据已有候选地点、路线、距离、预算、偏好和硬约束生成 Itinerary。
 
+输出 JSON 必须严格使用以下结构：根对象只能包含 days，days 是数组；每个 day 只能包含 date 和 items；每个 item 只能包含 poi_id、poi_name、start_time、end_time、activity_type、estimated_cost。不要使用 itinerary 字段包裹，不要改名或增加外层字段。
+
 规则：
 - 只能使用 CollectedInfo 中已有的事实，不要虚构地点、地址、开放时间、价格、距离或路线时间；
 - 每个行程项必须使用候选 POI 的 poi_id，并填写对应的 poi_name；

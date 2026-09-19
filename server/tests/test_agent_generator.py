@@ -107,6 +107,12 @@ def test_generator_requests_structured_itinerary_and_preserves_poi_ids() -> None
     assert "不要输出自然语言旅行攻略" in ITINERARY_GENERATOR_SYSTEM_PROMPT
 
 
+def test_generator_prompt_declares_exact_itinerary_shape() -> None:
+    assert "根对象只能包含 days" in ITINERARY_GENERATOR_SYSTEM_PROMPT
+    assert "不要使用 itinerary 字段包裹" in ITINERARY_GENERATOR_SYSTEM_PROMPT
+    assert "poi_id、poi_name、start_time、end_time、activity_type" in ITINERARY_GENERATOR_SYSTEM_PROMPT
+
+
 def test_generator_rejects_poi_that_is_not_in_collected_info() -> None:
     itinerary = build_itinerary()
     itinerary.days[0].items[0].poi_id = "UNKNOWN"
