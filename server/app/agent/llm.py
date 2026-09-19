@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from app.agent.collector import ReActContext, ReActDecision
 from app.core.config import Settings, get_settings
 
 
@@ -161,3 +162,33 @@ class StructuredLLMClient:
             raise LLMInvalidResponseError(
                 "LLM structured response failed schema validation"
             ) from error
+
+
+REACT_DECISION_SYSTEM_PROMPT = """
+你是旅行 Agent 的 ReAct 信息收集决策器。
+
+输入包含用户需求、当前信息状态、已经收集的结构化信息和可用 Tool。
+每轮最多返回一个 Tool Call；如果信息已经足够，返回 null Tool Call。
+只能选择 available_tools 中存在的 Tool，并使用它的参数格式。
+不要输出思维链或隐藏推理；reason 只允许是一句简短的操作说明。
+只返回符合 ReActDecision 的结构化 JSON。
+""".strip()
+
+
+class LLMReActDecisionClient:
+    """Use structured LLM output to make one bounded ReAct decision."""
+
+    def __init__(self, client: StructuredLLMClient) -> None:
+        self._client = client
+
+    def decide(self, context: ReActContext) -> ReActDecision:
+        decision = self._client.complete_structured(
+            system_prompt=REACT_DECISION_SYSTEM_PROMPT,
+            user_prompt=context.model_dump_json(indent=2),
+            output_model=ReActDecision,
+        )
+        if decision.tool_call is not None:
+            allowed = {tool.name for tool in context.available_tools}
+            if decision.tool_call.name not in allowed:
+                raise LLMInvalidResponseError("LLM selected an unavailable tool")
+        return decision

@@ -92,7 +92,7 @@ class ReActDecisionClient(Protocol):
 
 Normalizer = Callable[[Any], Any]
 
-_TOOL_INFORMATION_NEEDS: dict[str, InformationNeedName] = {
+TOOL_INFORMATION_NEEDS: dict[str, InformationNeedName] = {
     "get_travel_summary": "history",
     "search_trip_history": "history",
     "search_records": "history",
@@ -168,7 +168,7 @@ class ReActCollector:
             return working
 
         call = decision.tool_call
-        need = call.information_need or _TOOL_INFORMATION_NEEDS.get(call.name)
+        need = call.information_need or TOOL_INFORMATION_NEEDS.get(call.name)
         if need is None:
             return working
 

@@ -298,7 +298,7 @@ git commit -m "Agent API: add structured LLM client"
 - Produces: 公共常量 `TOOL_INFORMATION_NEEDS`，供运行时过滤可用 Tool。
 - Consumes: `ReActContext`、`ReActDecision`、`ToolCall` 和 Task 2 的 `StructuredLLMClient`。
 
-- [ ] **Step 1: 编写 ReAct 决策失败测试**
+- [x] **Step 1: 编写 ReAct 决策失败测试**
 
 ```text
 test_react_client_returns_one_valid_tool_call
@@ -311,13 +311,13 @@ test_react_client_does_not_expose_chain_of_thought
 
 测试输入必须包含需求、当前信息状态、已收集信息、可用 Tool 描述和当前轮次。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd server && pytest tests/test_agent_llm_decision.py -q`
 
 Expected: FAIL，提示 `LLMReActDecisionClient` 不存在。
 
-- [ ] **Step 3: 实现结构化决策客户端**
+- [x] **Step 3: 实现结构化决策客户端**
 
 ```python
 class LLMReActDecisionClient:
@@ -339,13 +339,13 @@ class LLMReActDecisionClient:
 
 Prompt 明确要求每轮最多一个 Tool Call；`reason` 只能是简短操作说明，不要求或保存思维链。
 
-- [ ] **Step 4: 运行 ReAct 和 Collector 回归**
+- [x] **Step 4: 运行 ReAct 和 Collector 回归**
 
 Run: `cd server && pytest tests/test_agent_llm_decision.py tests/test_agent_collector.py tests/test_agent_information.py -q`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add server/app/agent/llm.py server/app/agent/collector.py server/tests/test_agent_llm_decision.py
