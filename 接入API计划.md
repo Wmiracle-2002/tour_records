@@ -451,7 +451,7 @@ git commit -m "Agent API: assemble production runtime"
 - Produces: `AgentChatRequest(message: str)` 和 `AgentChatResponse(request_id: str, answer: str)`。
 - Consumes: `current_user`、`get_db`、`AgentRuntime.run(message: str, user_id: int, db: Session)`。
 
-- [ ] **Step 1: 编写 API 契约失败测试**
+- [x] **Step 1: 编写 API 契约失败测试**
 
 ```text
 test_agent_chat_requires_access_token
@@ -466,13 +466,13 @@ test_agent_chat_maps_timeout_to_504_and_upstream_failure_to_502
 
 测试通过 `app.state.agent_runtime` 注入 Fake Runtime，不访问真实模型。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd server && pytest tests/test_agent_api.py -q`
 
 Expected: FAIL，接口返回 404。
 
-- [ ] **Step 3: 实现路由和依赖注入**
+- [x] **Step 3: 实现路由和依赖注入**
 
 ```python
 class AgentChatRequest(BaseModel):
@@ -503,7 +503,7 @@ def chat(
 
 `create_app()` 接受可选 `agent_runtime`，测试可注入 Fake；生产默认从 Settings 创建真实 Runtime。路由使用同步 `def`，让 FastAPI 在线程池执行当前同步 LangGraph，不阻塞事件循环。
 
-- [ ] **Step 4: 运行 API、认证和服务端全量回归**
+- [x] **Step 4: 运行 API、认证和服务端全量回归**
 
 Run: `cd server && pytest tests/test_agent_api.py tests/test_auth.py -q`
 
@@ -513,7 +513,7 @@ Run: `cd server && pytest -q`
 
 Expected: 全部 PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add server/app/api/agent.py server/app/main.py server/tests/test_agent_api.py

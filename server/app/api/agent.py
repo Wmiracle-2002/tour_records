@@ -1,0 +1,72 @@
+"""Authenticated HTTP entry point for the Travel Agent."""
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.orm import Session
+
+from app.agent.llm import (
+    LLMInvalidResponseError,
+    LLMNotConfiguredError,
+    LLMTimeoutError,
+    LLMUpstreamError,
+)
+from app.agent.runtime import AgentRunResult
+from app.api.auth import current_user
+from app.database import get_db
+from app.models import User
+
+
+router = APIRouter(prefix="/agent", tags=["agent"])
+
+
+class AgentChatRequest(BaseModel):
+    """一次 Agent 对话请求。"""
+
+    message: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("message")
+    @classmethod
+    def normalize_message(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("message must not be blank")
+        return normalized
+
+
+class AgentChatResponse(BaseModel):
+    """一次 Agent 对话响应。"""
+
+    request_id: str
+    answer: str
+
+
+def _llm_http_exception(error: Exception) -> HTTPException:
+    if isinstance(error, LLMNotConfiguredError):
+        return HTTPException(status_code=503, detail="LLM service is not configured")
+    if isinstance(error, LLMTimeoutError):
+        return HTTPException(status_code=504, detail="LLM service timed out")
+    if isinstance(error, (LLMUpstreamError, LLMInvalidResponseError)):
+        return HTTPException(status_code=502, detail="LLM service request failed")
+    raise TypeError(f"Unsupported LLM error: {type(error).__name__}")
+
+
+@router.post("/chat", response_model=AgentChatResponse)
+def chat(
+    payload: AgentChatRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> AgentChatResponse:
+    """Run one authenticated, synchronous Agent request."""
+    try:
+        result = request.app.state.agent_runtime.run(payload.message, user.id, db)
+    except (
+        LLMNotConfiguredError,
+        LLMTimeoutError,
+        LLMUpstreamError,
+        LLMInvalidResponseError,
+    ) as error:
+        raise _llm_http_exception(error) from error
+    if not isinstance(result, AgentRunResult):
+        raise HTTPException(status_code=502, detail="Agent returned an invalid response")
+    return AgentChatResponse(**result.model_dump())
