@@ -152,7 +152,7 @@ Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在
 
 Agent Phase 1～15 的 State、Requirement Analyzer、Tool Layer、ReAct Collector、基础 Workflow、Itinerary Generator、Validator、Local Reviser、最终响应生成器、LangGraph 主流程、异常边界测试、端到端场景测试、结构化可观测性和最终代码检查已经完成。Graph 已接入普通请求和行程规划的条件分支，以及 Validator/Reviser 回路。
 
-Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件日志，Phase 15 完成架构、可靠性、反幻觉和用户输出检查；服务端全量回归 208 项通过。接入 API Task 1～9 的服务端实现、HTTPS 部署和六类真实 LLM 场景已完成。
+Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件日志，Phase 15 完成架构、可靠性、反幻觉和用户输出检查；服务端全量回归 211 项通过。接入 API Task 1～9 的服务端实现、HTTPS 部署和六类真实 LLM 场景已完成。
 
 ## 下一步
 
