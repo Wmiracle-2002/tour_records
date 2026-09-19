@@ -658,7 +658,7 @@ git commit -m "Agent API: add Android chat client"
 - Produces: `SmartPlanningViewModel.updateDraft()`、`send()` 和 `dismissError()`。
 - Consumes: `CloudSession.askAgent()`。
 
-- [ ] **Step 1: 增加协程测试依赖和 ViewModel 失败测试**
+- [x] **Step 1: 增加协程测试依赖和 ViewModel 失败测试**
 
 ```kotlin
 data class ChatMessage(
@@ -677,13 +677,13 @@ data class SmartPlanningUiState(
 
 测试至少覆盖：发送成功、未登录、HTTP 错误、发送期间禁用重复提交、空输入不发送、成功后清空输入框。
 
-- [ ] **Step 2: 运行 ViewModel 测试确认失败**
+- [x] **Step 2: 运行 ViewModel 测试确认失败**
 
 Run: `.\gradlew.bat testDebugUnitTest --tests "*SmartPlanningViewModelTest"`
 
 Expected: FAIL，提示 ViewModel 不存在。
 
-- [ ] **Step 3: 实现 ViewModel 和可测试页面**
+- [x] **Step 3: 实现 ViewModel 和可测试页面**
 
 ```kotlin
 @HiltViewModel
@@ -706,7 +706,7 @@ class SmartPlanningViewModel @Inject constructor(
 - 502/503/504 显示可重试错误，不删除用户输入和已有消息。
 - 删除原有“暂未开放，待完善”Snackbar 逻辑。
 
-- [ ] **Step 4: 更新 Compose 测试**
+- [x] **Step 4: 更新 Compose 测试**
 
 将旧测试替换为：
 
@@ -719,7 +719,7 @@ draftSurvivesSavedStateRestoration
 
 测试通过可注入的 `SmartPlanningUiState` 和回调验证 UI，不发真实网络请求；ViewModel 单元测试负责验证协程状态变化和 `CloudSession` 调用次数。
 
-- [ ] **Step 5: 运行 Android 单元和仪器测试**
+- [x] **Step 5: 运行 Android 单元和仪器测试**
 
 Run: `.\gradlew.bat testDebugUnitTest`
 
@@ -729,7 +729,7 @@ Run: `.\gradlew.bat connectedDebugAndroidTest`
 
 Expected: PASS；需要已启动的 API 34 模拟器。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add app/src/main/java/com/miracle/footmarks/ui/screen/smartplanning app/src/test/java/com/miracle/footmarks/ui/screen/smartplanning app/src/androidTest/java/com/miracle/footmarks/ui/SmartPlanningScreenTest.kt app/build.gradle.kts
