@@ -101,3 +101,14 @@ def test_react_client_prompt_does_not_request_chain_of_thought() -> None:
     assert "请详细展示思维链" not in prompt
     assert "show your chain of thought" not in prompt.lower()
     assert "最多返回一个 Tool Call" in prompt
+
+
+def test_react_client_prompt_declares_exact_decision_shape() -> None:
+    structured = FakeStructuredClient(ReActDecision())
+
+    LLMReActDecisionClient(structured).decide(weather_context())
+
+    prompt = structured.system_prompt or ""
+    assert "根对象只能包含 tool_call 和 reason" in prompt
+    assert "不要使用 decision 字段包裹" in prompt
+    assert "arguments 必须是对象" in prompt
