@@ -117,6 +117,11 @@ class OpenAICompatibleTransport:
     def close(self) -> None:
         self._client.close()
 
+    @property
+    def max_retries(self) -> int:
+        """Return the configured retry count for transient or invalid output."""
+        return self._max_retries
+
     def _ensure_configured(self) -> None:
         if not self._base_url or not self._api_key or not self._model:
             raise LLMNotConfiguredError("LLM service is not configured")
@@ -151,17 +156,23 @@ class StructuredLLMClient:
         user_prompt: str,
         output_model: type[T],
     ) -> T:
-        payload = self._transport.complete_json(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            output_model=output_model,
-        )
-        try:
-            return output_model.model_validate(payload)
-        except ValidationError as error:
-            raise LLMInvalidResponseError(
-                "LLM structured response failed schema validation"
-            ) from error
+        for attempt in range(self._transport.max_retries + 1):
+            try:
+                payload = self._transport.complete_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    output_model=output_model,
+                )
+                return output_model.model_validate(payload)
+            except LLMInvalidResponseError:
+                if attempt >= self._transport.max_retries:
+                    raise
+            except ValidationError as error:
+                if attempt >= self._transport.max_retries:
+                    raise LLMInvalidResponseError(
+                        "LLM structured response failed schema validation"
+                    ) from error
+        raise LLMInvalidResponseError("LLM structured response failed")
 
 
 REACT_DECISION_SYSTEM_PROMPT = """

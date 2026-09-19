@@ -127,6 +127,22 @@ def test_invalid_json_and_schema_violation_are_rejected() -> None:
         run_client(lambda _request: response_with_content('{"wrong":"field"}'))
 
 
+def test_schema_violation_is_retried_once() -> None:
+    calls = 0
+
+    def retry_schema_handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return response_with_content('{"wrong":"field"}')
+        return response_with_content('{"answer":"recovered"}')
+
+    result, requests = run_client(retry_schema_handler)
+
+    assert result.answer == "recovered"
+    assert len(requests) == 2
+
+
 def test_upstream_error_does_not_expose_api_key() -> None:
     def unauthorized_handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"error": {"message": "unauthorized"}})
