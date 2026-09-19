@@ -740,7 +740,7 @@ git commit -m "Agent API: connect smart planning UI"
 
 ### Task 9: 真实 LLM 与服务器部署验收
 
-**当前进度（2026-09-19）：** Step 1～5 已完成。服务器五项 LLM 环境变量已从本机 `.env` 合并到服务器现有 `.env`，没有覆盖其他配置；修正 Base URL 后容器已重建，公网 HTTPS Agent API 已通过天气、历史、POI、预算、路线和三日行程六类真实场景。APK 已按公网 HTTPS 地址重新构建。Step 6 仍需在用户自己的手机上进行手工验收，Step 7 在本次文档更新提交后完成。
+**当前进度（2026-09-19）：** Step 1～5 已完成。服务器五项 LLM 环境变量已从本机 `.env` 合并到服务器现有 `.env`，没有覆盖其他配置；修正 Base URL 后容器已重建，公网 HTTPS Agent API 已通过天气、历史、POI、预算、路线和三日行程六类真实场景。针对历史查询响应超过 Android 默认网络超时的问题，客户端已将读取和调用超时调整为 120 秒。APK 已按公网 HTTPS 地址重新构建。Step 6 仍需在用户自己的手机上进行手工验收，Step 7 在本次文档更新提交后完成。
 
 **Files:**
 

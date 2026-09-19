@@ -1,6 +1,7 @@
 package com.miracle.footmarks.data.remote
 
 import com.google.gson.annotations.SerializedName
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -10,6 +11,7 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.DELETE
 import retrofit2.http.Path
+import java.util.concurrent.TimeUnit
 
 data class TripRequest(
     @SerializedName("province_code") val provinceCode: String,
@@ -129,8 +131,16 @@ interface FootmarksApi {
     suspend fun refresh(@Body request: RefreshRequest): Tokens
 
     companion object {
+        internal fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .build()
+
         fun create(baseUrl: String): FootmarksApi = Retrofit.Builder()
             .baseUrl(baseUrl)
+            .client(defaultClient())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(FootmarksApi::class.java)

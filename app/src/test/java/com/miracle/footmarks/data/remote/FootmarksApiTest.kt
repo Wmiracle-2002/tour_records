@@ -8,6 +8,14 @@ import org.junit.Test
 
 class FootmarksApiTest {
     @Test
+    fun defaultClientAllowsLongRunningAgentResponses() {
+        val client = FootmarksApi.defaultClient()
+
+        assertEquals(120_000, client.readTimeoutMillis)
+        assertEquals(120_000, client.callTimeoutMillis)
+    }
+
+    @Test
     fun loginAndReadTripsMatchServerContract() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(
