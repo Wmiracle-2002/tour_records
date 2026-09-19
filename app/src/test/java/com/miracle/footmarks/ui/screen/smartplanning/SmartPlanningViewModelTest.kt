@@ -122,6 +122,22 @@ class SmartPlanningViewModelTest {
     }
 
     @Test
+    fun sendClearsDraftWhileRequestIsInFlight() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val viewModel = viewModel(FakeFootmarksApi(gate = gate))
+
+        viewModel.updateDraft("查询我的旅行记录")
+        viewModel.send()
+        runCurrent()
+
+        assertEquals("", viewModel.uiState.value.draft)
+        assertTrue(viewModel.uiState.value.isSending)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+    }
+
+    @Test
     fun sendingDisablesDuplicateSubmission() = runTest(dispatcher) {
         val gate = CompletableDeferred<Unit>()
         val api = FakeFootmarksApi(gate = gate)

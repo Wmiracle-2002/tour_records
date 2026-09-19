@@ -54,8 +54,10 @@ class SmartPlanningViewModel @Inject constructor(
         val message = state.draft.trim()
         if (message.isEmpty()) return
 
+        savedStateHandle[DRAFT_KEY] = ""
         _uiState.value = state.copy(
             messages = state.messages + ChatMessage(nextId(), ChatRole.USER, message),
+            draft = "",
             isSending = true,
             error = null
         )
@@ -74,7 +76,9 @@ class SmartPlanningViewModel @Inject constructor(
                     isSending = false
                 )
             } catch (error: Exception) {
+                savedStateHandle[DRAFT_KEY] = message
                 _uiState.value = _uiState.value.copy(
+                    draft = message,
                     isSending = false,
                     error = userMessage(error)
                 )
