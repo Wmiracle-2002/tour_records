@@ -1,7 +1,11 @@
 from typing import Any
 
+import httpx
+import pytest
+
 from app.agent.collector import ReActCollector, ReActDecision, ReActContext, ToolCall
 from app.agent.graph import build_agent_graph, make_initial_state
+from app.agent.llm import LLMTimeoutError, LLMUpstreamError, OpenAICompatibleTransport
 from app.agent.models import (
     CollectedInfo,
     InformationStatus,
@@ -12,6 +16,7 @@ from app.agent.models import (
 from app.agent.response import FinalResponseGenerator
 from app.agent.state import TravelAgentState
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
+from app.core.config import Settings
 
 
 class EmptyHistoryTool:
@@ -131,3 +136,60 @@ def test_core_weather_failure_reaches_final_response_after_bounded_retries() -> 
     assert tool.calls == 3
     assert "天气信息查询失败" in result["final_response"]
     assert "天气服务连接超时" in result["final_response"]
+
+
+def test_llm_429_is_retried_within_configured_limit() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            429,
+            request=request,
+            json={"error": {"message": "too many requests"}},
+        )
+
+    settings = Settings(
+        token_secret="test-only-secret",
+        llm_base_url="https://llm.example.test/v1",
+        llm_api_key="test-api-key",
+        llm_model="test-model",
+        llm_max_retries=2,
+    )
+    transport = OpenAICompatibleTransport(
+        settings,
+        http_transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(LLMUpstreamError):
+        transport.complete_json(
+            system_prompt="secret system prompt",
+            user_prompt="secret user prompt",
+            output_model=TravelRequirement,
+        )
+
+    transport.close()
+    assert calls == settings.llm_max_retries + 1
+
+
+class TimeoutDecisionClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def decide(self, _context: ReActContext) -> ReActDecision:
+        self.calls += 1
+        raise LLMTimeoutError("LLM timed out")
+
+
+def test_llm_timeout_does_not_enter_infinite_react_loop() -> None:
+    decision_client = TimeoutDecisionClient()
+    collector = ReActCollector(
+        ToolLayer(ToolRegistry()),
+        decision_client,
+    )
+
+    with pytest.raises(LLMTimeoutError):
+        collector.collect(_history_state())
+
+    assert decision_client.calls == 1

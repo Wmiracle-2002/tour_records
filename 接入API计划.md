@@ -535,7 +535,7 @@ git commit -m "Agent API: expose authenticated chat endpoint"
 - Consumes: Task 2～5 的异常类型、运行时和 HTTP API。
 - Produces: 不泄露密钥/Prompt/原始响应的回归保护。
 
-- [ ] **Step 1: 增加边界用例**
+- [x] **Step 1: 增加边界用例**
 
 ```text
 test_llm_429_is_retried_within_configured_limit
@@ -547,19 +547,19 @@ test_agent_api_does_not_return_internal_state_or_validation_models
 
 测试分别断言实际调用次数不超过 `llm_max_retries + 1`、ReAct 轮次不超过 8、非法行程返回 502、日志脱敏，以及 HTTP JSON 不含 `information_status`、`collected_info`、`itinerary`、`validation` 或 `reason`。
 
-- [ ] **Step 2: 运行新用例并修复暴露出的最小问题**
+- [x] **Step 2: 运行新用例并修复暴露出的最小问题**
 
 Run: `cd server && pytest tests/test_agent_api_boundaries.py tests/test_agent_phase12.py tests/test_agent_observability.py -q`
 
 Expected: PASS；响应只包含 `request_id` 和 `answer`。
 
-- [ ] **Step 3: 运行 Agent 全量回归**
+- [x] **Step 3: 运行 Agent 全量回归**
 
 Run: `cd server && pytest tests/test_agent_*.py -q`
 
 Expected: 全部 PASS，无真实网络调用。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add server/tests/test_agent_api_boundaries.py server/tests/test_agent_phase12.py server/tests/test_agent_observability.py

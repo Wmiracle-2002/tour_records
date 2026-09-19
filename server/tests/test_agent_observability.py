@@ -211,6 +211,10 @@ def test_structured_logging_observer_emits_json_without_prompt_or_raw_response(
 ) -> None:
     logger = logging.getLogger("footmarks.agent.test")
     observer = StructuredLoggingObserver(logger)
+    api_key = "secret-api-key"
+    prompt = "secret prompt content"
+    tool_arguments = "secret tool arguments"
+    raw_response = "secret raw response"
     event = AgentEvent(
         event="final_response_ready",
         request_id="req-log-1",
@@ -227,3 +231,7 @@ def test_structured_logging_observer_emits_json_without_prompt_or_raw_response(
     assert "user_prompt" not in payload
     assert "tool_arguments" not in payload
     assert "raw_response" not in payload
+    assert all(
+        value not in caplog.text
+        for value in (api_key, prompt, tool_arguments, raw_response)
+    )

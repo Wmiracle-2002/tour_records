@@ -67,6 +67,11 @@ def chat(
         LLMInvalidResponseError,
     ) as error:
         raise _llm_http_exception(error) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=502,
+            detail="Agent generated an invalid response",
+        ) from error
     if not isinstance(result, AgentRunResult):
         raise HTTPException(status_code=502, detail="Agent returned an invalid response")
     return AgentChatResponse(**result.model_dump())
