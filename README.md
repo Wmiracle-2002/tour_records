@@ -6,7 +6,7 @@
 
 - Android `versionName`：`1.0.0`
 - 当前工作分支：`feat/demo`
-- 当前开发里程碑：阶段 11～13 已完成，阶段 15 的文字记录同步已实现并通过本机联调；Agent Phase 1～3D 基础模块已完成，Phase 4 起待实施
+- 当前开发里程碑：阶段 11～13 已完成，阶段 15 的文字记录同步已实现并通过本机联调；Agent Phase 1～15 的基础模块和最终代码检查已完成
 - 构建环境：JDK 17、Android SDK 34、Gradle 8.4
 - 最低系统：Android 7.0（API 24）
 
@@ -35,7 +35,7 @@
 
 ## 当前限制
 
-- 智能规划仍提示“暂未开放”；Agent 基础模块尚未接入对话 API、LLM 和 ReAct 流程，COS 原图上传与远程图片加载仍待完善。
+- 智能规划 Android 页面仍提示“暂未开放”；服务端 Agent 已完成 Phase 1～15 的 State、Tool、ReAct Collector、Final Response、简单 Workflow、结构化行程生成、Validator、局部 Reviser、行程最终响应、LangGraph 接线、异常边界测试、可控端到端场景测试、结构化可观测性和最终代码检查，但尚未接入对话 API、真实 LLM 或 HTTP Agent API，真实网络数据端到端测试仍待完善，COS 原图上传与远程图片加载仍待完善。
 - 登录云端前要求本机没有未同步的旧旅行，以免把两套数据混在同一时间线；旧本地数据不会被自动上传或删除。云端模式暂不支持新增照片，已有纯本地 Demo 继续支持照片。
 - 服务端不可用时可以浏览已缓存的云端记录；云端模式的新增、编辑、删除和刷新会报错，不自动改为本地写入。两台真实设备和 API 24 网络回归尚待补测。
 - 最低版本配置为 API 24；本机只有 API 34 镜像，API 24 设备回归需在镜像可下载后补跑。
@@ -114,7 +114,7 @@ Remove-Item Env:FOOTMARKS_INITIAL_PASSWORD
 py -3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
+浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。也可以使用固定的开发测试容器：首次在仓库根目录执行 `docker compose -f server/compose.dev.yaml up -d --build agent-test`，之后执行 `docker compose -f server/compose.dev.yaml exec agent-test pytest -q`。源码通过目录挂载到容器，代码修改后直接重新执行测试即可；只有 `requirements.txt` 或 `requirements-dev.txt` 变化时才需要重新构建。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
 
 Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose --env-file server/.env -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose --env-file server/.env -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
 
@@ -146,11 +146,18 @@ Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在
 - [CRUD功能完成总结.md](./CRUD功能完成总结.md)：本次 CRUD 里程碑范围
 - [城市数据源.md](./城市数据源.md)：2023 年行政区划来源、条目数量、转换规则和许可证
 
+## Agent 开发进度
+
+Agent Phase 1～15 的 State、Requirement Analyzer、Tool Layer、ReAct Collector、基础 Workflow、Itinerary Generator、Validator、Local Reviser、最终响应生成器、LangGraph 主流程、异常边界测试、端到端场景测试、结构化可观测性和最终代码检查已经完成。Graph 已接入普通请求和行程规划的条件分支，以及 Validator/Reviser 回路。
+
+Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件日志，Phase 15 完成架构、可靠性、反幻觉和用户输出检查；Agent 回归 150 项，服务端全量回归 169 项。真实 LLM、HTTP Agent API 和真实网络数据测试留给后续阶段。
+
 ## 下一步
 
-1. 下载条件恢复后补跑 API 24 最低版本回归。
-2. 补充大量记录的页面滚动压力测试。
-3. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
+1. 根据后续需求接入对话 API、真实 LLM 和 HTTP Agent API。
+2. 下载条件恢复后补跑 API 24 最低版本回归。
+3. 补充大量记录的页面滚动压力测试。
+4. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
 
 ## 许可证
 

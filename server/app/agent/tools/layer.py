@@ -80,12 +80,22 @@ class ToolRegistry:
     def names(self) -> tuple[str, ...]:
         return tuple(self._tools)
 
+    def descriptions(self) -> tuple[tuple[str, str], ...]:
+        """返回工具名称和说明，供 ReAct 决策上下文使用。"""
+        return tuple(
+            (name, tool.description) for name, tool in self._tools.items()
+        )
+
 
 class ToolLayer:
     """统一查找并执行工具，将异常转换为 ToolResult。"""
 
     def __init__(self, registry: ToolRegistry) -> None:
         self._registry = registry
+
+    def descriptions(self) -> tuple[tuple[str, str], ...]:
+        """返回可供 ReAct 决策使用的工具说明。"""
+        return self._registry.descriptions()
 
     def execute(self, name: str, **arguments: Any) -> ToolResult[Any]:
         try:

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.agent.tools.internal_db import TripInfo, create_internal_db_tools
+from app.agent.tools.internal import TripInfo, create_internal_db_tools
 from app.agent.tools.layer import ToolLayer, ToolRegistry
 from app.models import Record, RecordType, Trip, User
 from app.security import hash_password

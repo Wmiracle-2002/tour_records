@@ -1,0 +1,12 @@
+services:
+  agent-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    restart: unless-stopped
+    command: ["sleep", "infinity"]

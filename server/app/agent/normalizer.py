@@ -302,6 +302,37 @@ def normalize_history(raw: Any) -> TravelHistoryInfo:
     )
 
 
+def normalize_records(raw: Any) -> TravelHistoryInfo:
+    """将记录搜索结果汇总为可用于历史去重的旅行事实。"""
+    if is_empty_result(raw):
+        return TravelHistoryInfo()
+    if isinstance(raw, Mapping) and "records" in raw:
+        items = _list_value(raw["records"], "records")
+    elif isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
+        items = list(raw)
+    else:
+        raise NormalizerError("records must be a list or object")
+
+    cities: list[str] = []
+    names: list[str] = []
+    poi_ids: list[str] = []
+    trip_ids: set[str] = set()
+    for index, item in enumerate(items):
+        record = _mapping(item, f"records[{index}]")
+        _append_unique(cities, _text(record.get("city_name"), "record.city_name"))
+        _append_unique(names, _text(record.get("name"), "record.name"))
+        _append_unique(poi_ids, _text(record.get("poi_id"), "record.poi_id"))
+        trip_id = _text(record.get("trip_id"), "record.trip_id")
+        if trip_id:
+            trip_ids.add(trip_id)
+    return TravelHistoryInfo(
+        trip_count=len(trip_ids),
+        visited_cities=cities,
+        visited_names=names,
+        visited_poi_ids=poi_ids,
+    )
+
+
 def normalize_budget(raw: Any) -> BudgetInfo | None:
     """将预算工具结果转换为 BudgetInfo；空预算保持为 None。"""
     if is_empty_result(raw):

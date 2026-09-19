@@ -11,6 +11,7 @@ from app.agent.normalizer import (
     normalize_distance,
     normalize_history,
     normalize_poi,
+    normalize_records,
     normalize_route,
     normalize_tool_result,
     normalize_weather,
@@ -161,6 +162,31 @@ def test_normalize_history_collects_unique_cities_and_pois() -> None:
         visited_cities=["南京市"],
         visited_names=["中山陵", "夫子庙"],
         visited_poi_ids=["B1", "B2"],
+    )
+
+
+def test_normalize_record_search_collects_history_facts() -> None:
+    result = normalize_records(
+        [
+            {
+                "record_id": 1,
+                "trip_id": 10,
+                "city_name": "南京市",
+                "name": "中山陵",
+            },
+            {
+                "record_id": 2,
+                "trip_id": 10,
+                "city_name": "南京市",
+                "name": "夫子庙",
+            },
+        ]
+    )
+
+    assert result == TravelHistoryInfo(
+        trip_count=1,
+        visited_cities=["南京市"],
+        visited_names=["中山陵", "夫子庙"],
     )
 
 
