@@ -91,6 +91,9 @@ __pycache__/
 *.py[cod]
 server/.env
 server/data/
+.test-run-*/
+pytest-tmp-*/
+server/.pytest-basetemp/
 
 # Deployment credentials
 .deploy/ssh/
