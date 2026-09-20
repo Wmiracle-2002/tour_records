@@ -49,6 +49,47 @@ def test_normalize_amap_poi_response_to_business_models() -> None:
     ]
 
 
+def test_normalize_poi_accepts_empty_amap_optional_open_time() -> None:
+    result = normalize_poi(
+        {
+            "status": "1",
+            "pois": [
+                {
+                    "id": "B0002",
+                    "name": "中山陵景区",
+                    "address": "南京市玄武区",
+                    "location": "118.854097,32.054508",
+                    "type": "风景名胜;景点",
+                    "biz_ext": {"open_time": []},
+                }
+            ],
+        }
+    )
+
+    assert result[0].opening_hours is None
+
+
+def test_normalize_poi_accepts_numeric_status_and_empty_optional_values() -> None:
+    result = normalize_poi(
+        {
+            "status": 1,
+            "pois": [
+                {
+                    "id": "B0003",
+                    "name": "玄武湖景区",
+                    "address": [],
+                    "location": "118.812688,32.069455",
+                    "type": "风景名胜;公园广场",
+                    "biz_ext": [],
+                }
+            ],
+        }
+    )
+
+    assert result[0].address is None
+    assert result[0].opening_hours is None
+
+
 def test_normalize_weather_forecast_and_temperature_boundaries() -> None:
     result = normalize_weather(
         {
@@ -75,6 +116,41 @@ def test_normalize_weather_forecast_and_temperature_boundaries() -> None:
             temperature_max=31.0,
         )
     ]
+
+
+def test_normalize_weather_unwraps_amap_forecasts_container() -> None:
+    result = normalize_weather(
+        {
+            "status": "1",
+            "forecasts": [
+                {
+                    "city": "南京市",
+                    "casts": [
+                        {
+                            "date": "2026-09-20",
+                            "dayweather": "阴",
+                            "nightweather": "阴",
+                            "daytemp": "28",
+                            "nighttemp": "22",
+                        },
+                        {
+                            "date": "2026-09-21",
+                            "dayweather": "晴",
+                            "nightweather": "晴",
+                            "daytemp": "",
+                            "nighttemp": [],
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert [item.location for item in result] == ["南京市", "南京市"]
+    assert result[0].temperature_min == 22.0
+    assert result[0].temperature_max == 28.0
+    assert result[1].temperature_min is None
+    assert result[1].temperature_max is None
 
 
 def test_normalize_live_weather_keeps_unknown_temperature_range_unknown() -> None:
@@ -229,3 +305,4 @@ def test_normalize_tool_result_preserves_status_and_maps_invalid_payload() -> No
     assert normalize_tool_result(failed, normalize_poi) == failed
     assert invalid.status == "failed"
     assert invalid.error_code == "invalid_tool_response"
+    assert "pois[0].id" in invalid.message

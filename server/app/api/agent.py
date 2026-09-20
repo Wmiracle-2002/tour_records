@@ -1,5 +1,7 @@
 """Authenticated HTTP entry point for the Travel Agent."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -17,6 +19,7 @@ from app.models import User
 
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+logger = logging.getLogger(__name__)
 
 
 class AgentChatRequest(BaseModel):
@@ -66,8 +69,14 @@ def chat(
         LLMUpstreamError,
         LLMInvalidResponseError,
     ) as error:
+        logger.warning(
+            "Agent LLM failure type=%s detail=%s",
+            type(error).__name__,
+            str(error),
+        )
         raise _llm_http_exception(error) from error
     except ValueError as error:
+        logger.warning("Agent generated an invalid response: %s", error)
         raise HTTPException(
             status_code=502,
             detail="Agent generated an invalid response",

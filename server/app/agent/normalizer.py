@@ -39,6 +39,11 @@ def is_empty_result(value: Any) -> bool:
     return False
 
 
+def _is_success_status(value: Any) -> bool:
+    """Accept the string and numeric success forms used by providers."""
+    return str(value) == "1"
+
+
 def _mapping(value: Any, name: str = "response") -> Mapping[str, Any]:
     if isinstance(value, BaseModel):
         return value.model_dump()
@@ -52,6 +57,8 @@ def _text(value: Any, name: str, required: bool = False) -> str | None:
         if required:
             raise NormalizerError(f"{name} is missing")
         return None
+    if not required and is_empty_result(value):
+        return None
     if not isinstance(value, (str, int, float)):
         raise NormalizerError(f"{name} must be text")
     result = str(value).strip()
@@ -61,7 +68,7 @@ def _text(value: Any, name: str, required: bool = False) -> str | None:
 
 
 def _number(value: Any, name: str, required: bool = True) -> Decimal | None:
-    if value is None or value == "":
+    if value is None or (not required and is_empty_result(value)):
         if required:
             raise NormalizerError(f"{name} is missing")
         return None
@@ -106,16 +113,19 @@ def normalize_poi(raw: Any) -> list[POIInfo]:
         elif "id" in payload:
             items = [payload]
         else:
-            if payload.get("status") == "1":
+            if _is_success_status(payload.get("status")):
                 return []
             raise NormalizerError("pois is missing")
 
     result: list[POIInfo] = []
     for index, item in enumerate(items):
         poi = _mapping(item, f"pois[{index}]")
-        business = poi.get("biz_ext")
-        if business is not None and not isinstance(business, Mapping):
-            raise NormalizerError(f"pois[{index}].biz_ext must be an object")
+        business_value = poi.get("biz_ext")
+        business = (
+            None
+            if is_empty_result(business_value)
+            else _mapping(business_value, f"pois[{index}].biz_ext")
+        )
         result.append(
             POIInfo(
                 poi_id=_text(poi.get("id"), f"pois[{index}].id", required=True),
@@ -137,13 +147,37 @@ def normalize_poi(raw: Any) -> list[POIInfo]:
 def _weather_items(raw: Any) -> tuple[Mapping[str, Any], str | None, bool]:
     payload = _mapping(raw)
     root_location = _text(payload.get("city") or payload.get("location"), "location")
+    nested = payload.get("data")
+    if isinstance(nested, Mapping):
+        payload = nested
+        root_location = _text(
+            payload.get("city") or payload.get("location"), "location"
+        ) or root_location
     if "lives" in payload:
         return tuple(_mapping(item, "lives item") for item in _list_value(payload["lives"], "lives")), root_location, True
     if "casts" in payload:
         return tuple(_mapping(item, "casts item") for item in _list_value(payload["casts"], "casts")), root_location, True
+    if "forecasts" in payload:
+        forecast_items: list[Mapping[str, Any]] = []
+        for forecast_index, forecast_value in enumerate(
+            _list_value(payload["forecasts"], "forecasts")
+        ):
+            forecast = _mapping(forecast_value, f"forecasts[{forecast_index}]")
+            forecast_location = _text(
+                forecast.get("city") or forecast.get("location"),
+                f"forecasts[{forecast_index}].city",
+            )
+            for cast_index, cast_value in enumerate(
+                _list_value(forecast.get("casts"), f"forecasts[{forecast_index}].casts")
+            ):
+                cast = dict(_mapping(cast_value, f"forecasts[{forecast_index}].casts[{cast_index}]"))
+                if forecast_location and not cast.get("city") and not cast.get("location"):
+                    cast["city"] = forecast_location
+                forecast_items.append(cast)
+        return tuple(forecast_items), root_location, True
     if "date" in payload or "reporttime" in payload:
         return (payload,), root_location, "daytemp" in payload or "nighttemp" in payload
-    if payload.get("status") == "1":
+    if _is_success_status(payload.get("status")):
         return (), root_location, False
     raise NormalizerError("weather data is missing")
 
@@ -360,6 +394,11 @@ def normalize_tool_result(
         )
     try:
         data = normalizer(result.data)
+    except (NormalizerError, TypeError, ValueError) as error:
+        return ToolResult.failed(
+            f"Tool response could not be normalized: {error}",
+            error_code="invalid_tool_response",
+        )
     except Exception:
         return ToolResult.failed(
             "Tool response could not be normalized",
