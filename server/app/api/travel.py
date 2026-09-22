@@ -326,12 +326,8 @@ def delete_record(
     record_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> Response:
     record = find_record(db, record_id, user.id)
-    trip = db.get(Trip, record.trip_id)
     delete_objects(record.images, storage_from(request))
     db.delete(record)
-    db.flush()
-    if not db.scalar(select(Record.id).where(Record.trip_id == trip.id).limit(1)):
-        db.delete(trip)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

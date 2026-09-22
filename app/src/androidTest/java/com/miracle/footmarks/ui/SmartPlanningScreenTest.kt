@@ -52,7 +52,7 @@ class SmartPlanningScreenTest {
                     SmartPlanningUiState(
                         messages = listOf(ChatMessage(0, ChatRole.AGENT, "历史回答")),
                         draft = "再次请求",
-                        error = "智能规划服务暂时不可用，请稍后重试"
+                        error = "智能规划响应超时（504），请稍后重试"
                     )
                 )
             }
@@ -71,7 +71,7 @@ class SmartPlanningScreenTest {
         }
 
         composeRule.onNodeWithText("历史回答").assertIsDisplayed()
-        composeRule.onNodeWithText("智能规划服务暂时不可用，请稍后重试").assertIsDisplayed()
+        composeRule.onNodeWithText("智能规划响应超时（504），请稍后重试").assertIsDisplayed()
         composeRule.onNodeWithText("发送").performClick()
         composeRule.onNodeWithText("重试成功").assertIsDisplayed()
     }

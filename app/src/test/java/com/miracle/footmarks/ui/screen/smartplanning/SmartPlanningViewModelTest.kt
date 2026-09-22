@@ -116,7 +116,7 @@ class SmartPlanningViewModelTest {
         viewModel.send()
         advanceUntilIdle()
 
-        assertEquals("智能规划服务暂时不可用，请稍后重试", viewModel.uiState.value.error)
+        assertEquals("智能规划尚未配置（503），请检查服务器 .env", viewModel.uiState.value.error)
         assertEquals("规划北京三日游", viewModel.uiState.value.draft)
         assertEquals(1, viewModel.uiState.value.messages.size)
         assertFalse(viewModel.uiState.value.isSending)

@@ -11,8 +11,8 @@ class FootmarksApiTest {
     fun defaultClientAllowsLongRunningAgentResponses() {
         val client = FootmarksApi.defaultClient()
 
-        assertEquals(120_000, client.readTimeoutMillis)
-        assertEquals(120_000, client.callTimeoutMillis)
+        assertEquals(300_000, client.readTimeoutMillis)
+        assertEquals(300_000, client.callTimeoutMillis)
     }
 
     @Test

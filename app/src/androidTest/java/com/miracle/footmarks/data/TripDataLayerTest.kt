@@ -512,7 +512,7 @@ class TripDataLayerTest {
     }
 
     @Test
-    fun deletingLastRecordAlsoDeletesEmptyTrip() = runBlocking {
+    fun deletingLastRecordKeepsTripContainer() = runBlocking {
         val cityId = database.cityDao().insert(testCity())
         val repository = RecordRepository(
             database = database,
@@ -534,7 +534,7 @@ class TripDataLayerTest {
 
         repository.deleteRecord(record)
 
-        assertNull(database.tripDao().getById(record.tripId))
+        assertEquals(record.tripId, database.tripDao().getById(record.tripId)?.id)
     }
 
     private fun testCity() = CityEntity(

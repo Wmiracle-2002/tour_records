@@ -11,11 +11,16 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = AccentBlue,
+    primary = AccentOrange,
     onPrimary = SurfaceWhite,
-    primaryContainer = AccentBlueHover,
-    secondary = TextMuted,
+    primaryContainer = AccentOrangeContainer,
+    onPrimaryContainer = TextPrimary,
+    secondary = AccentMint,
     onSecondary = SurfaceWhite,
+    secondaryContainer = AccentMintContainer,
+    onSecondaryContainer = TextPrimary,
+    tertiary = AccentSky,
+    onTertiary = SurfaceWhite,
     background = OffWhite,
     onBackground = TextPrimary,
     surface = SurfaceWhite,

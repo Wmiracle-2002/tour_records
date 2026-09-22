@@ -96,7 +96,9 @@ class SmartPlanningViewModel @Inject constructor(
         is IllegalArgumentException -> error.message ?: "请先在个人中心登录"
         is HttpException -> when (error.code()) {
             401 -> "请先在个人中心登录"
-            502, 503, 504 -> "智能规划服务暂时不可用，请稍后重试"
+            502 -> "智能规划上游调用失败（502），请检查服务端 LLM 配置"
+            503 -> "智能规划尚未配置（503），请检查服务器 .env"
+            504 -> "智能规划响应超时（504），请稍后重试"
             else -> "请求失败，请稍后重试"
         }
         else -> error.message ?: "请求失败，请稍后重试"

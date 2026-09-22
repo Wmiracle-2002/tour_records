@@ -43,9 +43,6 @@ class RecordRepository @Inject constructor(
     suspend fun deleteRecord(record: RecordEntity) {
         database.withTransaction {
             recordDao.delete(record)
-            if (recordDao.getRecordCountForTrip(record.tripId) == 0) {
-                tripDao.getById(record.tripId)?.let { tripDao.delete(it) }
-            }
         }
         photoManager.deletePhotos(parsePhotoPaths(record.photoUris))
     }

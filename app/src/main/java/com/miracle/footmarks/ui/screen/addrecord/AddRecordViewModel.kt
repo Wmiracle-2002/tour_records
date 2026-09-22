@@ -124,14 +124,49 @@ class AddRecordViewModel @Inject constructor(
     }
 
     fun removePhoto(uri: Uri) {
-        _uiState.value = _uiState.value.copy(
-            photoUris = _uiState.value.photoUris - uri
-        )
+        _uiState.value = _uiState.value.copy(photoUris = _uiState.value.photoUris - uri)
+    }
+
+    fun saveTrip(onSuccess: (Long) -> Unit) {
+        val state = _uiState.value
+        val cityId = state.cityId
+        if (cityId == null) {
+            _uiState.value = state.copy(error = "请选择旅游城市")
+            return
+        }
+        val dateError = TripDateValidator.validateRange(state.tripStartDate, state.tripEndDate)
+        if (dateError != null) {
+            _uiState.value = state.copy(error = dateError)
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = state.copy(isSaving = true, error = null)
+            try {
+                val tripId = if (cloud.isCloudMode) {
+                    val city = requireNotNull(cityRepository.getCityById(cityId)) { "城市不存在" }
+                    cloud.createTrip(city, state.tripStartDate, state.tripEndDate)
+                } else {
+                    tripRepository.createTrip(
+                        cityId = cityId,
+                        startDate = state.tripStartDate.toEpochDay() * DAY_MILLIS,
+                        endDate = state.tripEndDate.toEpochDay() * DAY_MILLIS
+                    )
+                }
+                _uiState.value = _uiState.value.copy(isSaving = false)
+                onSuccess(tripId)
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    error = "保存失败: ${error.message}"
+                )
+            }
+        }
     }
 
     fun saveRecord(onSuccess: () -> Unit) {
         val state = _uiState.value
-
+        val tripId = state.tripId
         val validationError = RecordInputValidator.validate(
             cityId = state.cityId,
             name = state.name,
@@ -141,6 +176,10 @@ class AddRecordViewModel @Inject constructor(
         )
         if (validationError != null) {
             _uiState.value = state.copy(error = validationError)
+            return
+        }
+        if (tripId == null) {
+            _uiState.value = state.copy(error = "请先创建旅游记录")
             return
         }
         val dateError = TripDateValidator.validate(
@@ -156,49 +195,22 @@ class AddRecordViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
             try {
-                if (cloud.isCloudMode && state.tripId == null) {
-                    val city = requireNotNull(cityRepository.getCityById(requireNotNull(state.cityId)))
-                    cloud.createTripWithRecord(
-                        city, state.tripStartDate, state.tripEndDate,
-                        state.recordType, state.name, state.date, state.rating,
-                        state.cost, state.notes.ifBlank { null }, state.photoUris
-                    )
-                } else if (cloud.isCloudMode) {
+                if (cloud.isCloudMode) {
                     cloud.createRecordForTrip(
-                        requireNotNull(state.tripId), state.recordType, state.name,
-                        state.date, state.rating, state.cost,
-                        state.notes.ifBlank { null }, state.photoUris
-                    )
-                } else if (state.tripId == null) {
-                    recordRepository.createTripWithRecord(
-                        cityId = requireNotNull(state.cityId),
-                        startDate = state.tripStartDate,
-                        endDate = state.tripEndDate,
-                        type = state.recordType,
-                        name = state.name,
-                        recordDate = state.date,
-                        rating = state.rating,
-                        cost = state.cost,
-                        notes = state.notes.ifBlank { null },
-                        photoUris = state.photoUris
+                        tripId, state.recordType, state.name, state.date,
+                        state.rating, state.cost, state.notes.ifBlank { null }, state.photoUris
                     )
                 } else {
                     recordRepository.createRecordForTrip(
-                        tripId = state.tripId,
-                        type = state.recordType,
-                        name = state.name,
-                        date = state.date,
-                        rating = state.rating,
-                        cost = state.cost,
-                        notes = state.notes.ifBlank { null },
-                        photoUris = state.photoUris
+                        tripId, state.recordType, state.name, state.date,
+                        state.rating, state.cost, state.notes.ifBlank { null }, state.photoUris
                     )
                 }
                 onSuccess()
-            } catch (e: Exception) {
-                _uiState.value = state.copy(
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    error = "保存失败: ${e.message}"
+                    error = "保存失败: ${error.message}"
                 )
             }
         }

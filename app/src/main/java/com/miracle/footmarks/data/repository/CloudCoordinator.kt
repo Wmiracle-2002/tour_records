@@ -31,6 +31,16 @@ class CloudCoordinator @Inject constructor(
         cache.replaceRemoteTrips(session.getTrips())
     }
 
+    suspend fun createTrip(
+        city: CityEntity,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): Long {
+        val remoteTrip = session.createTrip(tripRequest(city, startDate, endDate))
+        refresh()
+        return requireNotNull(cache.getTripByServerId(remoteTrip.id)).id
+    }
+
     suspend fun createTripWithRecord(
         city: CityEntity,
         startDate: LocalDate,

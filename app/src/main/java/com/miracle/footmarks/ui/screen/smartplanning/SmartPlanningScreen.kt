@@ -1,22 +1,32 @@
 package com.miracle.footmarks.ui.screen.smartplanning
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -28,6 +38,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.miracle.footmarks.ui.theme.AccentMintContainer
+import com.miracle.footmarks.ui.theme.AccentOrangeContainer
+import com.miracle.footmarks.ui.theme.ChatAssistantGreen
+import com.miracle.footmarks.ui.theme.ChatUserBlue
 
 @Composable
 fun SmartPlanningScreen(
@@ -55,25 +69,31 @@ fun SmartPlanningContent(
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(uiState.messages.size, uiState.isSending) {
-        val lastItemIndex = if (uiState.isSending) {
-            uiState.messages.size + 1
-        } else {
-            uiState.messages.size
-        }
-        if (lastItemIndex > 0) {
-            listState.scrollToItem(lastItemIndex)
-        }
+        val lastItemIndex = if (uiState.isSending) uiState.messages.size + 1 else uiState.messages.size
+        if (lastItemIndex > 0) listState.scrollToItem(lastItemIndex)
     }
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("智能规划") }) }
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("智能计划")
+                        Text(
+                            "把想去的地方交给灵感",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            )
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .imePadding()
         ) {
             LazyColumn(
                 state = listState,
@@ -81,27 +101,25 @@ fun SmartPlanningContent(
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth(0.88f)
-                            .padding(top = 16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
+                        modifier = Modifier.fillMaxWidth(0.92f),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = AccentOrangeContainer)
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "你好，我是足迹智能规划助手",
-                                style = MaterialTheme.typography.titleMedium
+                                text = "准备出发了吗？",
+                                style = MaterialTheme.typography.titleLarge
                             )
                             Text(
-                                text = "告诉我目的地、日期和偏好，我会帮你整理旅行计划。",
+                                text = "告诉我目的地、日期和偏好，一起把旅程想清楚。",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -112,53 +130,74 @@ fun SmartPlanningContent(
                 }
                 if (uiState.isSending) {
                     item {
-                        Text(
-                            text = "正在规划…",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
+                        Surface(
+                            color = AccentMintContainer,
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(
+                                text = "正在整理你的旅行灵感…",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
                     }
                 }
             }
 
             uiState.error?.let { error ->
-                Row(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onDismissError) {
-                        Text("关闭")
+                    Row(
+                        modifier = Modifier.padding(start = 14.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onDismissError) { Text("关闭") }
                     }
                 }
             }
 
-            Row(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Bottom
+                    .imePadding()
+                    .padding(12.dp),
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 3.dp
             ) {
-                OutlinedTextField(
-                    value = uiState.draft,
-                    onValueChange = onDraftChange,
-                    label = { Text("输入你的旅行想法") },
-                    modifier = Modifier.weight(1f),
-                    minLines = 1,
-                    maxLines = 4
-                )
-                Button(
-                    onClick = onSend,
-                    enabled = !uiState.isSending && uiState.draft.isNotBlank()
+                Row(
+                    modifier = Modifier.padding(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Text("发送")
+                    OutlinedTextField(
+                        value = uiState.draft,
+                        onValueChange = onDraftChange,
+                        placeholder = { Text("说说你想去哪里") },
+                        modifier = Modifier.weight(1f),
+                        minLines = 1,
+                        maxLines = 4,
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    Button(
+                        onClick = onSend,
+                        enabled = !uiState.isSending && uiState.draft.isNotBlank(),
+                        modifier = Modifier.size(52.dp),
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = "发送")
+                    }
                 }
             }
         }
@@ -168,19 +207,28 @@ fun SmartPlanningContent(
 @Composable
 private fun ChatBubble(message: ChatMessage) {
     val isUser = message.role == ChatRole.USER
-    Card(
-        modifier = Modifier.fillMaxWidth(if (isUser) 0.88f else 1f),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isUser) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
-        )
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     ) {
-        Text(
-            text = message.text,
-            modifier = Modifier.padding(16.dp)
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(if (isUser) 0.84f else 0.92f),
+            shape = RoundedCornerShape(
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = if (isUser) 20.dp else 6.dp,
+                bottomEnd = if (isUser) 6.dp else 20.dp
+            ),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isUser) ChatUserBlue else ChatAssistantGreen
+            )
+        ) {
+            SelectionContainer {
+                Text(
+                    text = message.text,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp)
+                )
+            }
+        }
     }
 }

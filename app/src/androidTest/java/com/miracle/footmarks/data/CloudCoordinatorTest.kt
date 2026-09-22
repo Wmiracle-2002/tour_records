@@ -83,6 +83,39 @@ class CloudCoordinatorTest {
     }
 
     @Test
+    fun createTripCreatesAnEmptyTripAndRefreshesLocalCache() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FootmarksDatabase::class.java).build()
+        MockWebServer().use { server ->
+            server.enqueue(json("""{"access_token":"access","refresh_token":"refresh","token_type":"bearer"}"""))
+            server.enqueue(json("[]"))
+            server.enqueue(json("""{"id":21,"province_code":"110000","city_code":"110100","city_name":"Beijing","start_date":"2026-09-01","end_date":"2026-09-03"}""", 201))
+            server.enqueue(json("""[{"id":21,"province_code":"110000","city_code":"110100","city_name":"Beijing","start_date":"2026-09-01","end_date":"2026-09-03","records":[]}]"""))
+            server.start()
+            val session = CloudSession(FootmarksApi.create(server.url("/").toString()), object : TokenStore {
+                override var tokens: Tokens? = null
+            })
+            val coordinator = CloudCoordinator(CloudCache(db), session, PhotoManager(context))
+
+            coordinator.login("shared", "password")
+            val localTripId = coordinator.createTrip(
+                CityEntity(name = "Beijing", provinceCode = "110000", cityCode = "110100"),
+                LocalDate.parse("2026-09-01"),
+                LocalDate.parse("2026-09-03")
+            )
+
+            val cached = db.tripDao().getById(localTripId)
+            assertEquals(21L, cached?.serverId)
+            assertEquals(0, db.recordDao().getRecordCountForTrip(localTripId))
+            server.takeRequest() // login
+            server.takeRequest() // initial refresh
+            assertEquals("/api/v1/trips", server.takeRequest().path) // create trip
+            assertEquals("/api/v1/trips", server.takeRequest().path) // refresh
+        }
+        db.close()
+    }
+
+    @Test
     fun createTripWithRecordUploadsOriginalPhotoBytes() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FootmarksDatabase::class.java).build()

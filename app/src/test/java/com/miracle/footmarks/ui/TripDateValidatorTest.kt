@@ -14,10 +14,12 @@ class TripDateValidatorTest {
     fun acceptsRecordDateInsideInclusiveTripRange() {
         assertNull(TripDateValidator.validate(start, end, start))
         assertNull(TripDateValidator.validate(start, end, end))
+        assertNull(TripDateValidator.validateRange(start, end))
     }
 
     @Test
     fun rejectsInvalidTripRangeAndOutsideRecordDate() {
+        assertEquals("结束日期不能早于开始日期", TripDateValidator.validateRange(end, start))
         assertEquals("结束日期不能早于开始日期", TripDateValidator.validate(end, start, end))
         assertEquals(
             "记录日期必须在旅行日期范围内",

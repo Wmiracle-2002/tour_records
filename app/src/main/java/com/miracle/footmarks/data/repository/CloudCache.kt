@@ -15,6 +15,9 @@ class CloudCache @Inject constructor(private val database: FootmarksDatabase) {
 
     suspend fun getTrip(id: Long): TripEntity? = database.tripDao().getById(id)
 
+    suspend fun getTripByServerId(serverId: Long): TripEntity? =
+        database.tripDao().getByServerId(serverId)
+
     suspend fun getCity(id: Long): CityEntity? = database.cityDao().getById(id)
 
     suspend fun getRecord(id: Long): RecordEntity? = database.recordDao().getById(id)

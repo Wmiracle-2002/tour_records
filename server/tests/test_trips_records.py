@@ -119,7 +119,7 @@ def test_single_day_record_and_trip_date_move_together(client: TestClient) -> No
     assert trip["records"][0]["date"] == "2026-09-05"
 
 
-def test_deleting_last_record_removes_trip_and_stats_use_distinct_city(client: TestClient) -> None:
+def test_deleting_last_record_keeps_trip_and_stats_use_distinct_city(client: TestClient) -> None:
     trip1 = client.post("/api/v1/trips", json=trip_payload()).json()["id"]
     trip2 = client.post("/api/v1/trips", json=trip_payload()).json()["id"]
     record1 = client.post(
@@ -131,9 +131,9 @@ def test_deleting_last_record_removes_trip_and_stats_use_distinct_city(client: T
     }
 
     assert client.delete(f"/api/v1/records/{record1}").status_code == 204
-    assert client.get(f"/api/v1/trips/{trip1}").status_code == 404
+    assert client.get(f"/api/v1/trips/{trip1}").json()["records"] == []
     assert client.get("/api/v1/stats").json() == {
-        "city_count": 1, "trip_count": 1, "total_cost": "0.00"
+        "city_count": 1, "trip_count": 2, "total_cost": "0.00"
     }
 
 
@@ -152,4 +152,5 @@ def test_two_sessions_observe_each_others_changes(client: TestClient) -> None:
         second_device.patch(f"/api/v1/records/{record_id}", json={"name": "新名称"})
         assert client.get(f"/api/v1/records/{record_id}").json()["name"] == "新名称"
         second_device.delete(f"/api/v1/records/{record_id}")
-        assert client.get("/api/v1/trips").json() == []
+        assert client.get("/api/v1/trips").json()[0]["id"] == trip_id
+        assert client.get("/api/v1/trips").json()[0]["records"] == []

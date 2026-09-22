@@ -1,13 +1,22 @@
 package com.miracle.footmarks.ui.screen.addrecord
 
 import android.net.Uri
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -16,8 +25,30 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog as MaterialDatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,25 +59,27 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.miracle.footmarks.R
 import com.miracle.footmarks.data.local.entity.RecordType
+import com.miracle.footmarks.ui.theme.BorderGray
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddRecordScreen(
-    onSaved: () -> Unit,
+    onTripSaved: (Long) -> Unit,
+    onRecordSaved: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AddRecordViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isTripForm = uiState.tripId == null
     var showCityPicker by remember { mutableStateOf(false) }
     var datePickerTarget by remember { mutableStateOf<DatePickerTarget?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        uri?.let { viewModel.addPhoto(it) }
-    }
+    ) { uri -> uri?.let(viewModel::addPhoto) }
 
     if (uiState.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -58,16 +91,16 @@ fun AddRecordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("添加记录") },
+                title = { Text(if (isTripForm) "添加旅游记录" else "添加景点/美食") },
                 actions = {
-                    TextButton(
-                        onClick = onCancel,
-                        enabled = !uiState.isSaving
-                    ) {
+                    TextButton(onClick = onCancel, enabled = !uiState.isSaving) {
                         Text(stringResource(R.string.action_cancel))
                     }
                     TextButton(
-                        onClick = { viewModel.saveRecord(onSaved) },
+                        onClick = {
+                            if (isTripForm) viewModel.saveTrip(onTripSaved)
+                            else viewModel.saveRecord(onRecordSaved)
+                        },
                         enabled = !uiState.isSaving
                     ) {
                         Text(stringResource(R.string.action_save))
@@ -84,195 +117,30 @@ fun AddRecordScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Error message
-            uiState.error?.let { error ->
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = error,
-                        modifier = Modifier.padding(12.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-            }
+            ErrorMessage(uiState.error)
 
-            // Record type selector
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = uiState.recordType == RecordType.ATTRACTION,
-                    onClick = { viewModel.updateRecordType(RecordType.ATTRACTION) },
-                    label = { Text(stringResource(R.string.type_attraction)) },
-                    modifier = Modifier.weight(1f)
+            if (isTripForm) {
+                TripFormContent(
+                    state = uiState,
+                    onCityClick = { showCityPicker = true },
+                    onDateClick = { datePickerTarget = it }
                 )
-                FilterChip(
-                    selected = uiState.recordType == RecordType.FOOD,
-                    onClick = { viewModel.updateRecordType(RecordType.FOOD) },
-                    label = { Text(stringResource(R.string.type_food)) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Text(
-                text = if (uiState.tripId == null) "新旅行" else "添加到已有旅行",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            // City selector
-            OutlinedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (uiState.tripId == null) Modifier.clickable { showCityPicker = true }
-                        else Modifier
-                    )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "旅行城市",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = uiState.cityName.ifBlank { stringResource(R.string.hint_select_city) },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (uiState.cityName.isBlank())
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        else
-                            MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                DateFieldCard(
-                    label = "旅行开始",
-                    date = uiState.tripStartDate,
-                    enabled = uiState.tripId == null,
-                    onClick = { datePickerTarget = DatePickerTarget.TRIP_START },
-                    modifier = Modifier.weight(1f)
-                )
-                DateFieldCard(
-                    label = "旅行结束",
-                    date = uiState.tripEndDate,
-                    enabled = uiState.tripId == null,
-                    onClick = { datePickerTarget = DatePickerTarget.TRIP_END },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Divider()
-            Text("景点 / 美食记录", style = MaterialTheme.typography.titleMedium)
-
-            // Name input
-            OutlinedTextField(
-                value = uiState.name,
-                onValueChange = { viewModel.updateName(it) },
-                label = { Text(stringResource(R.string.label_name)) },
-                placeholder = { Text(stringResource(R.string.hint_enter_name)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            // Date picker
-            OutlinedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { datePickerTarget = DatePickerTarget.RECORD }
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(R.string.label_date),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = uiState.date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
-
-            // Rating
-            Column {
-                Text(
-                    text = stringResource(R.string.label_rating),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    (1..5).forEach { star ->
-                        FilterChip(
-                            selected = uiState.rating?.toInt() == star,
-                            onClick = { viewModel.updateRating(star.toFloat()) },
-                            label = { Text("$star") }
+            } else {
+                RecordFormContent(
+                    state = uiState,
+                    onRecordTypeChange = viewModel::updateRecordType,
+                    onNameChange = viewModel::updateName,
+                    onDateClick = { datePickerTarget = DatePickerTarget.RECORD },
+                    onRatingChange = viewModel::updateRating,
+                    onCostChange = { viewModel.updateCost(it.toFloatOrNull()) },
+                    onNotesChange = viewModel::updateNotes,
+                    onRemovePhoto = viewModel::removePhoto,
+                    onAddPhoto = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     }
-                    if (uiState.rating != null) {
-                        TextButton(onClick = { viewModel.updateRating(null) }) {
-                            Text("清除")
-                        }
-                    }
-                }
-            }
-
-            // Cost
-            OutlinedTextField(
-                value = uiState.cost?.toString() ?: "",
-                onValueChange = {
-                    viewModel.updateCost(it.toFloatOrNull())
-                },
-                label = { Text(stringResource(R.string.label_cost)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            // Notes
-            OutlinedTextField(
-                value = uiState.notes,
-                onValueChange = { viewModel.updateNotes(it) },
-                label = { Text(stringResource(R.string.label_notes)) },
-                placeholder = { Text(stringResource(R.string.hint_enter_notes)) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5
-            )
-
-            // Photos
-            Column {
-                Text(
-                    text = "照片",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.photoUris) { uri ->
-                        PhotoItem(
-                            uri = uri,
-                            onRemove = { viewModel.removePhoto(uri) }
-                        )
-                    }
-                    if (uiState.photoUris.size < 9) item {
-                        AddPhotoButton(
-                            onClick = {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            }
-                        )
-                    }
-                }
             }
 
             if (uiState.isSaving) {
@@ -311,6 +179,193 @@ fun AddRecordScreen(
     }
 }
 
+@Composable
+private fun ErrorMessage(error: String?) {
+    error?.let {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+        ) {
+            Text(
+                text = it,
+                modifier = Modifier.padding(12.dp),
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun TripFormContent(
+    state: AddRecordUiState,
+    onCityClick: () -> Unit,
+    onDateClick: (DatePickerTarget) -> Unit
+) {
+    Text("新建旅游记录", style = MaterialTheme.typography.titleMedium)
+    OutlinedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onCityClick),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, BorderGray)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.label_city),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = state.cityName.ifBlank { stringResource(R.string.hint_select_city) },
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (state.cityName.isBlank()) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        DateFieldCard(
+            label = "开始日期",
+            date = state.tripStartDate,
+            onClick = { onDateClick(DatePickerTarget.TRIP_START) },
+            modifier = Modifier.weight(1f)
+        )
+        DateFieldCard(
+            label = "结束日期",
+            date = state.tripEndDate,
+            onClick = { onDateClick(DatePickerTarget.TRIP_END) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+    Text(
+        text = "保存后可以在旅游记录详情中添加景点或美食。",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecordFormContent(
+    state: AddRecordUiState,
+    onRecordTypeChange: (RecordType) -> Unit,
+    onNameChange: (String) -> Unit,
+    onDateClick: () -> Unit,
+    onRatingChange: (Float?) -> Unit,
+    onCostChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onRemovePhoto: (Uri) -> Unit,
+    onAddPhoto: () -> Unit
+) {
+    Text(
+        text = "添加到 ${state.cityName}（${formatDateRange(state.tripStartDate, state.tripEndDate)}）",
+        style = MaterialTheme.typography.titleMedium
+    )
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = state.recordType == RecordType.ATTRACTION,
+            onClick = { onRecordTypeChange(RecordType.ATTRACTION) },
+            label = { Text(stringResource(R.string.type_attraction)) },
+            modifier = Modifier.weight(1f)
+        )
+        FilterChip(
+            selected = state.recordType == RecordType.FOOD,
+            onClick = { onRecordTypeChange(RecordType.FOOD) },
+            label = { Text(stringResource(R.string.type_food)) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+
+    OutlinedTextField(
+        value = state.name,
+        onValueChange = onNameChange,
+        label = { Text(stringResource(R.string.label_name)) },
+        placeholder = { Text(stringResource(R.string.hint_enter_name)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
+
+    OutlinedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onDateClick)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.label_date),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = state.date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
+
+    Column {
+        Text(
+            text = stringResource(R.string.label_rating),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            (1..5).forEach { star ->
+                FilterChip(
+                    selected = state.rating?.toInt() == star,
+                    onClick = { onRatingChange(star.toFloat()) },
+                    label = { Text("$star") }
+                )
+            }
+            if (state.rating != null) {
+                TextButton(onClick = { onRatingChange(null) }) { Text("清除") }
+            }
+        }
+    }
+
+    OutlinedTextField(
+        value = state.cost?.toString() ?: "",
+        onValueChange = onCostChange,
+        label = { Text(stringResource(R.string.label_cost)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
+
+    OutlinedTextField(
+        value = state.notes,
+        onValueChange = onNotesChange,
+        label = { Text(stringResource(R.string.label_notes)) },
+        placeholder = { Text(stringResource(R.string.hint_enter_notes)) },
+        modifier = Modifier.fillMaxWidth(),
+        minLines = 3,
+        maxLines = 5
+    )
+
+    Column {
+        Text("照片", style = MaterialTheme.typography.labelMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(state.photoUris) { uri ->
+                PhotoItem(uri = uri, onRemove = { onRemovePhoto(uri) })
+            }
+            if (state.photoUris.size < 9) {
+                item { AddPhotoButton(onClick = onAddPhoto) }
+            }
+        }
+    }
+}
+
+private fun formatDateRange(start: LocalDate, end: LocalDate): String {
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    return if (start == end) start.format(formatter) else "${start.format(formatter)} - ${end.format(formatter)}"
+}
+
 private enum class DatePickerTarget {
     TRIP_START,
     TRIP_END,
@@ -320,13 +375,14 @@ private enum class DatePickerTarget {
 @Composable
 private fun DateFieldCard(
     label: String,
-    date: java.time.LocalDate,
-    enabled: Boolean,
+    date: LocalDate,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     OutlinedCard(
-        modifier = modifier.then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, BorderGray)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
@@ -352,9 +408,9 @@ fun PhotoItem(
         AsyncImage(
             model = uri,
             contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(14.dp)),
             contentScale = ContentScale.Crop
         )
         IconButton(
@@ -367,29 +423,21 @@ fun PhotoItem(
                     RoundedCornerShape(12.dp)
                 )
         ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "删除",
-                modifier = Modifier.size(16.dp)
-            )
+            Icon(Icons.Default.Close, contentDescription = "删除", modifier = Modifier.size(16.dp))
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddPhotoButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedCard(
-        onClick = onClick,
-        modifier = modifier.size(100.dp)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+fun AddPhotoButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+        OutlinedCard(
+            onClick = onClick,
+            modifier = modifier.size(100.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, BorderGray)
         ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = stringResource(R.string.action_add_photo),
@@ -402,33 +450,26 @@ fun AddPhotoButton(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatePickerDialog(
-    currentDate: java.time.LocalDate,
+    currentDate: LocalDate,
     onDismiss: () -> Unit,
-    onDateSelected: (java.time.LocalDate) -> Unit
+    onDateSelected: (LocalDate) -> Unit
 ) {
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = currentDate.toEpochDay() * 86400000L
+        initialSelectedDateMillis = currentDate.toEpochDay() * 86_400_000L
     )
 
-    androidx.compose.material3.DatePickerDialog(
+    MaterialDatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
                 onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        onDateSelected(
-                            java.time.LocalDate.ofEpochDay(millis / 86400000L)
-                        )
+                        onDateSelected(LocalDate.ofEpochDay(millis / 86_400_000L))
                     }
                 }
-            ) {
-                Text("确定")
-            }
+            ) { Text("确定") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") }
         }
     ) {
         DatePicker(state = datePickerState)

@@ -25,7 +25,7 @@ ITINERARY_GENERATOR_SYSTEM_PROMPT = """
 - 每个行程项必须使用候选 POI 的 poi_id，并填写对应的 poi_name；
 - 如果 TravelRequirement.duration_days 有值，days 必须恰好包含 duration_days 天，不得省略、合并或追加；
 - 遵守用户的 preferences 和 constraints；
-- date 只能使用 YYYY-MM-DD；如果用户使用“国庆”等非具体日期表达，不能把该词写入 date 字段；
+- date 只能使用 YYYY-MM-DD；如果用户使用“国庆”等非具体日期表达，不能把该词写入 date 字段，应转化为标准格式的日期；
 - 日期格式必须是 YYYY-MM-DD，时间格式必须是 HH:MM；
 - 只返回符合 Itinerary 的结构化数据，不要输出自然语言旅行攻略。
 """.strip()

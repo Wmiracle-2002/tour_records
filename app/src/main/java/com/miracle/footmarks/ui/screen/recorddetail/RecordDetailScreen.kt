@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.miracle.footmarks.data.local.entity.RecordType
+import com.miracle.footmarks.ui.theme.AccentMintContainer
+import com.miracle.footmarks.ui.theme.AccentOrangeContainer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -131,16 +133,16 @@ private fun RecordDetailContent(
         // 类型标签
         Surface(
             color = if (record.type == RecordType.ATTRACTION) {
-                Color(0xFF3C5A78)
+                AccentOrangeContainer
             } else {
-                Color(0xFFFF6B6B)
+                AccentMintContainer
             },
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         ) {
             Text(
                 text = if (record.type == RecordType.ATTRACTION) "景点" else "美食",
                 style = MaterialTheme.typography.labelLarge,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
             )
         }
