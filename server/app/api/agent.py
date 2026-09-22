@@ -1,6 +1,7 @@
 """Authenticated HTTP entry point for the Travel Agent."""
 
 import logging
+from time import monotonic
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
@@ -61,6 +62,8 @@ def chat(
     user: User = Depends(current_user),
 ) -> AgentChatResponse:
     """Run one authenticated, synchronous Agent request."""
+    started_at = monotonic()
+    logger.info("Agent request started user_id=%s", user.id)
     try:
         result = request.app.state.agent_runtime.run(payload.message, user.id, db)
     except (
@@ -70,9 +73,10 @@ def chat(
         LLMInvalidResponseError,
     ) as error:
         logger.warning(
-            "Agent LLM failure type=%s detail=%s",
+            "Agent LLM failure type=%s detail=%s duration_ms=%.0f",
             type(error).__name__,
             str(error),
+            (monotonic() - started_at) * 1000,
         )
         raise _llm_http_exception(error) from error
     except ValueError as error:
@@ -83,4 +87,9 @@ def chat(
         ) from error
     if not isinstance(result, AgentRunResult):
         raise HTTPException(status_code=502, detail="Agent returned an invalid response")
+    logger.info(
+        "Agent request completed request_id=%s duration_ms=%.0f",
+        result.request_id,
+        (monotonic() - started_at) * 1000,
+    )
     return AgentChatResponse(**result.model_dump())
