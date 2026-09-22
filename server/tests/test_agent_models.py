@@ -70,6 +70,12 @@ def test_requirement_values_below_lower_bound_are_rejected(
         TravelRequirement(intent="trip_planning", **{field: value})
 
 
+@pytest.mark.parametrize("value", ["国庆", "2026/10/01", "2026-02-30"])
+def test_requirement_dates_must_be_valid_iso_dates(value: str) -> None:
+    with pytest.raises(ValidationError):
+        TravelRequirement(intent="trip_planning", start_date=value)
+
+
 def test_zero_boundaries_are_accepted_for_collected_info() -> None:
     history = TravelHistoryInfo(trip_count=0)
     info_requirement = InfoRequirement(attempts=0)

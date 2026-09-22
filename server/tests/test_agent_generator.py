@@ -17,7 +17,7 @@ from app.agent.models import (
 
 class FakeItineraryClient:
     def __init__(self, response) -> None:
-        self.response = response
+        self.responses = response if isinstance(response, list) else [response]
         self.calls: list[dict] = []
 
     def complete_structured(self, *, system_prompt, user_prompt, output_model):
@@ -28,7 +28,7 @@ class FakeItineraryClient:
                 "output_model": output_model,
             }
         )
-        return self.response
+        return self.responses[min(len(self.calls) - 1, len(self.responses) - 1)]
 
 
 def build_requirement() -> TravelRequirement:
@@ -136,6 +136,21 @@ def test_generator_rejects_duration_mismatch() -> None:
             build_requirement(),
             build_collected_info(),
         )
+
+
+def test_generator_retries_after_business_validation_failure() -> None:
+    invalid_itinerary = build_itinerary()
+    invalid_itinerary.days.clear()
+    client = FakeItineraryClient([invalid_itinerary, build_itinerary()])
+
+    result = StructuredItineraryGenerator(client).generate(
+        build_requirement(),
+        build_collected_info(),
+    )
+
+    assert result == build_itinerary()
+    assert len(client.calls) == 2
+    assert "previous itinerary failed validation" in client.calls[1]["user_prompt"]
 
 
 def test_generator_rejects_dates_that_do_not_start_from_requirement_date() -> None:

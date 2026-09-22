@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import re
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.agent.utils import time_to_minutes
 
 
 TravelIntent = Literal[
@@ -54,6 +58,19 @@ class TravelRequirement(BaseModel):
     budget: float | None = Field(default=None, ge=0)
     preferences: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
+
+    @field_validator("start_date", "end_date")
+    @classmethod
+    def validate_requirement_date(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            raise ValueError("date must use YYYY-MM-DD")
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except ValueError as error:
+            raise ValueError("date must use a valid YYYY-MM-DD value") from error
+        return value
 
 
 class InfoRequirement(BaseModel):
@@ -154,12 +171,29 @@ class ItineraryItem(BaseModel):
     activity_type: str
     estimated_cost: float | None = None
 
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def validate_time(cls, value: str) -> str:
+        time_to_minutes(value)
+        return value
+
 
 class ItineraryDay(BaseModel):
     """某一天的日期和当天安排的行程项。"""
 
     date: str
     items: list[ItineraryItem]
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            raise ValueError("date must use YYYY-MM-DD")
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except ValueError as error:
+            raise ValueError("date must use a valid YYYY-MM-DD value") from error
+        return value
 
 
 class Itinerary(BaseModel):

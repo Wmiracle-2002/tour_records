@@ -19,6 +19,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 
 规则：
 - 缺失的信息保持为空，不要猜测或补全；
+- start_date 和 end_date 只能填写 YYYY-MM-DD；“国庆”等非具体日期表达应保留在 preferences 或 constraints 中，并将对应日期字段设为 null；
 - preferences 和 constraints 没有内容时使用空数组；
 - 不要使用 task_type 或其他字段名代替 intent；
 - 不要决定调用哪些 Tool；

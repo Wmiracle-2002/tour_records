@@ -10,6 +10,9 @@ from app.agent.models import CollectedInfo, Itinerary, TravelRequirement
 from app.agent.utils import avoids_previous_places, time_to_minutes
 
 
+MAX_ITINERARY_GENERATION_ATTEMPTS = 2
+
+
 ITINERARY_GENERATOR_SYSTEM_PROMPT = """
 你是旅行 Agent 的结构化行程生成器。
 
@@ -22,6 +25,7 @@ ITINERARY_GENERATOR_SYSTEM_PROMPT = """
 - 每个行程项必须使用候选 POI 的 poi_id，并填写对应的 poi_name；
 - 如果 TravelRequirement.duration_days 有值，days 必须恰好包含 duration_days 天，不得省略、合并或追加；
 - 遵守用户的 preferences 和 constraints；
+- date 只能使用 YYYY-MM-DD；如果用户使用“国庆”等非具体日期表达，不能把该词写入 date 字段；
 - 日期格式必须是 YYYY-MM-DD，时间格式必须是 HH:MM；
 - 只返回符合 Itinerary 的结构化数据，不要输出自然语言旅行攻略。
 """.strip()
@@ -51,14 +55,30 @@ class StructuredItineraryGenerator:
         requirement: TravelRequirement,
         collected_info: CollectedInfo,
     ) -> Itinerary:
-        output = self._client.complete_structured(
-            system_prompt=ITINERARY_GENERATOR_SYSTEM_PROMPT,
-            user_prompt=self._build_user_prompt(requirement, collected_info),
-            output_model=Itinerary,
-        )
-        itinerary = Itinerary.model_validate(output)
-        self._validate_itinerary(itinerary, requirement, collected_info)
-        return itinerary
+        base_prompt = self._build_user_prompt(requirement, collected_info)
+        last_error: ValueError | None = None
+        for attempt in range(MAX_ITINERARY_GENERATION_ATTEMPTS):
+            user_prompt = base_prompt
+            if attempt > 0 and last_error is not None:
+                user_prompt += (
+                    "\n\nThe previous itinerary failed validation: "
+                    f"{last_error}. Regenerate the complete Itinerary JSON and "
+                    "correct the validation problem."
+                )
+            output = self._client.complete_structured(
+                system_prompt=ITINERARY_GENERATOR_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                output_model=Itinerary,
+            )
+            try:
+                itinerary = Itinerary.model_validate(output)
+                self._validate_itinerary(itinerary, requirement, collected_info)
+                return itinerary
+            except ValueError as error:
+                last_error = error
+                if attempt == MAX_ITINERARY_GENERATION_ATTEMPTS - 1:
+                    raise
+        raise ValueError("Itinerary generation failed validation")
 
     def _build_user_prompt(
         self,
