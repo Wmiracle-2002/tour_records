@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import re
 from typing import Any
 
 import pytest
@@ -59,6 +61,55 @@ def test_agent_chat_returns_request_id_and_final_answer(client: TestClient) -> N
     assert response.status_code == 200
     assert set(response.json()) == {"request_id", "answer"}
     assert response.json() == {"request_id": "req-api-1", "answer": "测试回答"}
+
+
+def test_agent_chat_start_and_completion_logs_share_request_id(
+    client: TestClient,
+    caplog,
+) -> None:
+    use_runtime(client, FakeRuntime())
+
+    with caplog.at_level(logging.INFO, logger="app.api.agent"):
+        response = client.post("/api/v1/agent/chat", json={"message": "测试请求"})
+
+    assert response.status_code == 200
+    start = next(
+        record.message
+        for record in caplog.records
+        if "Agent request started" in record.message
+    )
+    completed = next(
+        record.message
+        for record in caplog.records
+        if "Agent request completed" in record.message
+    )
+    start_id = re.search(r"request_id=([^ ]+)", start)
+    completed_id = re.search(r"request_id=([^ ]+)", completed)
+    assert start_id is not None
+    assert completed_id is not None
+    assert start_id.group(1) == completed_id.group(1)
+
+
+def test_agent_chat_reuses_proxy_request_id_and_returns_header(
+    client: TestClient,
+    caplog,
+) -> None:
+    use_runtime(client, FakeRuntime())
+    proxy_request_id = "proxy-request-123"
+
+    with caplog.at_level(logging.INFO, logger="app.api.agent"):
+        response = client.post(
+            "/api/v1/agent/chat",
+            json={"message": "测试请求"},
+            headers={"X-Request-ID": proxy_request_id},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == proxy_request_id
+    assert any(
+        f"request_id={proxy_request_id}" in record.message
+        for record in caplog.records
+    )
 
 
 def test_agent_chat_uses_authenticated_user_id(client: TestClient) -> None:

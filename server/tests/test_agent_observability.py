@@ -23,6 +23,8 @@ from app.agent.observability import (
     AgentEvent,
     RecordingAgentObserver,
     StructuredLoggingObserver,
+    current_request_id,
+    request_context,
 )
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
@@ -128,6 +130,15 @@ def test_initial_state_contains_request_identity_and_start_time() -> None:
     assert first["run_started_at"] > 0
 
 
+def test_request_context_exposes_and_restores_request_id() -> None:
+    assert current_request_id() is None
+
+    with request_context("req-context-1"):
+        assert current_request_id() == "req-context-1"
+
+    assert current_request_id() is None
+
+
 def test_collector_records_tool_lifecycle_without_raw_payload() -> None:
     observer = RecordingAgentObserver()
     requirement = TravelRequirement(intent="weather_query", destination="南京")
@@ -154,16 +165,21 @@ def test_collector_records_tool_lifecycle_without_raw_payload() -> None:
     ).collect_round(state)
 
     assert [event.event for event in observer.events] == [
+        "stage_started",
+        "stage_completed",
         "tool_started",
         "tool_completed",
         "information_updated",
     ]
-    completed = observer.events[1]
+    assert observer.events[0].stage_name == "react_decision"
+    assert observer.events[1].stage_duration_ms is not None
+    assert observer.events[1].stage_status == "success"
+    completed = observer.events[3]
     assert completed.request_id == "req-tool-1"
     assert completed.tool_name == "weather"
     assert completed.tool_success is True
     assert completed.tool_duration_ms is not None
-    assert observer.events[2].information_status == {"weather": "completed"}
+    assert observer.events[4].information_status == {"weather": "completed"}
     serialized = " ".join(event.model_dump_json() for event in observer.events)
     assert "晴" not in serialized
     assert "不要记录这个参数" not in serialized
@@ -196,12 +212,30 @@ def test_graph_records_node_events_and_validation_status() -> None:
 
     assert result["final_response"]
     assert [event.event for event in observer.events] == [
+        "stage_started",
+        "stage_completed",
         "requirement_ready",
+        "stage_started",
+        "stage_completed",
         "itinerary_generated",
+        "stage_started",
         "validation_started",
+        "stage_completed",
         "validation_completed",
+        "stage_started",
+        "stage_completed",
         "final_response_ready",
     ]
+    stage_completed = [
+        event for event in observer.events if event.event == "stage_completed"
+    ]
+    assert [event.stage_name for event in stage_completed] == [
+        "requirement_analyzer",
+        "itinerary_generator",
+        "validator",
+        "final_response",
+    ]
+    assert all(event.stage_duration_ms is not None for event in stage_completed)
     assert observer.events[-1].total_duration_ms is not None
     assert all(event.request_id == "req-graph-1" for event in observer.events)
 

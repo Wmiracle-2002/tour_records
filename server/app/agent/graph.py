@@ -135,13 +135,46 @@ def _analyzer_node(
     observer: AgentObserver | None,
 ):
     def run(state: TravelAgentState) -> dict[str, TravelRequirement]:
-        requirement = analyzer.analyze(_user_query(state["messages"]))
+        stage_started_at = monotonic()
+        _emit_graph_event(
+            observer,
+            "stage_started",
+            state,
+            node_name="requirement_analyzer",
+            stage_name="requirement_analyzer",
+        )
+        try:
+            requirement = analyzer.analyze(_user_query(state["messages"]))
+        except Exception:
+            _emit_graph_event(
+                observer,
+                "stage_completed",
+                state,
+                node_name="requirement_analyzer",
+                stage_name="requirement_analyzer",
+                stage_duration_ms=(monotonic() - stage_started_at) * 1000,
+                stage_status="failed",
+            )
+            raise
+        stage_duration_ms = (monotonic() - stage_started_at) * 1000
+        _emit_graph_event(
+            observer,
+            "stage_completed",
+            state,
+            node_name="requirement_analyzer",
+            stage_name="requirement_analyzer",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
+        )
         _emit_graph_event(
             observer,
             "requirement_ready",
             state,
             node_name="requirement_analyzer",
             intent=requirement.intent,
+            stage_name="requirement_analyzer",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
         )
         return {"requirement": requirement}
 
@@ -181,15 +214,48 @@ def _itinerary_generator_node(
     observer: AgentObserver | None,
 ):
     def run(state: TravelAgentState) -> dict[str, Itinerary | None]:
-        itinerary = generator.generate(
-            state["requirement"],
-            state["collected_info"],
+        stage_started_at = monotonic()
+        _emit_graph_event(
+            observer,
+            "stage_started",
+            state,
+            node_name="itinerary_generator",
+            stage_name="itinerary_generator",
+        )
+        try:
+            itinerary = generator.generate(
+                state["requirement"],
+                state["collected_info"],
+            )
+        except Exception:
+            _emit_graph_event(
+                observer,
+                "stage_completed",
+                state,
+                node_name="itinerary_generator",
+                stage_name="itinerary_generator",
+                stage_duration_ms=(monotonic() - stage_started_at) * 1000,
+                stage_status="failed",
+            )
+            raise
+        stage_duration_ms = (monotonic() - stage_started_at) * 1000
+        _emit_graph_event(
+            observer,
+            "stage_completed",
+            state,
+            node_name="itinerary_generator",
+            stage_name="itinerary_generator",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
         )
         _emit_graph_event(
             observer,
             "itinerary_generated",
             state,
             node_name="itinerary_generator",
+            stage_name="itinerary_generator",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
         )
         return {"itinerary": itinerary, "validation": None}
 
@@ -204,6 +270,14 @@ def _validator_node(
         itinerary = state["itinerary"]
         if itinerary is None:
             raise ValueError("Validator requires an itinerary")
+        stage_started_at = monotonic()
+        _emit_graph_event(
+            observer,
+            "stage_started",
+            state,
+            node_name="validator",
+            stage_name="validator",
+        )
         _emit_graph_event(
             observer,
             "validation_started",
@@ -211,12 +285,34 @@ def _validator_node(
             node_name="validator",
             validation_round=state["validation_round"],
         )
-        validation = validator.validate(
-            state["requirement"],
-            itinerary,
-            state["collected_info"],
-        )
+        try:
+            validation = validator.validate(
+                state["requirement"],
+                itinerary,
+                state["collected_info"],
+            )
+        except Exception:
+            _emit_graph_event(
+                observer,
+                "stage_completed",
+                state,
+                node_name="validator",
+                stage_name="validator",
+                stage_duration_ms=(monotonic() - stage_started_at) * 1000,
+                stage_status="failed",
+            )
+            raise
         failures = [issue for issue in validation.issues if issue.status == "fail"]
+        stage_duration_ms = (monotonic() - stage_started_at) * 1000
+        _emit_graph_event(
+            observer,
+            "stage_completed",
+            state,
+            node_name="validator",
+            stage_name="validator",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
+        )
         _emit_graph_event(
             observer,
             "validation_failed" if failures else "validation_completed",
@@ -224,6 +320,9 @@ def _validator_node(
             node_name="validator",
             validation_round=state["validation_round"],
             validation_issue_type=failures[0].type if failures else None,
+            stage_name="validator",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
         )
         return {"validation": validation}
 
@@ -239,19 +338,55 @@ def _reviser_node(
         validation = state["validation"]
         if itinerary is None or validation is None:
             raise ValueError("Reviser requires an itinerary and validation result")
-        revised = reviser.revise(
-            itinerary,
-            validation.issues,
-            state["requirement"],
-            state["collected_info"],
+        stage_started_at = monotonic()
+        _emit_graph_event(
+            observer,
+            "stage_started",
+            state,
+            node_name="reviser",
+            stage_name="reviser",
+            validation_round=state["validation_round"],
         )
+        try:
+            revised = reviser.revise(
+                itinerary,
+                validation.issues,
+                state["requirement"],
+                state["collected_info"],
+            )
+        except Exception:
+            _emit_graph_event(
+                observer,
+                "stage_completed",
+                state,
+                node_name="reviser",
+                stage_name="reviser",
+                stage_duration_ms=(monotonic() - stage_started_at) * 1000,
+                stage_status="failed",
+                validation_round=state["validation_round"],
+            )
+            raise
+        stage_duration_ms = (monotonic() - stage_started_at) * 1000
         next_round = state["validation_round"] + 1
+        _emit_graph_event(
+            observer,
+            "stage_completed",
+            state,
+            node_name="reviser",
+            stage_name="reviser",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
+            validation_round=next_round,
+        )
         _emit_graph_event(
             observer,
             "itinerary_revised",
             state,
             node_name="reviser",
             validation_round=next_round,
+            stage_name="reviser",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
         )
         return {"itinerary": revised, "validation_round": next_round}
 
@@ -263,12 +398,42 @@ def _final_response_node(
     observer: AgentObserver | None,
 ):
     def run(state: TravelAgentState) -> dict[str, str]:
-        response = response_generator.generate(
-            state["requirement"],
-            state["collected_info"],
-            state["information_status"],
-            state["itinerary"],
-            state["validation"],
+        stage_started_at = monotonic()
+        _emit_graph_event(
+            observer,
+            "stage_started",
+            state,
+            node_name="final_response",
+            stage_name="final_response",
+        )
+        try:
+            response = response_generator.generate(
+                state["requirement"],
+                state["collected_info"],
+                state["information_status"],
+                state["itinerary"],
+                state["validation"],
+            )
+        except Exception:
+            _emit_graph_event(
+                observer,
+                "stage_completed",
+                state,
+                node_name="final_response",
+                stage_name="final_response",
+                stage_duration_ms=(monotonic() - stage_started_at) * 1000,
+                stage_status="failed",
+            )
+            raise
+        stage_duration_ms = (monotonic() - stage_started_at) * 1000
+        _emit_graph_event(
+            observer,
+            "stage_completed",
+            state,
+            node_name="final_response",
+            stage_name="final_response",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
         )
         started_at = state.get("run_started_at")
         total_duration_ms = (
@@ -281,6 +446,9 @@ def _final_response_node(
             "final_response_ready",
             state,
             node_name="final_response",
+            stage_name="final_response",
+            stage_duration_ms=stage_duration_ms,
+            stage_status="success",
             total_duration_ms=total_duration_ms,
         )
         return {"final_response": response}

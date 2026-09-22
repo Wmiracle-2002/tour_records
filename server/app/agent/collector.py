@@ -174,7 +174,34 @@ class ReActCollector:
             return working
 
         context = self._build_context(working)
-        decision = self._decision_client.decide(context)
+        decision_started_at = monotonic()
+        decision_round = working["react_round"] + 1
+        self._emit(
+            "stage_started",
+            working,
+            stage_name="react_decision",
+            react_round=decision_round,
+        )
+        try:
+            decision = self._decision_client.decide(context)
+        except Exception:
+            self._emit(
+                "stage_completed",
+                working,
+                stage_name="react_decision",
+                stage_duration_ms=(monotonic() - decision_started_at) * 1000,
+                stage_status="failed",
+                react_round=decision_round,
+            )
+            raise
+        self._emit(
+            "stage_completed",
+            working,
+            stage_name="react_decision",
+            stage_duration_ms=(monotonic() - decision_started_at) * 1000,
+            stage_status="success",
+            react_round=decision_round,
+        )
         working["react_round"] += 1
         working["react_action"] = "no_tool"
 

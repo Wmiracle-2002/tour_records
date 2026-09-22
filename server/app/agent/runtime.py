@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,7 +17,12 @@ from app.agent.llm import (
     OpenAICompatibleTransport,
     StructuredLLMClient,
 )
-from app.agent.observability import AgentObserver, StructuredLoggingObserver
+from app.agent.observability import (
+    AgentObserver,
+    StructuredLoggingObserver,
+    current_request_id,
+    request_context,
+)
 from app.agent.reviser import LocalItineraryReviser
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.amap import AmapTransport, create_amap_tools_from_settings
@@ -82,8 +88,14 @@ class AgentRuntime:
             observer=self._observer,
         )
 
-        initial = make_initial_state(message, user_id=user_id)
-        result = graph.invoke(initial)
+        request_id = current_request_id() or str(uuid4())
+        initial = make_initial_state(
+            message,
+            request_id=request_id,
+            user_id=user_id,
+        )
+        with request_context(request_id):
+            result = graph.invoke(initial)
         answer = result.get("final_response")
         if not isinstance(answer, str):
             raise ValueError("Agent graph did not produce a final response")

@@ -11,6 +11,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from app.agent.collector import ReActContext, ReActDecision
+from app.agent.observability import current_request_id
 from app.core.config import Settings, get_settings
 
 
@@ -87,6 +88,7 @@ class OpenAICompatibleTransport:
 
         total_attempts = self._max_retries + 1
         output_name = output_model.__name__
+        request_id = current_request_id() or "unknown"
         for attempt in range(total_attempts):
             started_at = monotonic()
             attempt_number = attempt + 1
@@ -103,7 +105,8 @@ class OpenAICompatibleTransport:
             except httpx.TimeoutException as error:
                 elapsed_ms = (monotonic() - started_at) * 1000
                 logger.warning(
-                    "LLM timeout stage=%s attempt=%d retrying=false elapsed_ms=%.0f timeout_seconds=%.1f",
+                    "LLM timeout request_id=%s stage=%s attempt=%d retrying=false elapsed_ms=%.0f timeout_seconds=%.1f",
+                    request_id,
                     output_name,
                     attempt_number,
                     elapsed_ms,
@@ -118,7 +121,8 @@ class OpenAICompatibleTransport:
                 elapsed_ms = (monotonic() - started_at) * 1000
                 if attempt < self._max_retries:
                     logger.warning(
-                        "LLM network failure stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=true",
+                        "LLM network failure request_id=%s stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=true",
+                        request_id,
                         output_name,
                         attempt_number,
                         total_attempts,
@@ -126,7 +130,8 @@ class OpenAICompatibleTransport:
                     )
                     continue
                 logger.warning(
-                    "LLM network failure stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=false",
+                    "LLM network failure request_id=%s stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=false",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -138,7 +143,8 @@ class OpenAICompatibleTransport:
                 elapsed_ms = (monotonic() - started_at) * 1000
                 if attempt < self._max_retries:
                     logger.warning(
-                        "LLM upstream retryable status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=true",
+                        "LLM upstream retryable status request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=true",
+                        request_id,
                         output_name,
                         attempt_number,
                         total_attempts,
@@ -147,7 +153,8 @@ class OpenAICompatibleTransport:
                     )
                     continue
                 logger.warning(
-                    "LLM upstream retryable status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=false",
+                    "LLM upstream retryable status request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=false",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -159,7 +166,8 @@ class OpenAICompatibleTransport:
                 )
             if response.status_code < 200 or response.status_code >= 300:
                 logger.warning(
-                    "LLM upstream status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    "LLM upstream status request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -173,7 +181,8 @@ class OpenAICompatibleTransport:
                 decoded = self._decode_response(response)
             except LLMInvalidResponseError:
                 logger.warning(
-                    "LLM invalid structured response stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    "LLM invalid structured response request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -182,7 +191,8 @@ class OpenAICompatibleTransport:
                 )
                 raise
             logger.info(
-                "LLM completed stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                "LLM completed request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                request_id,
                 output_name,
                 attempt_number,
                 total_attempts,
@@ -251,7 +261,8 @@ class StructuredLLMClient:
                 return output_model.model_validate(payload)
             except LLMInvalidResponseError:
                 logger.warning(
-                    "LLM schema retry stage=%s attempt=%d/%d",
+                    "LLM schema retry request_id=%s stage=%s attempt=%d/%d",
+                    current_request_id() or "unknown",
                     output_model.__name__,
                     attempt + 1,
                     self._transport.max_retries + 1,
@@ -260,7 +271,8 @@ class StructuredLLMClient:
                     raise
             except ValidationError as error:
                 logger.warning(
-                    "LLM schema validation retry stage=%s attempt=%d/%d",
+                    "LLM schema validation retry request_id=%s stage=%s attempt=%d/%d",
+                    current_request_id() or "unknown",
                     output_model.__name__,
                     attempt + 1,
                     self._transport.max_retries + 1,

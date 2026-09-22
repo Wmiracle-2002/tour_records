@@ -15,7 +15,7 @@ from app.agent.llm import (
     LLMUpstreamError,
 )
 from app.agent.models import TravelRequirement
-from app.agent.observability import RecordingAgentObserver
+from app.agent.observability import RecordingAgentObserver, request_context
 from app.agent.runtime import AgentRuntime
 from app.agent.tools.amap import AmapTransport
 from app.models import Record, RecordType, Trip, User
@@ -151,6 +151,20 @@ def test_runtime_passes_user_id_and_request_id_to_observer(
     assert observer.events
     assert all(event.request_id == result.request_id for event in observer.events)
     assert all(event.user_id == 42 for event in observer.events)
+
+
+def test_runtime_reuses_request_id_from_execution_context(
+    db_session: Session,
+) -> None:
+    client = FakeStructuredClient(TravelRequirement(intent="general_query"))
+
+    with request_context("req-runtime-context-1"):
+        result = AgentRuntime(
+            settings=Settings(token_secret="test-only-secret"),
+            llm_client=client,
+        ).run("你能做什么？", 42, db_session)
+
+    assert result.request_id == "req-runtime-context-1"
 
 
 @pytest.mark.parametrize(

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
+from collections.abc import Iterator
 from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
@@ -12,6 +15,8 @@ from app.agent.models import InformationStatus
 
 
 AgentEventName = Literal[
+    "stage_started",
+    "stage_completed",
     "requirement_ready",
     "tool_started",
     "tool_completed",
@@ -23,6 +28,26 @@ AgentEventName = Literal[
     "validation_completed",
     "final_response_ready",
 ]
+
+
+_request_id_context: ContextVar[str | None] = ContextVar(
+    "agent_request_id", default=None
+)
+
+
+def current_request_id() -> str | None:
+    """Return the request ID associated with the current Agent execution."""
+    return _request_id_context.get()
+
+
+@contextmanager
+def request_context(request_id: str) -> Iterator[None]:
+    """Propagate one request ID through synchronous Agent and LLM calls."""
+    token = _request_id_context.set(request_id)
+    try:
+        yield
+    finally:
+        _request_id_context.reset(token)
 
 
 class AgentEvent(BaseModel):
@@ -43,6 +68,9 @@ class AgentEvent(BaseModel):
     react_round: int | None = Field(default=None, ge=0)
     validation_round: int | None = Field(default=None, ge=0)
     validation_issue_type: str | None = None
+    stage_name: str | None = None
+    stage_duration_ms: float | None = Field(default=None, ge=0)
+    stage_status: str | None = None
     total_duration_ms: float | None = Field(default=None, ge=0)
     error_code: str | None = None
 
@@ -105,6 +133,9 @@ def emit_event(
     react_round: int | None = None,
     validation_round: int | None = None,
     validation_issue_type: str | None = None,
+    stage_name: str | None = None,
+    stage_duration_ms: float | None = None,
+    stage_status: str | None = None,
     total_duration_ms: float | None = None,
     error_code: str | None = None,
 ) -> None:
@@ -124,6 +155,9 @@ def emit_event(
         react_round=react_round,
         validation_round=validation_round,
         validation_issue_type=validation_issue_type,
+        stage_name=stage_name,
+        stage_duration_ms=stage_duration_ms,
+        stage_status=stage_status,
         total_duration_ms=total_duration_ms,
         error_code=error_code,
     )

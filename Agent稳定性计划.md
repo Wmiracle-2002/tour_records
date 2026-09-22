@@ -54,6 +54,20 @@
 - 可以区分 499、502、503、504 和 Android 网络断流。
 - 不需要查看 Prompt 或密钥即可确定失败阶段。
 
+#### P0 执行记录（2026-09-23）
+
+- 状态：已完成，等待服务器和手机端实测验收。
+- API 请求入口生成 `request_id`，并通过请求上下文传递到 Runtime、LangGraph 和 LLM 日志。
+- 新增结构化阶段事件：`stage_started`、`stage_completed`，包含 `stage_name`、`stage_duration_ms` 和 `stage_status`。
+- 已覆盖 Requirement Analyzer、每轮 ReAct Decision、Tool 生命周期、Itinerary Generator、Validator、Reviser 和 Final Response。
+- Tool 的完成耗时继续覆盖执行和结果归一化过程；日志只记录状态、阶段、耗时和错误码，不记录 Prompt、密钥或原始模型结果。
+- API 开始、成功、LLM 失败和业务校验失败日志都包含同一个请求 ID。
+- 已增加请求上下文恢复、API 日志关联、LLM 日志关联、阶段边界和运行时传播测试。
+- 本地 Agent 回归：204 passed，1 warning。warning 为现有依赖的弃用提示。
+- 服务端全量回归：228 passed，1 warning；从仓库根目录执行，避免读取 `server/.env` 中的真实 COS 凭据。
+- 本机普通权限运行带 `tmp_path` 的测试会被 pytest 临时目录权限阻断；使用提升权限后 Runtime/API 回归 16 passed。
+- 遗留验收：需要在服务器重建容器，并从手机发送一条可复现请求，确认 Nginx access log、API 日志中的请求 ID 和最终 HTTP 状态码可以对应起来。
+
 ### P1：稳定基础问答
 
 目标：先让非行程规划类问题稳定返回答案。
@@ -192,16 +206,18 @@ sudo tail -f /var/log/nginx/access.log /var/log/nginx/error.log
 正常的 Agent 请求应依次出现类似事件：
 
 ```text
-Agent request started
-LLM completed stage=TravelRequirement
+Agent request started request_id=<同一个ID>
+stage_started stage_name=requirement_analyzer
+LLM completed request_id=<同一个ID> stage=TravelRequirement
+stage_completed stage_name=requirement_analyzer stage_duration_ms=<耗时>
 tool_started
 tool_completed
-LLM completed stage=ReActDecision
-LLM completed stage=Itinerary
+LLM completed request_id=<同一个ID> stage=ReActDecision
+LLM completed request_id=<同一个ID> stage=Itinerary
 validation_started
 validation_completed
 final_response_ready
-Agent request completed
+Agent request completed request_id=<同一个ID>
 POST /api/v1/agent/chat 200
 ```
 

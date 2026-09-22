@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import Callable
 
 import httpx
@@ -13,6 +14,7 @@ from app.agent.llm import (
     OpenAICompatibleTransport,
     StructuredLLMClient,
 )
+from app.agent.observability import request_context
 from app.core.config import Settings
 
 
@@ -76,6 +78,14 @@ def test_structured_client_sends_json_schema_and_validates_result() -> None:
     assert payload["response_format"]["json_schema"]["strict"] is True
     assert payload["response_format"]["json_schema"]["schema"]["title"] == "Answer"
     assert result == Answer(answer="hello")
+
+
+def test_llm_completion_log_contains_request_id(caplog) -> None:
+    with caplog.at_level(logging.INFO, logger="footmarks.agent.llm"):
+        with request_context("req-llm-1"):
+            run_client(lambda request: response_with_content('{"answer":"hello"}'))
+
+    assert "request_id=req-llm-1" in caplog.text
 
 
 def test_missing_configuration_is_rejected_before_network_call() -> None:

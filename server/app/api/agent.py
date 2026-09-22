@@ -2,8 +2,9 @@
 
 import logging
 from time import monotonic
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,7 @@ from app.agent.llm import (
     LLMTimeoutError,
     LLMUpstreamError,
 )
+from app.agent.observability import request_context
 from app.agent.runtime import AgentRunResult
 from app.api.auth import current_user
 from app.database import get_db
@@ -58,14 +60,18 @@ def _llm_http_exception(error: Exception) -> HTTPException:
 def chat(
     payload: AgentChatRequest,
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> AgentChatResponse:
     """Run one authenticated, synchronous Agent request."""
     started_at = monotonic()
-    logger.info("Agent request started user_id=%s", user.id)
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    response.headers["X-Request-ID"] = request_id
+    logger.info("Agent request started request_id=%s user_id=%s", request_id, user.id)
     try:
-        result = request.app.state.agent_runtime.run(payload.message, user.id, db)
+        with request_context(request_id):
+            result = request.app.state.agent_runtime.run(payload.message, user.id, db)
     except (
         LLMNotConfiguredError,
         LLMTimeoutError,
@@ -73,23 +79,30 @@ def chat(
         LLMInvalidResponseError,
     ) as error:
         logger.warning(
-            "Agent LLM failure type=%s detail=%s duration_ms=%.0f",
+            "Agent LLM failure request_id=%s type=%s detail=%s duration_ms=%.0f",
+            request_id,
             type(error).__name__,
             str(error),
             (monotonic() - started_at) * 1000,
         )
         raise _llm_http_exception(error) from error
     except ValueError as error:
-        logger.warning("Agent generated an invalid response: %s", error)
+        logger.warning(
+            "Agent generated an invalid response request_id=%s detail=%s duration_ms=%.0f",
+            request_id,
+            error,
+            (monotonic() - started_at) * 1000,
+        )
         raise HTTPException(
             status_code=502,
             detail="Agent generated an invalid response",
         ) from error
     if not isinstance(result, AgentRunResult):
+        logger.warning("Agent returned an invalid response request_id=%s", request_id)
         raise HTTPException(status_code=502, detail="Agent returned an invalid response")
     logger.info(
         "Agent request completed request_id=%s duration_ms=%.0f",
-        result.request_id,
+        request_id,
         (monotonic() - started_at) * 1000,
     )
     return AgentChatResponse(**result.model_dump())
