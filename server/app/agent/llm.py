@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+from time import monotonic
 from typing import Any, TypeVar
 
 import httpx
@@ -10,6 +12,9 @@ from pydantic import BaseModel, ValidationError
 
 from app.agent.collector import ReActContext, ReActDecision
 from app.core.config import Settings, get_settings
+
+
+logger = logging.getLogger("footmarks.agent.llm")
 
 
 class LLMError(RuntimeError):
@@ -80,7 +85,11 @@ class OpenAICompatibleTransport:
             },
         }
 
-        for attempt in range(self._max_retries + 1):
+        total_attempts = self._max_retries + 1
+        output_name = output_model.__name__
+        for attempt in range(total_attempts):
+            started_at = monotonic()
+            attempt_number = attempt + 1
             try:
                 response = self._client.post(
                     f"{self._base_url}/chat/completions",
@@ -92,25 +101,96 @@ class OpenAICompatibleTransport:
                     json=request_payload,
                 )
             except httpx.TimeoutException as error:
-                if attempt < self._max_retries:
-                    continue
-                raise LLMTimeoutError("LLM provider request timed out") from error
+                elapsed_ms = (monotonic() - started_at) * 1000
+                logger.warning(
+                    "LLM timeout stage=%s attempt=%d/%d elapsed_ms=%.0f timeout_seconds=%.1f",
+                    output_name,
+                    attempt_number,
+                    total_attempts,
+                    elapsed_ms,
+                    self._timeout_seconds,
+                )
+                # A timeout already consumed the full request budget. Retrying it
+                # here can make one Agent request exceed the mobile/API timeout.
+                raise LLMTimeoutError(
+                    f"LLM provider request timed out for {output_name}"
+                ) from error
             except httpx.RequestError as error:
+                elapsed_ms = (monotonic() - started_at) * 1000
                 if attempt < self._max_retries:
+                    logger.warning(
+                        "LLM network failure stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=true",
+                        output_name,
+                        attempt_number,
+                        total_attempts,
+                        elapsed_ms,
+                    )
                     continue
+                logger.warning(
+                    "LLM network failure stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=false",
+                    output_name,
+                    attempt_number,
+                    total_attempts,
+                    elapsed_ms,
+                )
                 raise LLMUpstreamError("LLM provider request failed") from error
 
             if response.status_code in {429, 500, 502, 503, 504}:
+                elapsed_ms = (monotonic() - started_at) * 1000
                 if attempt < self._max_retries:
+                    logger.warning(
+                        "LLM upstream retryable status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=true",
+                        output_name,
+                        attempt_number,
+                        total_attempts,
+                        response.status_code,
+                        elapsed_ms,
+                    )
                     continue
+                logger.warning(
+                    "LLM upstream retryable status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=false",
+                    output_name,
+                    attempt_number,
+                    total_attempts,
+                    response.status_code,
+                    elapsed_ms,
+                )
                 raise LLMUpstreamError(
                     f"LLM provider returned HTTP {response.status_code}"
                 )
             if response.status_code < 200 or response.status_code >= 300:
+                logger.warning(
+                    "LLM upstream status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    output_name,
+                    attempt_number,
+                    total_attempts,
+                    response.status_code,
+                    (monotonic() - started_at) * 1000,
+                )
                 raise LLMUpstreamError(
                     f"LLM provider returned HTTP {response.status_code}"
                 )
-            return self._decode_response(response)
+            try:
+                decoded = self._decode_response(response)
+            except LLMInvalidResponseError:
+                logger.warning(
+                    "LLM invalid structured response stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    output_name,
+                    attempt_number,
+                    total_attempts,
+                    response.status_code,
+                    (monotonic() - started_at) * 1000,
+                )
+                raise
+            logger.info(
+                "LLM completed stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                output_name,
+                attempt_number,
+                total_attempts,
+                response.status_code,
+                (monotonic() - started_at) * 1000,
+            )
+            return decoded
 
         raise LLMUpstreamError("LLM provider request failed")
 
@@ -171,9 +251,21 @@ class StructuredLLMClient:
                 )
                 return output_model.model_validate(payload)
             except LLMInvalidResponseError:
+                logger.warning(
+                    "LLM schema retry stage=%s attempt=%d/%d",
+                    output_model.__name__,
+                    attempt + 1,
+                    self._transport.max_retries + 1,
+                )
                 if attempt >= self._transport.max_retries:
                     raise
             except ValidationError as error:
+                logger.warning(
+                    "LLM schema validation retry stage=%s attempt=%d/%d",
+                    output_model.__name__,
+                    attempt + 1,
+                    self._transport.max_retries + 1,
+                )
                 if attempt >= self._transport.max_retries:
                     raise LLMInvalidResponseError(
                         "LLM structured response failed schema validation"

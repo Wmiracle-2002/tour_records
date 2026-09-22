@@ -94,12 +94,18 @@ def test_missing_configuration_is_rejected_before_network_call() -> None:
         )
 
 
-def test_timeout_is_converted_to_llm_timeout_error() -> None:
+def test_timeout_is_converted_to_llm_timeout_error_without_retry() -> None:
+    calls = 0
+
     def timeout_handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
         raise httpx.ReadTimeout("provider timed out")
 
     with pytest.raises(LLMTimeoutError):
         run_client(timeout_handler)
+
+    assert calls == 1
 
 
 @pytest.mark.parametrize("status_code", [429, 500, 503])
