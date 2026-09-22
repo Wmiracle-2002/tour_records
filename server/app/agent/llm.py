@@ -103,10 +103,9 @@ class OpenAICompatibleTransport:
             except httpx.TimeoutException as error:
                 elapsed_ms = (monotonic() - started_at) * 1000
                 logger.warning(
-                    "LLM timeout stage=%s attempt=%d/%d elapsed_ms=%.0f timeout_seconds=%.1f",
+                    "LLM timeout stage=%s attempt=%d retrying=false elapsed_ms=%.0f timeout_seconds=%.1f",
                     output_name,
                     attempt_number,
-                    total_attempts,
                     elapsed_ms,
                     self._timeout_seconds,
                 )
