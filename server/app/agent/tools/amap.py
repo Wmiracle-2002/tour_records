@@ -174,6 +174,17 @@ class AmapWebClient:
             raise AmapApiError(f"Unable to geocode location: {normalized}")
         return required_text(str(first["location"]), "geocoded location")
 
+    def _resolve_poi_location(self, value: str, city: str | None = None) -> str:
+        """Use the POI endpoint as a fallback when geocoded route points fail."""
+        payload = self.keyword_search(value, city=city)
+        pois = payload.get("pois")
+        if not isinstance(pois, list) or not pois:
+            raise AmapApiError(f"Unable to find POI location: {value}")
+        first = pois[0]
+        if not isinstance(first, dict) or not first.get("location"):
+            raise AmapApiError(f"Unable to find POI location: {value}")
+        return required_text(str(first["location"]), "POI location")
+
     def distance(
         self,
         origins: list[str],
@@ -219,9 +230,11 @@ class AmapWebClient:
         if mode == "transit" and not city:
             raise ValueError("city is required for transit routes")
 
+        normalized_origin = required_text(origin, "origin")
+        normalized_destination = required_text(destination, "destination")
         params = {
-            "origin": self._resolve_location(origin, city=city),
-            "destination": self._resolve_location(destination, city=city),
+            "origin": self._resolve_location(normalized_origin, city=city),
+            "destination": self._resolve_location(normalized_destination, city=city),
         }
         if city:
             params["city"] = city.strip()
@@ -235,7 +248,20 @@ class AmapWebClient:
             params["waypoints"] = ";".join(
                 required_text(point, "waypoint") for point in waypoints
             )
-        return self._request(paths[mode], params)
+        try:
+            return self._request(paths[mode], params)
+        except AmapApiError as error:
+            if (
+                str(error) != "ENGINE_RESPONSE_DATA_ERROR"
+                or _is_coordinate(normalized_origin)
+                or _is_coordinate(normalized_destination)
+            ):
+                raise
+            params["origin"] = self._resolve_poi_location(normalized_origin, city=city)
+            params["destination"] = self._resolve_poi_location(
+                normalized_destination, city=city
+            )
+            return self._request(paths[mode], params)
 
 
 class AmapWebTool:

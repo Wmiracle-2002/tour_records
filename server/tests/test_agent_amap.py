@@ -114,6 +114,56 @@ def test_route_geocodes_place_names_before_calling_direction_api() -> None:
     assert calls[-1][1]["destination"] == "118.805000,32.065000"
 
 
+def test_route_retries_with_poi_locations_after_engine_response_error() -> None:
+    calls: list[tuple[str, dict[str, str], float]] = []
+    route_attempts = 0
+
+    def transport(
+        url: str,
+        params: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any]:
+        nonlocal route_attempts
+        calls.append((url, params, timeout))
+        if url.endswith("/v3/geocode/geo"):
+            location = (
+                "118.796877,32.060255"
+                if params["address"] == "origin"
+                else "118.805000,32.065000"
+            )
+            return {"status": "1", "geocodes": [{"location": location}]}
+        if url.endswith("/v3/direction/driving"):
+            route_attempts += 1
+            if route_attempts == 1:
+                return {"status": "0", "info": "ENGINE_RESPONSE_DATA_ERROR"}
+            return {
+                "status": "1",
+                "route": {"paths": [{"distance": "1000", "duration": "600"}]},
+            }
+        if url.endswith("/v3/place/text"):
+            location = (
+                "118.796877,32.060255"
+                if params["keywords"] == "origin"
+                else "118.805000,32.065000"
+            )
+            return {"status": "1", "pois": [{"location": location}]}
+        raise AssertionError(f"Unexpected AMap URL: {url}")
+
+    client = AmapWebClient(api_key="test-amap-key", transport=transport)
+
+    result = client.route("driving", "origin", "destination", city="Nanjing")
+
+    assert result["route"]["paths"][0]["distance"] == "1000"
+    assert [call[0] for call in calls] == [
+        "https://restapi.amap.com/v3/geocode/geo",
+        "https://restapi.amap.com/v3/geocode/geo",
+        "https://restapi.amap.com/v3/direction/driving",
+        "https://restapi.amap.com/v3/place/text",
+        "https://restapi.amap.com/v3/place/text",
+        "https://restapi.amap.com/v3/direction/driving",
+    ]
+
+
 def test_amap_tool_registry_exposes_planned_capabilities() -> None:
     names = {tool.name for tool in create_amap_tools(AmapWebClient("test-key"))}
 
