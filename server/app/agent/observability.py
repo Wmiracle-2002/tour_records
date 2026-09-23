@@ -73,6 +73,7 @@ class AgentEvent(BaseModel):
     stage_status: str | None = None
     total_duration_ms: float | None = Field(default=None, ge=0)
     error_code: str | None = None
+    error_message: str | None = None
 
 
 class AgentObserver(Protocol):
@@ -138,6 +139,7 @@ def emit_event(
     stage_status: str | None = None,
     total_duration_ms: float | None = None,
     error_code: str | None = None,
+    error_message: str | None = None,
 ) -> None:
     """发送事件；观察器故障不能影响 Agent 业务流程。"""
     if observer is None:
@@ -160,6 +162,7 @@ def emit_event(
         stage_status=stage_status,
         total_duration_ms=total_duration_ms,
         error_code=error_code,
+        error_message=error_message,
     )
     try:
         observer.record(record)

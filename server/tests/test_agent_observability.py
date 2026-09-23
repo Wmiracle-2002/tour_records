@@ -49,6 +49,14 @@ class WeatherTool:
         )
 
 
+class FailingWeatherTool:
+    name = "weather"
+    description = "weather"
+
+    def run(self, **_arguments: Any) -> ToolResult[dict[str, Any]]:
+        return ToolResult.failed("INVALID_USER_KEY", error_code="amap_api_error")
+
+
 class OneDecisionClient:
     def decide(self, _context):
         return ReActDecision(
@@ -183,6 +191,37 @@ def test_collector_records_tool_lifecycle_without_raw_payload() -> None:
     serialized = " ".join(event.model_dump_json() for event in observer.events)
     assert "晴" not in serialized
     assert "不要记录这个参数" not in serialized
+
+
+def test_collector_records_tool_error_reason_without_raw_payload() -> None:
+    observer = RecordingAgentObserver()
+    requirement = TravelRequirement(intent="weather_query", destination="鍗椾含")
+    registry = ToolRegistry()
+    registry.register(FailingWeatherTool())
+    state = {
+        "messages": ["weather"],
+        "requirement": requirement,
+        "information_status": initialize_information_status(requirement),
+        "collected_info": CollectedInfo(),
+        "itinerary": None,
+        "validation": None,
+        "react_round": 0,
+        "request_id": "req-tool-error-1",
+        "run_started_at": monotonic(),
+        "validation_round": 0,
+        "final_response": None,
+    }
+
+    ReActCollector(
+        ToolLayer(registry),
+        OneDecisionClient(),
+        observer=observer,
+    ).collect_round(state)
+
+    completed = observer.events[3]
+    assert completed.tool_success is False
+    assert completed.error_code == "amap_api_error"
+    assert completed.error_message == "INVALID_USER_KEY"
 
 
 def test_graph_records_node_events_and_validation_status() -> None:

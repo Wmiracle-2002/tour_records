@@ -272,6 +272,11 @@ class ReActCollector:
             tool_success=normalized_result.status == "completed",
             react_round=working["react_round"],
             error_code=normalized_result.error_code,
+            error_message=(
+                normalized_result.message
+                if normalized_result.status != "completed"
+                else None
+            ),
         )
         normalized_empty = normalized_result.status == "completed" and is_empty_result(
             normalized_result.data
