@@ -66,7 +66,8 @@
 - 本地 Agent 回归：204 passed，1 warning。warning 为现有依赖的弃用提示。
 - 服务端全量回归：228 passed，1 warning；从仓库根目录执行，避免读取 `server/.env` 中的真实 COS 凭据。
 - 本机普通权限运行带 `tmp_path` 的测试会被 pytest 临时目录权限阻断；使用提升权限后 Runtime/API 回归 16 passed。
-- 遗留验收：需要在服务器重建容器，并从手机发送一条可复现请求，确认 Nginx access log、API 日志中的请求 ID 和最终 HTTP 状态码可以对应起来。
+- 服务器部署验收：已完成代码包校验、容器重建、Nginx 语法检查和热重载；公网健康接口返回 200，Nginx access log 已记录 `request_id`。
+- 遗留验收：需要从手机发送一条已登录的 Agent 请求，确认 Nginx access log、API 日志中的请求 ID 和最终 HTTP 状态码可以对应起来。
 
 ### P1：稳定基础问答
 
