@@ -47,7 +47,10 @@ from app.agent.state import TravelAgentState
 from app.agent.tools.layer import ToolLayer, ToolResult
 
 
-MAX_REACT_ROUNDS = 8
+# Keep the synchronous collector within the mobile request budget.  A planning
+# request can still add more information needs during these rounds, but it
+# must stop before spending an unbounded number of LLM calls.
+MAX_REACT_ROUNDS = 4
 
 
 class ToolDescriptor(BaseModel):

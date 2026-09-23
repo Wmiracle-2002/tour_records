@@ -339,6 +339,7 @@ def test_error_result_retries_three_times_then_becomes_failed() -> None:
 
 
 def test_no_tool_call_waits_for_pending_information_until_round_limit() -> None:
+    assert MAX_REACT_ROUNDS == 4
     client = FakeDecisionClient([ReActDecision() for _ in range(MAX_REACT_ROUNDS)])
     state = build_state(TravelRequirement(intent="weather_query"))
 
