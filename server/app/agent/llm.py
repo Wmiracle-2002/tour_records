@@ -10,6 +10,7 @@ from typing import Any, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from app.agent.budget import current_llm_timeout_seconds
 from app.agent.collector import ReActContext, ReActDecision
 from app.agent.observability import current_request_id
 from app.core.config import Settings, get_settings
@@ -92,6 +93,9 @@ class OpenAICompatibleTransport:
         for attempt in range(total_attempts):
             started_at = monotonic()
             attempt_number = attempt + 1
+            timeout_seconds = (
+                current_llm_timeout_seconds() or self._timeout_seconds
+            )
             try:
                 response = self._client.post(
                     f"{self._base_url}/chat/completions",
@@ -101,6 +105,7 @@ class OpenAICompatibleTransport:
                         "Content-Type": "application/json",
                     },
                     json=request_payload,
+                    timeout=timeout_seconds,
                 )
             except httpx.TimeoutException as error:
                 elapsed_ms = (monotonic() - started_at) * 1000
@@ -110,7 +115,7 @@ class OpenAICompatibleTransport:
                     output_name,
                     attempt_number,
                     elapsed_ms,
-                    self._timeout_seconds,
+                    timeout_seconds,
                 )
                 # A timeout already consumed the full request budget. Retrying it
                 # here can make one Agent request exceed the mobile/API timeout.

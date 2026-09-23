@@ -169,7 +169,7 @@ $env:PYTHONPATH = 'server'
 
 2026-09-23 的真实服务器日志显示：一条规划请求耗时约 208 秒后客户端断开并产生 Nginx `499`，另一条规划请求耗时约 145 秒后返回 `200`。其中 ReAct 决策单次耗时达到约 52 秒和 67 秒，Tool 和 Validator 只有毫秒级耗时。因此 P2 先处理调用次数、取消和错误边界，再继续扩展规划内容。
 
-当前进度：P2-1、P2-2 已完成。ReAct Collector 的默认最大轮数从 8 轮收紧为 4 轮，达到上限后不再发起新的决策或 Tool 调用；已经进入 `completed`、`unavailable` 或 `failed` 终态的信息 Tool 不再暴露给下一轮 ReAct；Collector 回归测试 12/12 通过。
+当前进度：P2-1、P2-2、P2-3 已完成。ReAct Collector 的默认最大轮数从 8 轮收紧为 4 轮，达到上限后不再发起新的决策或 Tool 调用；已经进入 `completed`、`unavailable` 或 `failed` 终态的信息 Tool 不再暴露给下一轮 ReAct；新增整条请求和各 LLM 阶段预算，预算会覆盖当前 HTTP 请求的读取超时并在耗尽后停止后续阶段。P2 相关定向回归 63/63 通过。
 
 执行顺序：
 

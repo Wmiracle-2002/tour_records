@@ -123,6 +123,8 @@ Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在
 
 真实 Agent 还需要在服务器 `server/.env` 配置 `FOOTMARKS_LLM_BASE_URL`、`FOOTMARKS_LLM_API_KEY`、`FOOTMARKS_LLM_MODEL`、`FOOTMARKS_LLM_TIMEOUT_SECONDS` 和 `FOOTMARKS_LLM_MAX_RETRIES`。`FOOTMARKS_LLM_BASE_URL` 必须是供应商提供的 OpenAI 兼容接口地址，并包含 `http://` 或 `https://` 协议；修改后需要重建或重启 API 容器。不要把这些值写入代码、APK 或提交到 Git。
 
+Agent 同步请求还受两个预算控制：`FOOTMARKS_AGENT_TOTAL_TIMEOUT_SECONDS` 默认 120 秒，限制整条请求；`FOOTMARKS_AGENT_STAGE_TIMEOUT_SECONDS` 默认 60 秒，限制 Requirement Analyzer、ReAct Decision、Itinerary Generator 和 Reviser 各自累计耗时。阶段预算会覆盖当前 LLM HTTP 请求的读取超时，预算耗尽后 API 返回 HTTP 504。需要调整时只修改服务器 `server/.env`，不要删除其他已有配置。
+
 业务 API 提供 `POST/GET /api/v1/trips`、`GET/PATCH/DELETE /api/v1/trips/{id}`、`POST /api/v1/trips/{id}/records`、`GET/PATCH/DELETE /api/v1/records/{id}` 和 `GET /api/v1/stats`。`POST /api/v1/auth/login` 接收用户名与密码，返回 Access Token/Refresh Token；`POST /api/v1/auth/refresh` 接收 `refresh_token`，`GET /api/v1/auth/me` 查询当前用户。业务请求带 `Authorization: Bearer <access_token>`。日期使用 ISO `YYYY-MM-DD`，金额为人民币元。
 
 模拟器先启动服务端，再安装 Debug APK，在“个人中心 → 共享账号”输入用户名和密码，点“登录并同步”。切回记录页查看云端旅行；其他设备改动后，在个人中心点“刷新共享记录”。真机需要能访问服务端的地址，建议使用 HTTPS；默认 `10.0.2.2` 只适用于 Android 模拟器。Release 默认指向不可用占位地址，需要构建时指定 HTTPS。服务端模式的本机缓存保存文字记录和远端图片元数据，原图由 COS 保存。
@@ -162,11 +164,12 @@ Agent 稳定性 P1 已完成五类基础问答真机验收。P2-1、P2-2 已完�
 ## 下一步
 
 1. P1 基础问答稳定性验收已完成：历史、天气、景点、预算和路线五类问答均已在真实手机上验证。
-2. P2-3：增加 Requirement Analyzer、ReAct Decision、Itinerary Generator 和 Reviser 的阶段预算。
-3. 在真实手机上安装 HTTPS APK，完成登录、天气请求、三日行程请求、失败重试和重复发送检查。
-4. 下载条件恢复后补跑 API 24 最低版本回归。
-5. 补充大量记录的页面滚动压力测试。
-6. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
+2. P2-4：处理客户端断开后的协作式停止。
+3. 在服务器更新 `.env` 后重建容器，验证预算超时返回 504。
+4. 在真实手机上安装 HTTPS APK，完成登录、天气请求、三日行程请求、失败重试和重复发送检查。
+5. 下载条件恢复后补跑 API 24 最低版本回归。
+6. 补充大量记录的页面滚动压力测试。
+7. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
 
 ## 许可证
 

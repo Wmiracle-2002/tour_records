@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from copy import deepcopy
 from collections.abc import Callable, Mapping, Sequence
 from time import monotonic
@@ -9,6 +10,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
+from app.agent.budget import AgentBudget
 from app.agent.information import (
     MAX_INFO_ATTEMPTS,
     InformationNeedName,
@@ -165,6 +167,7 @@ class ReActCollector:
         max_rounds: int = MAX_REACT_ROUNDS,
         normalizers: Mapping[str, Normalizer] | None = None,
         observer: AgentObserver | None = None,
+        budget: AgentBudget | None = None,
     ) -> None:
         if max_rounds < 1:
             raise ValueError("max_rounds must be positive")
@@ -173,6 +176,7 @@ class ReActCollector:
         self._max_rounds = max_rounds
         self._normalizers = dict(normalizers or {})
         self._observer = observer
+        self._budget = budget
 
     @property
     def max_rounds(self) -> int:
@@ -213,7 +217,12 @@ class ReActCollector:
             react_round=decision_round,
         )
         try:
-            decision = self._decision_client.decide(context)
+            with (
+                self._budget.stage("react_decision")
+                if self._budget
+                else nullcontext()
+            ):
+                decision = self._decision_client.decide(context)
         except Exception:
             self._emit(
                 "stage_completed",
@@ -262,11 +271,16 @@ class ReActCollector:
             tool_name=call.name,
             react_round=working["react_round"],
         )
-        raw_result = self._tool_layer.execute(
-            call.name,
-            **_normalize_tool_arguments(call, working["requirement"]),
-        )
-        normalized_result = self._normalize(call, raw_result)
+        with (
+            self._budget.stage("react_tool")
+            if self._budget
+            else nullcontext()
+        ):
+            raw_result = self._tool_layer.execute(
+                call.name,
+                **_normalize_tool_arguments(call, working["requirement"]),
+            )
+            normalized_result = self._normalize(call, raw_result)
         self._emit(
             "tool_completed",
             working,

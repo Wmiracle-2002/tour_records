@@ -1,8 +1,10 @@
 """Requirement Analyzer boundary for structured LLM output."""
 
 import re
+from contextlib import nullcontext
 from typing import Any, Protocol
 
+from app.agent.budget import AgentBudget
 from app.agent.models import TravelRequirement
 from app.agent.prompts.requirement_analyzer import (
     REQUIREMENT_ANALYZER_SYSTEM_PROMPT,
@@ -36,8 +38,13 @@ def _infer_history_destination(user_query: str) -> str | None:
 class RequirementAnalyzer:
     """调用结构化输出客户端，把用户请求转换为旅行需求。"""
 
-    def __init__(self, client: StructuredOutputClient) -> None:
+    def __init__(
+        self,
+        client: StructuredOutputClient,
+        budget: AgentBudget | None = None,
+    ) -> None:
         self._client = client
+        self._budget = budget
 
     def analyze(self, user_query: str) -> TravelRequirement:
         """分析用户请求；缺失字段由结构化模型保留为空。"""
@@ -45,11 +52,16 @@ class RequirementAnalyzer:
         if not query:
             raise ValueError("User query must not be blank")
 
-        output = self._client.complete_structured(
-            system_prompt=REQUIREMENT_ANALYZER_SYSTEM_PROMPT,
-            user_prompt=query,
-            output_model=TravelRequirement,
-        )
+        with (
+            self._budget.stage("requirement_analyzer")
+            if self._budget
+            else nullcontext()
+        ):
+            output = self._client.complete_structured(
+                system_prompt=REQUIREMENT_ANALYZER_SYSTEM_PROMPT,
+                user_prompt=query,
+                output_model=TravelRequirement,
+            )
         requirement = TravelRequirement.model_validate(output)
         if requirement.intent == "history_query" and not requirement.destination:
             destination = _infer_history_destination(query)

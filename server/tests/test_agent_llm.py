@@ -6,6 +6,7 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
+from app.agent.budget import AgentBudget
 from app.agent.llm import (
     LLMInvalidResponseError,
     LLMNotConfiguredError,
@@ -116,6 +117,30 @@ def test_timeout_is_converted_to_llm_timeout_error_without_retry() -> None:
         run_client(timeout_handler)
 
     assert calls == 1
+
+
+def test_agent_stage_budget_overrides_provider_request_timeout() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return response_with_content('{"answer":"hello"}')
+
+    settings_for_test = settings(llm_timeout_seconds=30.0)
+    transport = OpenAICompatibleTransport(
+        settings_for_test,
+        http_transport=httpx.MockTransport(handler),
+    )
+    budget = AgentBudget(total_timeout_seconds=60.0, stage_timeout_seconds=2.0)
+
+    with budget.stage("react_decision"):
+        StructuredLLMClient(transport).complete_structured(
+            system_prompt="Return JSON",
+            user_prompt="Say hello",
+            output_model=Answer,
+        )
+
+    assert requests[0].extensions["timeout"]["read"] == pytest.approx(2.0, abs=0.01)
 
 
 @pytest.mark.parametrize("status_code", [429, 500, 503])

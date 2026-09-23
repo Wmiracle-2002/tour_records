@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.agent.budget import AgentTimeoutError
 from app.agent.llm import (
     LLMInvalidResponseError,
     LLMNotConfiguredError,
@@ -51,6 +52,8 @@ def _llm_http_exception(error: Exception) -> HTTPException:
         return HTTPException(status_code=503, detail="LLM service is not configured")
     if isinstance(error, LLMTimeoutError):
         return HTTPException(status_code=504, detail="LLM service timed out")
+    if isinstance(error, AgentTimeoutError):
+        return HTTPException(status_code=504, detail="Agent request timed out")
     if isinstance(error, (LLMUpstreamError, LLMInvalidResponseError)):
         return HTTPException(status_code=502, detail="LLM service request failed")
     raise TypeError(f"Unsupported LLM error: {type(error).__name__}")
@@ -75,6 +78,7 @@ def chat(
     except (
         LLMNotConfiguredError,
         LLMTimeoutError,
+        AgentTimeoutError,
         LLMUpstreamError,
         LLMInvalidResponseError,
     ) as error:

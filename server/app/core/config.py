@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_timeout_seconds: float = Field(default=30.0, gt=0)
     llm_max_retries: int = Field(default=1, ge=0)
+    agent_total_timeout_seconds: float = Field(default=120.0, gt=0)
+    agent_stage_timeout_seconds: float = Field(default=60.0, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

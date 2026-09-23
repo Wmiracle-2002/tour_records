@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
+from app.agent.budget import AgentBudget
 from app.agent.models import CollectedInfo, Itinerary, TravelRequirement
 from app.agent.utils import avoids_previous_places, time_to_minutes
 
@@ -47,8 +49,13 @@ class StructuredItineraryClient(Protocol):
 class StructuredItineraryGenerator:
     """调用结构化输出客户端并校验行程与已收集事实的关联。"""
 
-    def __init__(self, client: StructuredItineraryClient) -> None:
+    def __init__(
+        self,
+        client: StructuredItineraryClient,
+        budget: AgentBudget | None = None,
+    ) -> None:
         self._client = client
+        self._budget = budget
 
     def generate(
         self,
@@ -65,11 +72,16 @@ class StructuredItineraryGenerator:
                     f"{last_error}. Regenerate the complete Itinerary JSON and "
                     "correct the validation problem."
                 )
-            output = self._client.complete_structured(
-                system_prompt=ITINERARY_GENERATOR_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                output_model=Itinerary,
-            )
+            with (
+                self._budget.stage("itinerary_generator")
+                if self._budget
+                else nullcontext()
+            ):
+                output = self._client.complete_structured(
+                    system_prompt=ITINERARY_GENERATOR_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    output_model=Itinerary,
+                )
             try:
                 itinerary = Itinerary.model_validate(output)
                 self._validate_itinerary(itinerary, requirement, collected_info)

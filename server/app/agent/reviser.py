@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import nullcontext
 from typing import Any, Protocol
 
+from app.agent.budget import AgentBudget
 from app.agent.models import (
     CollectedInfo,
     Itinerary,
@@ -60,8 +62,13 @@ class ItineraryReviser(Protocol):
 class LocalItineraryReviser:
     """调用结构化客户端，并拒绝超出问题范围的修改。"""
 
-    def __init__(self, client: StructuredRevisionClient) -> None:
+    def __init__(
+        self,
+        client: StructuredRevisionClient,
+        budget: AgentBudget | None = None,
+    ) -> None:
         self._client = client
+        self._budget = budget
 
     def revise(
         self,
@@ -74,13 +81,18 @@ class LocalItineraryReviser:
         if not failures:
             return itinerary.model_copy(deep=True)
 
-        output = self._client.complete_structured(
-            system_prompt=STRUCTURED_REVISER_SYSTEM_PROMPT,
-            user_prompt=self._build_user_prompt(
-                itinerary, issues, requirement, collected_info
-            ),
-            output_model=Itinerary,
-        )
+        with (
+            self._budget.stage("reviser")
+            if self._budget
+            else nullcontext()
+        ):
+            output = self._client.complete_structured(
+                system_prompt=STRUCTURED_REVISER_SYSTEM_PROMPT,
+                user_prompt=self._build_user_prompt(
+                    itinerary, issues, requirement, collected_info
+                ),
+                output_model=Itinerary,
+            )
         revised = Itinerary.model_validate(output)
         self._validate_scope(itinerary, revised, failures)
         return revised

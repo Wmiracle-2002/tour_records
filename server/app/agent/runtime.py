@@ -8,6 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.agent.budget import AgentBudget
 from app.agent.analyzer import RequirementAnalyzer
 from app.agent.collector import TOOL_INFORMATION_NEEDS, ReActCollector
 from app.agent.generator import StructuredItineraryGenerator
@@ -60,6 +61,10 @@ class AgentRuntime:
 
     def run(self, message: str, user_id: int, db: Session) -> AgentRunResult:
         """为当前用户组装工具并执行完整 LangGraph。"""
+        budget = AgentBudget(
+            total_timeout_seconds=self._settings.agent_total_timeout_seconds,
+            stage_timeout_seconds=self._settings.agent_stage_timeout_seconds,
+        )
         registry = ToolRegistry()
         for tool in create_internal_db_tools(db, user_id):
             registry.register(tool)
@@ -72,18 +77,21 @@ class AgentRuntime:
             if tool.name in TOOL_INFORMATION_NEEDS:
                 registry.register(tool)
 
-        analyzer = RequirementAnalyzer(self._llm_client)
+        analyzer = RequirementAnalyzer(self._llm_client, budget=budget)
         collector = ReActCollector(
             ToolLayer(registry),
             LLMReActDecisionClient(self._llm_client),
             observer=self._observer,
+            budget=budget,
         )
         graph = build_agent_graph(
             analyzer=analyzer,
             collector=collector,
-            itinerary_generator=StructuredItineraryGenerator(self._llm_client),
+            itinerary_generator=StructuredItineraryGenerator(
+                self._llm_client, budget=budget
+            ),
             validator=ItineraryValidator(),
-            reviser=LocalItineraryReviser(self._llm_client),
+            reviser=LocalItineraryReviser(self._llm_client, budget=budget),
             response_generator=FinalResponseGenerator(),
             observer=self._observer,
         )

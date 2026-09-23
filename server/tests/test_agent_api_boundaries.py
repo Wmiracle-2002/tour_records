@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.agent.budget import AgentTimeoutError
 from app.agent.runtime import AgentRunResult
 
 
@@ -24,6 +25,11 @@ class RichRuntime:
             request_id="req-boundary-1",
             answer="公开回答",
         )
+
+
+class TimedOutRuntime:
+    def run(self, _message: str, _user_id: int, _db: Any) -> AgentRunResult:
+        raise AgentTimeoutError("Agent total timeout exceeded before itinerary_generator")
 
 
 def test_invalid_itinerary_never_reaches_http_answer(client) -> None:
@@ -52,3 +58,12 @@ def test_agent_api_does_not_return_internal_state_or_validation_models(client) -
         "reason",
     ):
         assert field not in body
+
+
+def test_agent_budget_timeout_maps_to_504(client) -> None:
+    client.app.state.agent_runtime = TimedOutRuntime()
+
+    response = client.post("/api/v1/agent/chat", json={"message": "规划行程"})
+
+    assert response.status_code == 504
+    assert response.json()["detail"] == "Agent request timed out"
