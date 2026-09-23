@@ -12,7 +12,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 
 输出 JSON 必须严格使用以下字段名，不得改名：
 - intent：只能是 trip_planning、poi_recommendation、route_query、weather_query、budget_query、history_query、general_query 之一；
-- origin、destination、start_date、end_date：字符串或 null；
+- origin、destination、date_expression、start_date、end_date：字符串或 null；date_expression 保留“明天”“中秋”等用户原始日期表达；
 - history_category：只能是 ATTRACTION、FOOD 或 null；询问去过哪些景点时填写 ATTRACTION，询问去过哪些美食时填写 FOOD；
 - duration_days、travelers：整数或 null；
 - budget：数字或 null；
@@ -20,7 +20,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 
 规则：
 - 缺失的信息保持为空，不要猜测或补全；
-- start_date 和 end_date 只能填写 YYYY-MM-DD；“国庆”等非具体日期表达应保留在 preferences 或 constraints 中，并将对应日期字段设为 null；
+- start_date 和 end_date 只能填写 YYYY-MM-DD；结合下方提供的当前日期，把“今天”“明天”“中秋”“国庆”等日期表达换算为下一次对应的公历日期；能够可靠换算时填写 start_date，并始终把原表达保留在 date_expression；无法可靠换算时将 start_date、end_date 设为 null，不得改用当天日期；
 - preferences 和 constraints 没有内容时使用空数组；
 - 不要使用 task_type 或其他字段名代替 intent；
 - 不要决定调用哪些 Tool；

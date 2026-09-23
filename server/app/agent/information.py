@@ -17,7 +17,7 @@ InformationNeedName = Literal[
     "distances",
     "budget",
 ]
-InformationOutcome = Literal["completed", "empty", "error"]
+InformationOutcome = Literal["completed", "empty", "error", "unavailable"]
 _TERMINAL_STATUSES = {"completed", "unavailable", "failed"}
 
 
@@ -89,7 +89,7 @@ def update_information_status(
     """更新一次信息获取结果，并在达到上限后终止重试。"""
     if name not in InformationStatus.model_fields:
         raise ValueError(f"Information need is not supported: {name}")
-    if outcome not in {"completed", "empty", "error"}:
+    if outcome not in {"completed", "empty", "error", "unavailable"}:
         raise ValueError(f"Unsupported information outcome: {outcome}")
 
     current = getattr(status, name)
@@ -103,6 +103,12 @@ def update_information_status(
 
     if outcome == "completed":
         current.status = "completed"
+        current.reason = reason
+        return updated
+
+    if outcome == "unavailable":
+        current.attempts += 1
+        current.status = "unavailable"
         current.reason = reason
         return updated
 

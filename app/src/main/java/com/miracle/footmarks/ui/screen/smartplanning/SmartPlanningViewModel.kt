@@ -66,7 +66,6 @@ class SmartPlanningViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val response = cloudSession.askAgent(message)
-                savedStateHandle[DRAFT_KEY] = ""
                 val current = _uiState.value
                 _uiState.value = current.copy(
                     messages = current.messages + ChatMessage(
@@ -74,13 +73,14 @@ class SmartPlanningViewModel @Inject constructor(
                         ChatRole.AGENT,
                         response.answer
                     ),
-                    draft = "",
                     isSending = false
                 )
             } catch (error: Exception) {
-                savedStateHandle[DRAFT_KEY] = message
-                _uiState.value = _uiState.value.copy(
-                    draft = message,
+                val current = _uiState.value
+                val restoredDraft = current.draft.ifBlank { message }
+                savedStateHandle[DRAFT_KEY] = restoredDraft
+                _uiState.value = current.copy(
+                    draft = restoredDraft,
                     isSending = false,
                     error = userMessage(error)
                 )

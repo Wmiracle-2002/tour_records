@@ -7,7 +7,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
@@ -28,6 +31,13 @@ class MainActivity : ComponentActivity() {
                 val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    contentWindowInsets = if (isImeVisible) {
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Horizontal + WindowInsetsSides.Top
+                        )
+                    } else {
+                        WindowInsets.safeDrawing
+                    },
                     bottomBar = {
                         if (!isImeVisible) {
                             MainBottomBar(navController)

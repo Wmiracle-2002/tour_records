@@ -55,6 +55,7 @@ class TravelRequirement(BaseModel):
     origin: str | None = None
     destination: str | None = None
     history_category: HistoryRecordCategory | None = None
+    date_expression: str | None = None
     start_date: str | None = None
     end_date: str | None = None
     duration_days: int | None = Field(default=None, ge=1)

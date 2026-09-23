@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from pydantic import ValidationError
 
@@ -63,6 +65,27 @@ def test_analyzer_keeps_missing_fields_empty() -> None:
     assert result.origin is None
     assert result.budget is None
     assert result.travelers is None
+
+
+def test_analyzer_supplies_current_date_for_holiday_weather_queries() -> None:
+    client = FakeStructuredOutputClient(
+        TravelRequirement(
+            intent="weather_query",
+            destination="南京",
+            date_expression="中秋",
+            start_date="2026-09-25",
+        )
+    )
+
+    result = RequirementAnalyzer(
+        client,
+        today_provider=lambda: date(2026, 9, 23),
+    ).analyze("南京中秋天气怎么样？")
+
+    assert result.date_expression == "中秋"
+    assert result.start_date == "2026-09-25"
+    assert "当前日期：2026-09-23" in client.calls[0]["system_prompt"]
+    assert "中秋" in client.calls[0]["system_prompt"]
 
 
 def test_analyzer_infers_history_city_when_provider_omits_destination() -> None:

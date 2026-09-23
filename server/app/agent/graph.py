@@ -469,8 +469,25 @@ def _collection_route(
     if all_information_terminal(state["information_status"]):
         return "information_complete"
     if state["react_round"] >= max_react_rounds:
+        if (
+            state["requirement"].intent == "trip_planning"
+            and _critical_information_completed(state["information_status"])
+        ):
+            return "information_complete"
         return "information_exhausted"
     return "information_incomplete"
+
+
+def _critical_information_completed(status: InformationStatus) -> bool:
+    critical = [
+        requirement
+        for name in InformationStatus.model_fields
+        for requirement in (getattr(status, name),)
+        if requirement is not None and requirement.critical
+    ]
+    return bool(critical) and all(
+        requirement.status == "completed" for requirement in critical
+    )
 
 
 def _intent_route(state: TravelAgentState) -> IntentRoute:

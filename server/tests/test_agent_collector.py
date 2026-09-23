@@ -103,6 +103,101 @@ def test_collector_executes_weather_tool_normalizes_and_stops() -> None:
     assert client.contexts[0].collected_info == CollectedInfo()
 
 
+def test_weather_forecast_uses_requested_date_instead_of_first_day() -> None:
+    tool = FakeTool(
+        "weather",
+        [
+            ToolResult.completed(
+                {
+                    "status": "1",
+                    "forecasts": [
+                        {
+                            "city": "南京市",
+                            "casts": [
+                                {
+                                    "date": "2026-09-23",
+                                    "dayweather": "晴",
+                                    "nightweather": "晴",
+                                    "daytemp": "31",
+                                    "nighttemp": "23",
+                                },
+                                {
+                                    "date": "2026-09-25",
+                                    "dayweather": "多云",
+                                    "nightweather": "小雨",
+                                    "daytemp": "28",
+                                    "nighttemp": "21",
+                                },
+                            ],
+                        }
+                    ],
+                }
+            )
+        ],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="weather", arguments={"city": "南京"})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="weather_query",
+            destination="南京",
+            date_expression="中秋",
+            start_date="2026-09-25",
+        )
+    )
+
+    result = ReActCollector(build_layer(tool), client).collect(state)
+
+    assert tool.calls == [{"city": "南京", "forecast": True}]
+    assert result["collected_info"].weather.date == "2026-09-25"
+    assert result["collected_info"].weather.description == "多云 / 小雨"
+
+
+def test_weather_does_not_fall_back_to_today_when_requested_date_is_unresolved() -> None:
+    tool = FakeTool(
+        "weather",
+        [
+            ToolResult.completed(
+                {
+                    "status": "1",
+                    "lives": [
+                        {
+                            "city": "南京市",
+                            "weather": "晴",
+                            "reporttime": "2026-09-23 10:00:00",
+                        }
+                    ],
+                }
+            )
+        ],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="weather", arguments={"city": "南京"})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="weather_query",
+            destination="南京",
+            date_expression="中秋",
+        )
+    )
+
+    result = ReActCollector(build_layer(tool), client, max_rounds=1).collect(state)
+
+    assert result["collected_info"].weather is None
+    assert result["information_status"].weather.status == "unavailable"
+    assert "中秋" in result["information_status"].weather.reason
+
+
 def test_collector_normalizes_internal_history_result() -> None:
     tool = FakeTool(
         "search_trip_history",

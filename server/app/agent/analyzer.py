@@ -2,7 +2,8 @@
 
 import re
 from contextlib import nullcontext
-from typing import Any, Protocol
+from datetime import date
+from typing import Any, Callable, Protocol
 
 from app.agent.budget import AgentBudget
 from app.agent.models import TravelRequirement
@@ -42,9 +43,11 @@ class RequirementAnalyzer:
         self,
         client: StructuredOutputClient,
         budget: AgentBudget | None = None,
+        today_provider: Callable[[], date] = date.today,
     ) -> None:
         self._client = client
         self._budget = budget
+        self._today_provider = today_provider
 
     def analyze(self, user_query: str) -> TravelRequirement:
         """分析用户请求；缺失字段由结构化模型保留为空。"""
@@ -58,7 +61,10 @@ class RequirementAnalyzer:
             else nullcontext()
         ):
             output = self._client.complete_structured(
-                system_prompt=REQUIREMENT_ANALYZER_SYSTEM_PROMPT,
+                system_prompt=(
+                    f"{REQUIREMENT_ANALYZER_SYSTEM_PROMPT}\n\n"
+                    f"当前日期：{self._today_provider().isoformat()}。"
+                ),
                 user_prompt=query,
                 output_model=TravelRequirement,
             )

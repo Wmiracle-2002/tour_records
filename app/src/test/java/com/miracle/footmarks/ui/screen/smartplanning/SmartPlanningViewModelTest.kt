@@ -168,6 +168,45 @@ class SmartPlanningViewModelTest {
     }
 
     @Test
+    fun responseDoesNotClearTextTypedWhilePreviousRequestIsInFlight() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val viewModel = viewModel(FakeFootmarksApi(gate = gate))
+
+        viewModel.updateDraft("南京三日游")
+        viewModel.send()
+        runCurrent()
+        viewModel.updateDraft("中秋天气怎么样")
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("中秋天气怎么样", viewModel.uiState.value.draft)
+        assertEquals(2, viewModel.uiState.value.messages.size)
+    }
+
+    @Test
+    fun failureDoesNotReplaceTextTypedWhilePreviousRequestIsInFlight() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val viewModel = viewModel(
+            FakeFootmarksApi(
+                failure = SocketTimeoutException(),
+                gate = gate
+            )
+        )
+
+        viewModel.updateDraft("南京三日游")
+        viewModel.send()
+        runCurrent()
+        viewModel.updateDraft("中秋天气怎么样")
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("中秋天气怎么样", viewModel.uiState.value.draft)
+        assertEquals("智能规划请求超时，请稍后重试", viewModel.uiState.value.error)
+    }
+
+    @Test
     fun sendingDisablesDuplicateSubmission() = runTest(dispatcher) {
         val gate = CompletableDeferred<Unit>()
         val api = FakeFootmarksApi(gate = gate)

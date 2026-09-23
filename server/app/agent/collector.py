@@ -136,6 +136,12 @@ def _normalize_tool_arguments(
         if "category" not in arguments and requirement.history_category:
             arguments["category"] = requirement.history_category
 
+    if call.name == "weather":
+        if "city" not in arguments and requirement.destination:
+            arguments["city"] = requirement.destination
+        if requirement.start_date or requirement.end_date or requirement.date_expression:
+            arguments["forecast"] = True
+
     if call.name in {
         "driving_route",
         "transit_route",
@@ -307,30 +313,45 @@ class ReActCollector:
                 reason="Tool returned no data",
             )
         elif normalized_result.status == "completed":
-            try:
-                working["collected_info"] = self._apply_collected_info(
-                    working["collected_info"], need, normalized_result.data
+            collected_data = normalized_result.data
+            weather_reason = None
+            if need == "weather":
+                collected_data, weather_reason = _weather_for_requirement(
+                    collected_data,
+                    working["requirement"],
                 )
-            except Exception:
-                normalized_result = ToolResult.failed(
-                    "Normalized tool data has an invalid shape",
-                    error_code="invalid_normalized_data",
-                )
+            if weather_reason is not None:
                 working["information_status"] = update_information_status(
                     working["information_status"],
                     need,
-                    outcome="error",
-                    reason=normalized_result.message,
+                    outcome="unavailable",
+                    reason=weather_reason,
                 )
             else:
-                working["information_status"] = update_information_status(
-                    working["information_status"], need, outcome="completed"
-                )
+                try:
+                    working["collected_info"] = self._apply_collected_info(
+                        working["collected_info"], need, collected_data
+                    )
+                except Exception:
+                    normalized_result = ToolResult.failed(
+                        "Normalized tool data has an invalid shape",
+                        error_code="invalid_normalized_data",
+                    )
+                    working["information_status"] = update_information_status(
+                        working["information_status"],
+                        need,
+                        outcome="error",
+                        reason=normalized_result.message,
+                    )
+                else:
+                    working["information_status"] = update_information_status(
+                        working["information_status"], need, outcome="completed"
+                    )
         elif normalized_result.status == "unavailable":
             working["information_status"] = update_information_status(
                 working["information_status"],
                 need,
-                outcome="empty",
+                outcome="unavailable",
                 reason=normalized_result.message,
             )
         else:
@@ -466,6 +487,24 @@ class ReActCollector:
 def _can_discover_more_information(state: TravelAgentState) -> bool:
     """行程规划允许在当前信息完成后继续发现路线、预算等需求。"""
     return state["requirement"].intent == "trip_planning"
+
+
+def _weather_for_requirement(
+    data: Any,
+    requirement: TravelRequirement,
+) -> tuple[Any, str | None]:
+    if not isinstance(data, list) or not all(
+        isinstance(item, WeatherInfo) for item in data
+    ):
+        return data, None
+    if requirement.start_date:
+        matches = [item for item in data if item.date == requirement.start_date]
+        if matches:
+            return matches, None
+        return [], f"天气预报范围不包含请求日期 {requirement.start_date}"
+    if requirement.date_expression:
+        return [], f"无法将日期“{requirement.date_expression}”解析为具体公历日期"
+    return data, None
 
 
 def _tool_can_be_requested(name: str, status: InformationStatus) -> bool:
