@@ -115,12 +115,39 @@ _TOOL_ARGUMENT_ALIASES: dict[str, dict[str, str]] = {
 }
 
 
-def _normalize_tool_arguments(call: ToolCall) -> dict[str, Any]:
+def _normalize_tool_arguments(
+    call: ToolCall,
+    requirement: TravelRequirement,
+) -> dict[str, Any]:
     """Normalize common LLM argument aliases before calling a concrete Tool."""
     arguments = dict(call.arguments)
     for alias, canonical in _TOOL_ARGUMENT_ALIASES.get(call.name, {}).items():
         if canonical not in arguments and alias in arguments:
             arguments[canonical] = arguments.pop(alias)
+
+    if call.name in {"search_trip_history", "search_records"}:
+        if "city" not in arguments and requirement.destination:
+            arguments["city"] = requirement.destination
+        if "category" not in arguments and requirement.history_category:
+            arguments["category"] = requirement.history_category
+
+    if call.name in {
+        "driving_route",
+        "transit_route",
+        "walking_route",
+        "cycling_route",
+    }:
+        if "origin" not in arguments and requirement.origin:
+            arguments["origin"] = requirement.origin
+        if "destination" not in arguments and requirement.destination:
+            arguments["destination"] = requirement.destination
+
+    if call.name == "distance":
+        if "origins" not in arguments and requirement.origin:
+            arguments["origins"] = [requirement.origin]
+        if "destination" not in arguments and requirement.destination:
+            arguments["destination"] = requirement.destination
+
     return arguments
 
 
@@ -233,7 +260,8 @@ class ReActCollector:
             react_round=working["react_round"],
         )
         raw_result = self._tool_layer.execute(
-            call.name, **_normalize_tool_arguments(call)
+            call.name,
+            **_normalize_tool_arguments(call, working["requirement"]),
         )
         normalized_result = self._normalize(call, raw_result)
         self._emit(

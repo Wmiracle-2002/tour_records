@@ -64,7 +64,7 @@ class FinalResponseGenerator:
         if requirement.intent == "weather_query":
             return self._weather(collected_info, information_status)
         if requirement.intent == "history_query":
-            return self._history(collected_info, information_status)
+            return self._history(requirement, collected_info, information_status)
         if requirement.intent == "budget_query":
             return self._budget(collected_info, information_status)
         if requirement.intent == "poi_recommendation":
@@ -276,6 +276,7 @@ class FinalResponseGenerator:
 
     def _history(
         self,
+        requirement: TravelRequirement,
         collected_info: CollectedInfo,
         information_status: InformationStatus,
     ) -> str:
@@ -285,6 +286,30 @@ class FinalResponseGenerator:
         history = collected_info.history
         if history is None:
             return "历史记录当前没有可展示的数据。"
+
+        destination = (requirement.destination or "").strip()
+        if destination:
+            matched_city = any(
+                destination in city or city in destination
+                for city in history.visited_cities
+            )
+            if not matched_city:
+                return f"没有找到在{destination}的历史旅行记录。"
+
+            parts = [
+                f"历史记录：在{destination}记录了 {history.trip_count} 次旅行。"
+            ]
+            if history.visited_names:
+                category_label = {
+                    "ATTRACTION": "景点",
+                    "FOOD": "美食",
+                }.get(requirement.history_category, "景点或美食")
+                parts.append(
+                    f"去过的{category_label}：{'、'.join(history.visited_names)}。"
+                )
+            else:
+                parts.append("该城市没有具体的景点或美食记录。")
+            return "".join(parts)
 
         parts = [f"历史记录：共记录 {history.trip_count} 次旅行。"]
         if history.visited_cities:

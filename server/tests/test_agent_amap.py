@@ -81,6 +81,39 @@ def test_client_covers_poi_geo_distance_and_route_endpoints() -> None:
     ]
 
 
+def test_route_geocodes_place_names_before_calling_direction_api() -> None:
+    calls: list[tuple[str, dict[str, str], float]] = []
+    locations = iter(["118.796877,32.060255", "118.805000,32.065000"])
+
+    def transport(
+        url: str,
+        params: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any]:
+        calls.append((url, params, timeout))
+        if url.endswith("/v3/geocode/geo"):
+            return {
+                "status": "1",
+                "geocodes": [{"location": next(locations)}],
+            }
+        return {
+            "status": "1",
+            "route": {"paths": [{"distance": "1000", "duration": "600"}]},
+        }
+
+    client = AmapWebClient(api_key="test-amap-key", transport=transport)
+
+    client.route("walking", "中山陵", "夫子庙")
+
+    assert [call[0] for call in calls] == [
+        "https://restapi.amap.com/v3/geocode/geo",
+        "https://restapi.amap.com/v3/geocode/geo",
+        "https://restapi.amap.com/v3/direction/walking",
+    ]
+    assert calls[-1][1]["origin"] == "118.796877,32.060255"
+    assert calls[-1][1]["destination"] == "118.805000,32.065000"
+
+
 def test_amap_tool_registry_exposes_planned_capabilities() -> None:
     names = {tool.name for tool in create_amap_tools(AmapWebClient("test-key"))}
 

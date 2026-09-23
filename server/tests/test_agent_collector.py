@@ -136,6 +136,64 @@ def test_collector_normalizes_internal_history_result() -> None:
     assert result["collected_info"].history.visited_names == ["中山陵"]
 
 
+def test_collector_defaults_history_city_from_requirement_destination() -> None:
+    tool = FakeTool(
+        "search_trip_history",
+        [ToolResult.completed([{"trip_id": 1, "city_name": "南京市", "records": []}])],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="search_trip_history", arguments={})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="history_query",
+            destination="南京",
+            history_category="ATTRACTION",
+        )
+    )
+
+    ReActCollector(build_layer(tool), client).collect(state)
+
+    assert tool.calls == [{"city": "南京", "category": "ATTRACTION"}]
+
+
+def test_collector_defaults_route_endpoints_from_requirement() -> None:
+    tool = FakeTool(
+        "walking_route",
+        [
+            ToolResult.completed(
+                {
+                    "route": {
+                        "paths": [{"distance": "1000", "duration": "600"}]
+                    }
+                }
+            )
+        ],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="walking_route", arguments={})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="route_query",
+            origin="南京站",
+            destination="中山陵",
+        )
+    )
+
+    ReActCollector(build_layer(tool), client).collect(state)
+
+    assert tool.calls == [{"origin": "南京站", "destination": "中山陵"}]
+
+
 def test_trip_planning_decisions_can_collect_multiple_needs_in_any_order() -> None:
     history_tool = FakeTool(
         "search_trip_history",

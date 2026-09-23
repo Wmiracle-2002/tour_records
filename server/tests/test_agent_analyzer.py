@@ -109,4 +109,5 @@ def test_requirement_analyzer_prompt_declares_exact_output_fields() -> None:
     assert "intent" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
     assert "preferences" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
     assert "constraints" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
+    assert "history_category" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT
     assert "不要使用 task_type" in REQUIREMENT_ANALYZER_SYSTEM_PROMPT

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from typing import Any
 from urllib.error import URLError
@@ -14,6 +15,9 @@ from app.core.config import Settings, get_settings
 
 
 AmapTransport = Callable[[str, dict[str, str], float], dict[str, Any]]
+_COORDINATE_PATTERN = re.compile(
+    r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$"
+)
 
 
 class AmapApiError(RuntimeError):
@@ -41,6 +45,11 @@ def required_text(value: str, name: str) -> str:
     if not normalized:
         raise ValueError(f"{name} must not be blank")
     return normalized
+
+
+def _is_coordinate(value: str) -> bool:
+    """判断地点参数是否已经是高德要求的经纬度格式。"""
+    return bool(_COORDINATE_PATTERN.fullmatch(value))
 
 
 class AmapWebClient:
@@ -150,6 +159,21 @@ class AmapWebClient:
             },
         )
 
+    def _resolve_location(self, value: str, city: str | None = None) -> str:
+        """将中文地点名转换为路线接口使用的经纬度。"""
+        normalized = required_text(value, "location")
+        if _is_coordinate(normalized):
+            return normalized.replace(" ", "")
+
+        payload = self.geocode(normalized, city=city)
+        geocodes = payload.get("geocodes")
+        if not isinstance(geocodes, list) or not geocodes:
+            raise AmapApiError(f"Unable to geocode location: {normalized}")
+        first = geocodes[0]
+        if not isinstance(first, dict) or not first.get("location"):
+            raise AmapApiError(f"Unable to geocode location: {normalized}")
+        return required_text(str(first["location"]), "geocoded location")
+
     def distance(
         self,
         origins: list[str],
@@ -160,11 +184,15 @@ class AmapWebClient:
             raise ValueError("origins must contain between 1 and 100 locations")
         if distance_type not in {0, 1, 3}:
             raise ValueError("distance_type must be 0, 1 or 3")
+        resolved_origins = [
+            self._resolve_location(origin) for origin in origins
+        ]
+        resolved_destination = self._resolve_location(destination)
         return self._request(
             "/v3/distance",
             {
-                "origins": "|".join(required_text(origin, "origin") for origin in origins),
-                "destination": required_text(destination, "destination"),
+                "origins": "|".join(resolved_origins),
+                "destination": resolved_destination,
                 "type": str(distance_type),
             },
         )
@@ -192,8 +220,8 @@ class AmapWebClient:
             raise ValueError("city is required for transit routes")
 
         params = {
-            "origin": required_text(origin, "origin"),
-            "destination": required_text(destination, "destination"),
+            "origin": self._resolve_location(origin, city=city),
+            "destination": self._resolve_location(destination, city=city),
         }
         if city:
             params["city"] = city.strip()
@@ -233,25 +261,29 @@ def create_amap_tools(client: AmapWebClient) -> tuple[AmapWebTool, ...]:
         AmapWebTool("around_search", "搜索坐标周边的 POI", client.around_search),
         AmapWebTool("poi_detail", "查询 POI 详情", client.poi_detail),
         AmapWebTool("weather", "查询城市实时天气或预报", client.weather),
-        AmapWebTool("distance", "测量多个起点到终点的距离", client.distance),
+        AmapWebTool(
+            "distance",
+            "测量多个起点到终点的距离，地点可以是名称或经纬度",
+            client.distance,
+        ),
         AmapWebTool(
             "driving_route",
-            "查询驾车路线",
+            "查询驾车路线，起点和终点可以是名称或经纬度",
             lambda **arguments: client.route("driving", **arguments),
         ),
         AmapWebTool(
             "transit_route",
-            "查询公交路线",
+            "查询公交路线，起点和终点可以是名称或经纬度",
             lambda **arguments: client.route("transit", **arguments),
         ),
         AmapWebTool(
             "walking_route",
-            "查询步行路线",
+            "查询步行路线，起点和终点可以是名称或经纬度",
             lambda **arguments: client.route("walking", **arguments),
         ),
         AmapWebTool(
             "cycling_route",
-            "查询骑行路线",
+            "查询骑行路线，起点和终点可以是名称或经纬度",
             lambda **arguments: client.route("cycling", **arguments),
         ),
         AmapWebTool("geocode", "将地址转换为经纬度", client.geocode),

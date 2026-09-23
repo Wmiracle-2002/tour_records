@@ -188,6 +188,83 @@ def test_search_trip_history_filters_city_and_overlapping_date_range(
     assert result.data[0].records == []
 
 
+def test_search_trip_history_includes_records_for_matching_trips(
+    db_session: Session,
+) -> None:
+    user = add_user(db_session, "history-record-user")
+    trip = add_trip(
+        db_session,
+        user,
+        "320100",
+        "南京市",
+        date(2026, 9, 1),
+        date(2026, 9, 3),
+    )
+    add_record(
+        db_session,
+        trip,
+        "中山陵",
+        RecordType.ATTRACTION,
+        date(2026, 9, 1),
+    )
+    add_record(
+        db_session,
+        trip,
+        "盐水鸭",
+        RecordType.FOOD,
+        date(2026, 9, 2),
+    )
+    db_session.commit()
+
+    result = tool_layer(db_session, user.id).execute(
+        "search_trip_history",
+        city="南京",
+    )
+
+    assert result.status == "completed"
+    assert result.data[0].record_count == 2
+    assert [record.name for record in result.data[0].records] == ["盐水鸭", "中山陵"]
+
+
+def test_search_trip_history_filters_record_category(
+    db_session: Session,
+) -> None:
+    user = add_user(db_session, "history-category-user")
+    trip = add_trip(
+        db_session,
+        user,
+        "320100",
+        "南京市",
+        date(2026, 9, 1),
+        date(2026, 9, 3),
+    )
+    add_record(
+        db_session,
+        trip,
+        "中山陵",
+        RecordType.ATTRACTION,
+        date(2026, 9, 1),
+    )
+    add_record(
+        db_session,
+        trip,
+        "盐水鸭",
+        RecordType.FOOD,
+        date(2026, 9, 2),
+    )
+    db_session.commit()
+
+    result = tool_layer(db_session, user.id).execute(
+        "search_trip_history",
+        city="南京",
+        category="ATTRACTION",
+    )
+
+    assert result.status == "completed"
+    assert result.data[0].record_count == 1
+    assert [record.name for record in result.data[0].records] == ["中山陵"]
+
+
 def test_search_records_supports_filters_and_user_scope(db_session: Session) -> None:
     user = add_user(db_session, "record-user")
     other_user = add_user(db_session, "other-record-user")

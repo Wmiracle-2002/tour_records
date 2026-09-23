@@ -60,6 +60,7 @@ class SearchTripHistoryInput(BaseModel):
     """历史旅行查询的筛选条件。"""
 
     city: str | None = None
+    category: RecordType | None = None
     start_date: date | None = None
     end_date: date | None = None
 
@@ -180,28 +181,14 @@ class SearchTripHistoryTool(_UserScopedTool):
     """按城市和日期区间查询当前用户的历史旅行。"""
 
     name = "search_trip_history"
-    description = "查询去过哪些城市及每次旅行时间段，支持城市和日期筛选"
+    description = "查询去过哪些城市及具体景点/美食，支持城市、类型和日期筛选"
 
     def run(self, **arguments: Any) -> ToolResult[list[TripInfo]]:
         query = SearchTripHistoryInput.model_validate(arguments)
         statement = (
-            select(
-                Trip.id,
-                Trip.city_code,
-                Trip.city_name,
-                Trip.start_date,
-                Trip.end_date,
-                func.count(Record.id),
-            )
-            .outerjoin(Record)
+            select(Trip)
             .where(Trip.user_id == self._user_id)
-            .group_by(
-                Trip.id,
-                Trip.city_code,
-                Trip.city_name,
-                Trip.start_date,
-                Trip.end_date,
-            )
+            .options(selectinload(Trip.records))
             .order_by(Trip.start_date.desc(), Trip.id.desc())
         )
         if query.city:
@@ -211,20 +198,33 @@ class SearchTripHistoryTool(_UserScopedTool):
         if query.end_date:
             statement = statement.where(Trip.start_date <= query.end_date)
 
-        rows = self._db.execute(statement).all()
-        return ToolResult.completed(
-            [
-                    TripInfo(
-                        trip_id=trip_id,
-                        city_code=city_code,
-                        city_name=city_name,
-                        start_date=start_date,
-                        end_date=end_date,
-                        record_count=record_count,
+        trips = self._db.scalars(statement).unique().all()
+        items: list[TripInfo] = []
+        for trip in trips:
+            records = sorted(
+                [
+                    record
+                    for record in trip.records
+                    if query.category is None or record.type == query.category
+                ],
+                key=lambda item: (item.date, item.id),
+                reverse=True,
+            )
+            items.append(
+                TripInfo(
+                    trip_id=trip.id,
+                    city_code=trip.city_code,
+                    city_name=trip.city_name,
+                    start_date=trip.start_date,
+                    end_date=trip.end_date,
+                    record_count=len(records),
+                    records=[
+                        record_search_item(record, trip.city_name)
+                        for record in records
+                    ],
                 )
-                for trip_id, city_code, city_name, start_date, end_date, record_count in rows
-            ]
-        )
+            )
+        return ToolResult.completed(items)
 
 
 class SearchRecordsTool(_UserScopedTool):

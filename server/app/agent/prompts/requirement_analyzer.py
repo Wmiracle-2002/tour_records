@@ -13,6 +13,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 输出 JSON 必须严格使用以下字段名，不得改名：
 - intent：只能是 trip_planning、poi_recommendation、route_query、weather_query、budget_query、history_query、general_query 之一；
 - origin、destination、start_date、end_date：字符串或 null；
+- history_category：只能是 ATTRACTION、FOOD 或 null；询问去过哪些景点时填写 ATTRACTION，询问去过哪些美食时填写 FOOD；
 - duration_days、travelers：整数或 null；
 - budget：数字或 null；
 - preferences、constraints：字符串数组。

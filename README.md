@@ -36,7 +36,7 @@
 
 ## 当前限制
 
-- 服务端 Agent 已完成 Phase 1～15，并已部署受认证的 HTTPS Agent API；Android 智能规划页已接入该接口。服务器真实 LLM 冒烟、天气/历史/POI/预算/路线/三日行程六类场景均已通过。手机真机手工验收和真实 COS 凭据验证仍待完善。
+- 服务端 Agent 已完成 Phase 1～15，并已部署受认证的 HTTPS Agent API；Android 智能规划页已接入该接口。服务器真实 LLM 冒烟、天气/历史/POI/预算/路线/三日行程六类场景均已通过；手机 P0 请求链路已完成实测，P1 五类基础问答仍按《Agent稳定性计划.md》待逐项验收。真实 COS 凭据验证仍待完善。
 - 登录云端前要求本机没有未同步的旧旅行，以免把两套数据混在同一时间线；旧本地数据不会被自动上传或删除。云端模式支持新增、编辑和删除照片，但需要服务端 `.env` 配置 COS SecretId、SecretKey。
 - 服务端不可用时可以浏览已缓存的云端记录；云端模式的新增、编辑、删除和刷新会报错，不自动改为本地写入。两台真实设备和 API 24 网络回归尚待补测。
 - 最低版本配置为 API 24；本机只有 API 34 镜像，API 24 设备回归需在镜像可下载后补跑。
@@ -155,7 +155,7 @@ Agent Phase 1～15 的 State、Requirement Analyzer、Tool Layer、ReAct Collect
 
 Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件日志，Phase 15 完成架构、可靠性、反幻觉和用户输出检查；服务端全量回归 211 项通过。接入 API Task 1～9 的服务端实现、HTTPS 部署和六类真实 LLM 场景已完成。
 
-Agent 稳定性 P0 已完成：FastAPI、Nginx、Runtime、LangGraph、LLM 和 Tool 日志现在可以用同一个 `request_id` 关联；阶段事件包含开始、结束、耗时和状态，覆盖需求分析、ReAct、Tool/归一化、行程生成、校验、修订和最终回答。API 会通过 `X-Request-ID` 返回本次请求标识，服务器可用它对照 Nginx access log 与 API 容器日志。P0 Agent 回归为 204/204，服务端全量回归 229/229；服务器代码和 Nginx 配置已部署，公网健康检查通过，手机 Agent 请求仍待验收。
+Agent 稳定性 P0 已完成：FastAPI、Nginx、Runtime、LangGraph、LLM 和 Tool 日志现在可以用同一个 `request_id` 关联；阶段事件包含开始、结束、耗时和状态，覆盖需求分析、ReAct、Tool/归一化、行程生成、校验、修订和最终回答。API 会通过 `X-Request-ID` 返回本次请求标识，服务器可用它对照 Nginx access log 与 API 容器日志。P0 Agent 回归为 204/204，服务端全量回归 229/229；服务器代码和 Nginx 配置已部署，公网健康检查通过，手机历史查询和 Token 刷新链路实测通过。下一步按 P1 验收五类基础问答。
 
 ## 下一步
 

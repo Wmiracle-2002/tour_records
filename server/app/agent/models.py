@@ -20,6 +20,9 @@ TravelIntent = Literal[
 ]
 # 用户当前想让 Agent 完成的任务类型。
 
+HistoryRecordCategory = Literal["ATTRACTION", "FOOD"]
+# 历史记录查询的类型筛选：景点或美食。
+
 InformationStatusValue = Literal[
     "pending",
     "completed",
@@ -51,6 +54,7 @@ class TravelRequirement(BaseModel):
     intent: TravelIntent
     origin: str | None = None
     destination: str | None = None
+    history_category: HistoryRecordCategory | None = None
     start_date: str | None = None
     end_date: str | None = None
     duration_days: int | None = Field(default=None, ge=1)

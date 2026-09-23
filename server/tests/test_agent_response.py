@@ -87,6 +87,46 @@ def test_history_response_uses_structured_history_facts() -> None:
     assert "中山陵、故宫" in response
 
 
+def test_history_response_reports_no_matching_city_instead_of_zero_summary() -> None:
+    response = FinalResponseGenerator().generate(
+        TravelRequirement(intent="history_query", destination="哈尔滨"),
+        CollectedInfo(
+            history=TravelHistoryInfo(
+                trip_count=1,
+                visited_cities=["南京市"],
+                visited_names=["中山陵"],
+            )
+        ),
+        InformationStatus(history=InfoRequirement(status="completed", critical=True)),
+    )
+
+    assert "哈尔滨" in response
+    assert "没有找到" in response
+    assert "共记录 0 次" not in response
+
+
+def test_history_response_lists_places_for_requested_city() -> None:
+    response = FinalResponseGenerator().generate(
+        TravelRequirement(
+            intent="history_query",
+            destination="南京",
+            history_category="ATTRACTION",
+        ),
+        CollectedInfo(
+            history=TravelHistoryInfo(
+                trip_count=2,
+                visited_cities=["南京市"],
+                visited_names=["中山陵", "夫子庙"],
+            )
+        ),
+        InformationStatus(history=InfoRequirement(status="completed", critical=True)),
+    )
+
+    assert "南京" in response
+    assert "去过的景点：中山陵、夫子庙" in response
+    assert "去过的城市" not in response
+
+
 def test_route_response_uses_route_facts_and_rmb_budget_is_labeled() -> None:
     route_response = FinalResponseGenerator().generate(
         TravelRequirement(intent="route_query"),
