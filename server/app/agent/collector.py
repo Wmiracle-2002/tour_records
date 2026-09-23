@@ -361,6 +361,7 @@ class ReActCollector:
             available_tools=[
                 ToolDescriptor(name=name, description=description)
                 for name, description in self._tool_layer.descriptions()
+                if _tool_can_be_requested(name, state["information_status"])
             ],
             react_round=state["react_round"],
         )
@@ -451,3 +452,12 @@ class ReActCollector:
 def _can_discover_more_information(state: TravelAgentState) -> bool:
     """行程规划允许在当前信息完成后继续发现路线、预算等需求。"""
     return state["requirement"].intent == "trip_planning"
+
+
+def _tool_can_be_requested(name: str, status: InformationStatus) -> bool:
+    """Do not advertise Tools whose information need has already terminated."""
+    need = TOOL_INFORMATION_NEEDS.get(name)
+    if need is None:
+        return True
+    requirement = getattr(status, need)
+    return requirement is None or requirement.status == "pending"

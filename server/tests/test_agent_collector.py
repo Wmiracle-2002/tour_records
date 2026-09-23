@@ -8,7 +8,7 @@ from app.agent.collector import (
     ReActContext,
     ToolCall,
 )
-from app.agent.information import initialize_information_status
+from app.agent.information import ensure_information_need, initialize_information_status
 from app.agent.models import CollectedInfo, TravelRequirement
 from app.agent.state import TravelAgentState
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
@@ -336,6 +336,42 @@ def test_error_result_retries_three_times_then_becomes_failed() -> None:
     assert result["information_status"].weather.status == "failed"
     assert result["information_status"].weather.attempts == 3
     assert result["information_status"].weather.reason == "provider error"
+
+
+def test_terminal_failed_need_is_removed_from_next_react_tool_choices() -> None:
+    history_tool = FakeTool(
+        "search_trip_history",
+        [ToolResult.failed("history unavailable", error_code="provider_error")],
+    )
+    pois_tool = FakeTool(
+        "keyword_search",
+        [ToolResult.completed([])],
+    )
+    requirement = TravelRequirement(intent="trip_planning")
+    state = build_state(requirement)
+    state["information_status"] = ensure_information_need(
+        state["information_status"], "history", critical=True
+    )
+    state["information_status"].history.status = "failed"
+    state["information_status"].history.reason = "history unavailable"
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="search_trip_history", arguments={})
+            ),
+            ReActDecision(
+                tool_call=ToolCall(name="keyword_search", arguments={"keywords": "南京"})
+            ),
+        ]
+    )
+
+    ReActCollector(
+        build_layer_for_tools(history_tool, pois_tool), client
+    ).collect(state)
+
+    assert [tool.name for tool in client.contexts[1].available_tools] == [
+        "keyword_search"
+    ]
 
 
 def test_no_tool_call_waits_for_pending_information_until_round_limit() -> None:
