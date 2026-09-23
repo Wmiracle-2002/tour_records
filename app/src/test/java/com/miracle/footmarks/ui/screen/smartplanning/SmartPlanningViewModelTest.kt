@@ -33,6 +33,7 @@ import org.junit.Before
 import org.junit.Test
 import retrofit2.HttpException
 import retrofit2.Response
+import java.net.SocketTimeoutException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SmartPlanningViewModelTest {
@@ -120,6 +121,34 @@ class SmartPlanningViewModelTest {
         assertEquals("规划北京三日游", viewModel.uiState.value.draft)
         assertEquals(1, viewModel.uiState.value.messages.size)
         assertFalse(viewModel.uiState.value.isSending)
+    }
+
+    @Test
+    fun clientClosedRequestShowsRetryMessage() = runTest(dispatcher) {
+        val api = FakeFootmarksApi(failure = HttpException(
+            Response.error<AgentChatResponse>(
+                499,
+                "client closed".toResponseBody("text/plain".toMediaType())
+            )
+        ))
+        val viewModel = viewModel(api)
+
+        viewModel.updateDraft("规划北京三日游")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertEquals("请求已取消（499），请重新发送", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun socketTimeoutShowsStableRetryMessage() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeFootmarksApi(failure = SocketTimeoutException()))
+
+        viewModel.updateDraft("规划北京三日游")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertEquals("智能规划请求超时，请稍后重试", viewModel.uiState.value.error)
     }
 
     @Test

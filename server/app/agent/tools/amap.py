@@ -24,6 +24,10 @@ class AmapApiError(RuntimeError):
     """高德 Web API 返回业务失败。"""
 
 
+class AmapTimeoutError(ToolUnavailableError):
+    """高德 Web API 请求超时。"""
+
+
 def default_amap_transport(
     url: str, params: dict[str, str], timeout: float
 ) -> dict[str, Any]:
@@ -80,7 +84,9 @@ class AmapWebClient:
             )
         except ToolUnavailableError:
             raise
-        except (OSError, TimeoutError, URLError) as error:
+        except TimeoutError as error:
+            raise AmapTimeoutError("AMap Web API request timed out") from error
+        except (OSError, URLError) as error:
             raise ToolUnavailableError("AMap Web API is temporarily unavailable") from error
         except Exception as error:
             raise AmapApiError("AMap Web API request failed") from error
@@ -321,6 +327,8 @@ class AmapWebTool:
     def run(self, **arguments: Any) -> ToolResult[dict[str, Any]]:
         try:
             payload = self._handler(**arguments)
+        except AmapTimeoutError as error:
+            return ToolResult.unavailable(str(error), error_code="amap_timeout")
         except AmapApiError as error:
             return ToolResult.failed(str(error), error_code="amap_api_error")
         return ToolResult.completed(payload)

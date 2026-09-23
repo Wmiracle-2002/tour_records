@@ -8,11 +8,11 @@ import org.junit.Test
 
 class FootmarksApiTest {
     @Test
-    fun defaultClientAllowsLongRunningAgentResponses() {
+    fun defaultClientMatchesAgentRequestBudget() {
         val client = FootmarksApi.defaultClient()
 
-        assertEquals(300_000, client.readTimeoutMillis)
-        assertEquals(300_000, client.callTimeoutMillis)
+        assertEquals(150_000, client.readTimeoutMillis)
+        assertEquals(150_000, client.callTimeoutMillis)
     }
 
     @Test

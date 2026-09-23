@@ -125,6 +125,8 @@ Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在
 
 Agent 同步请求还受两个预算控制：`FOOTMARKS_AGENT_TOTAL_TIMEOUT_SECONDS` 默认 120 秒，限制整条请求；`FOOTMARKS_AGENT_STAGE_TIMEOUT_SECONDS` 默认 60 秒，限制 Requirement Analyzer、ReAct Decision、Itinerary Generator 和 Reviser 各自累计耗时。阶段预算会覆盖当前 LLM HTTP 请求的读取超时，预算耗尽后 API 返回 HTTP 504。需要调整时只修改服务器 `server/.env`，不要删除其他已有配置。
 
+请求链路的时间约定为：Agent 默认 120 秒总预算，Nginx 和 Android 默认 150 秒；LLM 单次请求使用阶段剩余预算，客户端断开会触发服务端取消后续阶段。AMap 超时属于可降级 Tool 错误，日志错误码为 `amap_timeout`，能继续回答的请求保持 HTTP 200；LLM 或 Agent 预算超时返回 504，LLM 上游错误返回 502，LLM 未配置返回 503。
+
 业务 API 提供 `POST/GET /api/v1/trips`、`GET/PATCH/DELETE /api/v1/trips/{id}`、`POST /api/v1/trips/{id}/records`、`GET/PATCH/DELETE /api/v1/records/{id}` 和 `GET /api/v1/stats`。`POST /api/v1/auth/login` 接收用户名与密码，返回 Access Token/Refresh Token；`POST /api/v1/auth/refresh` 接收 `refresh_token`，`GET /api/v1/auth/me` 查询当前用户。业务请求带 `Authorization: Bearer <access_token>`。日期使用 ISO `YYYY-MM-DD`，金额为人民币元。
 
 模拟器先启动服务端，再安装 Debug APK，在“个人中心 → 共享账号”输入用户名和密码，点“登录并同步”。切回记录页查看云端旅行；其他设备改动后，在个人中心点“刷新共享记录”。真机需要能访问服务端的地址，建议使用 HTTPS；默认 `10.0.2.2` 只适用于 Android 模拟器。Release 默认指向不可用占位地址，需要构建时指定 HTTPS。服务端模式的本机缓存保存文字记录和远端图片元数据，原图由 COS 保存。
@@ -159,17 +161,16 @@ Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件�
 
 Agent 稳定性 P0 已完成：FastAPI、Nginx、Runtime、LangGraph、LLM 和 Tool 日志现在可以用同一个 `request_id` 关联；阶段事件包含开始、结束、耗时和状态，覆盖需求分析、ReAct、Tool/归一化、行程生成、校验、修订和最终回答。API 会通过 `X-Request-ID` 返回本次请求标识，服务器可用它对照 Nginx access log 与 API 容器日志。P0 Agent 回归为 204/204，服务端全量回归 229/229；服务器代码和 Nginx 配置已部署，公网健康检查通过，手机历史查询和 Token 刷新链路实测通过。下一步按 P1 验收五类基础问答。
 
-Agent 稳定性 P1 已完成五类基础问答真机验收。P2-1 至 P2-4 已完成：ReAct 默认最多执行 4 轮，已进入终态的信息 Tool 不再暴露给下一轮决策；Agent 具备总预算、阶段预算和客户端断开后的协作式停止；P2 定向回归 65/65 通过。下一步处理 API、LLM、AMap 和 Android/Nginx 的统一超时映射。
+Agent 稳定性 P1 已完成五类基础问答真机验收。P2-1 至 P2-5 已完成：ReAct 默认最多执行 4 轮，已进入终态的信息 Tool 不再暴露给下一轮决策；Agent 具备总预算、阶段预算和客户端断开后的协作式停止；P2 定向服务端回归 75/75、Android 单元测试 31/31 通过。下一步部署并进行公网与真机验收。
 
 ## 下一步
 
 1. P1 基础问答稳定性验收已完成：历史、天气、景点、预算和路线五类问答均已在真实手机上验证。
-2. P2-5：统一 API、LLM、AMap、Nginx 和 Android 的超时与状态映射。
-3. 在服务器更新 `.env` 后重建容器，验证预算超时返回 504。
-4. 在真实手机上安装 HTTPS APK，完成登录、天气请求、三日行程请求、失败重试和重复发送检查。
-5. 下载条件恢复后补跑 API 24 最低版本回归。
-6. 补充大量记录的页面滚动压力测试。
-7. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
+2. P2 已完成：部署 `fix/agent` 到服务器并验证公网健康检查、正常问答、504 超时和客户端断开日志。
+3. 在真实手机上安装 HTTPS APK，完成登录、天气请求、三日行程请求、失败重试和重复发送检查。
+4. 下载条件恢复后补跑 API 24 最低版本回归。
+5. 补充大量记录的页面滚动压力测试。
+6. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
 
 ## 许可证
 

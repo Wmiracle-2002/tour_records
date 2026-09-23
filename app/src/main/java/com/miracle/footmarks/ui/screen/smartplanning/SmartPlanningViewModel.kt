@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import java.io.IOException
+import java.net.SocketTimeoutException
 import javax.inject.Inject
 
 enum class ChatRole {
@@ -99,8 +101,11 @@ class SmartPlanningViewModel @Inject constructor(
             502 -> "智能规划上游调用失败（502），请检查服务端 LLM 配置"
             503 -> "智能规划尚未配置（503），请检查服务器 .env"
             504 -> "智能规划响应超时（504），请稍后重试"
+            499 -> "请求已取消（499），请重新发送"
             else -> "请求失败，请稍后重试"
         }
+        is SocketTimeoutException -> "智能规划请求超时，请稍后重试"
+        is IOException -> "网络连接中断，请检查网络后重试"
         else -> error.message ?: "请求失败，请稍后重试"
     }
 

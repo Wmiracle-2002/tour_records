@@ -167,9 +167,9 @@ interface FootmarksApi {
     companion object {
         internal fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(300, TimeUnit.SECONDS)
+            .readTimeout(150, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
-            .callTimeout(300, TimeUnit.SECONDS)
+            .callTimeout(150, TimeUnit.SECONDS)
             .build()
 
         fun create(baseUrl: String): FootmarksApi = Retrofit.Builder()

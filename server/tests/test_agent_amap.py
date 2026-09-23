@@ -227,6 +227,23 @@ def test_missing_key_is_reported_as_unavailable_without_network_call() -> None:
     assert transport.calls == []
 
 
+def test_amap_timeout_has_an_explicit_tool_error_code() -> None:
+    def timeout_transport(
+        _url: str,
+        _params: dict[str, str],
+        _timeout: float,
+    ) -> dict[str, Any]:
+        raise TimeoutError("upstream timed out")
+
+    result = amap_layer(
+        AmapWebClient(api_key="test-key", transport=timeout_transport)
+    ).execute("weather", city="320100")
+
+    assert result.status == "unavailable"
+    assert result.error_code == "amap_timeout"
+    assert result.message == "AMap Web API request timed out"
+
+
 def test_amap_api_error_is_converted_to_failed_result() -> None:
     transport = FakeTransport({"status": "0", "info": "INVALID_USER_KEY"})
 
