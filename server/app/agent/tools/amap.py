@@ -174,16 +174,59 @@ class AmapWebClient:
             raise AmapApiError(f"Unable to geocode location: {normalized}")
         return required_text(str(first["location"]), "geocoded location")
 
-    def _resolve_poi_location(self, value: str, city: str | None = None) -> str:
-        """Use the POI endpoint as a fallback when geocoded route points fail."""
+    def _poi_candidates(
+        self, value: str, city: str | None = None
+    ) -> list[tuple[str, str]]:
+        """Return POI locations together with their administrative area."""
         payload = self.keyword_search(value, city=city)
         pois = payload.get("pois")
         if not isinstance(pois, list) or not pois:
             raise AmapApiError(f"Unable to find POI location: {value}")
-        first = pois[0]
-        if not isinstance(first, dict) or not first.get("location"):
+        candidates: list[tuple[str, str]] = []
+        for poi in pois:
+            if not isinstance(poi, dict) or not poi.get("location"):
+                continue
+            location = required_text(str(poi["location"]), "POI location")
+            area = str(
+                poi.get("adcode")
+                or poi.get("cityname")
+                or poi.get("city")
+                or poi.get("adname")
+                or ""
+            ).strip()
+            candidates.append((location, area))
+        if not candidates:
             raise AmapApiError(f"Unable to find POI location: {value}")
-        return required_text(str(first["location"]), "POI location")
+        return candidates
+
+    def _resolve_poi_location(self, value: str, city: str | None = None) -> str:
+        """Use the first POI location as a route fallback."""
+        return self._poi_candidates(value, city=city)[0][0]
+
+    def _resolve_route_locations(
+        self, origin: str, destination: str, city: str | None = None
+    ) -> tuple[str, str]:
+        if city:
+            return (
+                self._resolve_location(origin, city=city),
+                self._resolve_location(destination, city=city),
+            )
+
+        origin_candidates = (
+            [(origin.replace(" ", ""), "")]
+            if _is_coordinate(origin)
+            else self._poi_candidates(origin)
+        )
+        destination_candidates = (
+            [(destination.replace(" ", ""), "")]
+            if _is_coordinate(destination)
+            else self._poi_candidates(destination)
+        )
+        for origin_location, origin_area in origin_candidates:
+            for destination_location, destination_area in destination_candidates:
+                if origin_area and origin_area == destination_area:
+                    return origin_location, destination_location
+        return origin_candidates[0][0], destination_candidates[0][0]
 
     def distance(
         self,
@@ -232,9 +275,12 @@ class AmapWebClient:
 
         normalized_origin = required_text(origin, "origin")
         normalized_destination = required_text(destination, "destination")
+        resolved_origin, resolved_destination = self._resolve_route_locations(
+            normalized_origin, normalized_destination, city=city
+        )
         params = {
-            "origin": self._resolve_location(normalized_origin, city=city),
-            "destination": self._resolve_location(normalized_destination, city=city),
+            "origin": resolved_origin,
+            "destination": resolved_destination,
         }
         if city:
             params["city"] = city.strip()

@@ -103,7 +103,7 @@ def test_route_geocodes_place_names_before_calling_direction_api() -> None:
 
     client = AmapWebClient(api_key="test-amap-key", transport=transport)
 
-    client.route("walking", "中山陵", "夫子庙")
+    client.route("walking", "中山陵", "夫子庙", city="Nanjing")
 
     assert [call[0] for call in calls] == [
         "https://restapi.amap.com/v3/geocode/geo",
@@ -111,6 +111,40 @@ def test_route_geocodes_place_names_before_calling_direction_api() -> None:
         "https://restapi.amap.com/v3/direction/walking",
     ]
     assert calls[-1][1]["origin"] == "118.796877,32.060255"
+    assert calls[-1][1]["destination"] == "118.805000,32.065000"
+
+
+def test_route_without_city_prefers_pois_in_the_same_area() -> None:
+    calls: list[tuple[str, dict[str, str], float]] = []
+
+    def transport(
+        url: str,
+        params: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any]:
+        calls.append((url, params, timeout))
+        if url.endswith("/v3/place/text"):
+            if params["keywords"] == "中山陵":
+                pois = [
+                    {"location": "121.000000,31.000000", "adcode": "310000"},
+                    {"location": "118.858000,32.058000", "adcode": "320100"},
+                ]
+            else:
+                pois = [{"location": "118.805000,32.065000", "adcode": "320100"}]
+            return {"status": "1", "pois": pois}
+        if url.endswith("/v3/direction/driving"):
+            return {
+                "status": "1",
+                "route": {"paths": [{"distance": "3000", "duration": "900"}]},
+            }
+        raise AssertionError(f"Unexpected AMap URL: {url}")
+
+    client = AmapWebClient(api_key="test-amap-key", transport=transport)
+
+    result = client.route("driving", "中山陵", "夫子庙")
+
+    assert result["route"]["paths"][0]["distance"] == "3000"
+    assert calls[-1][1]["origin"] == "118.858000,32.058000"
     assert calls[-1][1]["destination"] == "118.805000,32.065000"
 
 
