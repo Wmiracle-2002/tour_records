@@ -169,7 +169,7 @@ $env:PYTHONPATH = 'server'
 
 2026-09-23 的真实服务器日志显示：一条规划请求耗时约 208 秒后客户端断开并产生 Nginx `499`，另一条规划请求耗时约 145 秒后返回 `200`。其中 ReAct 决策单次耗时达到约 52 秒和 67 秒，Tool 和 Validator 只有毫秒级耗时。因此 P2 先处理调用次数、取消和错误边界，再继续扩展规划内容。
 
-当前进度：P2-1 至 P2-5 已完成。ReAct Collector 的默认最大轮数从 8 轮收紧为 4 轮，达到上限后不再发起新的决策或 Tool 调用；已经进入 `completed`、`unavailable` 或 `failed` 终态的信息 Tool 不再暴露给下一轮 ReAct；新增整条请求和各 LLM 阶段预算，预算会覆盖当前 HTTP 请求的读取超时并在耗尽后停止后续阶段；API 会监测客户端断开并通过线程安全取消信号阻止后续 Agent 阶段；AMap、API、Nginx 和 Android 的超时语义已经统一。P2 相关服务端定向回归 75/75 通过，Android 31 项单元测试通过。
+当前进度：P2-1 至 P2-5 已完成。ReAct Collector 的默认最大轮数从 8 轮收紧为 4 轮，达到上限后不再发起新的决策或 Tool 调用；已经进入 `completed`、`unavailable` 或 `failed` 终态的信息 Tool 不再暴露给下一轮 ReAct；新增整条请求和各 LLM 阶段预算，预算会覆盖当前 HTTP 请求的读取超时并在耗尽后停止后续阶段；API 会监测客户端断开并通过线程安全取消信号阻止后续 Agent 阶段；AMap、API、Nginx 和 Android 的超时语义已经统一。P2 相关服务端定向回归 75/75 通过，Android 31 项单元测试通过，提交 `0f7e72b` 已部署到服务器，公网健康检查通过。
 
 执行顺序：
 
