@@ -8,7 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.agent.budget import AgentBudget
+from app.agent.budget import AgentBudget, current_cancellation
 from app.agent.analyzer import RequirementAnalyzer
 from app.agent.collector import TOOL_INFORMATION_NEEDS, ReActCollector
 from app.agent.generator import StructuredItineraryGenerator
@@ -64,6 +64,7 @@ class AgentRuntime:
         budget = AgentBudget(
             total_timeout_seconds=self._settings.agent_total_timeout_seconds,
             stage_timeout_seconds=self._settings.agent_stage_timeout_seconds,
+            cancellation=current_cancellation(),
         )
         registry = ToolRegistry()
         for tool in create_internal_db_tools(db, user_id):

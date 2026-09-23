@@ -3,6 +3,8 @@ import pytest
 from app.agent.analyzer import RequirementAnalyzer
 from app.agent.budget import (
     AgentBudget,
+    AgentClientDisconnected,
+    AgentCancellation,
     AgentTimeoutError,
     current_llm_timeout_seconds,
 )
@@ -76,3 +78,17 @@ def test_requirement_analyzer_cannot_exceed_its_stage_budget() -> None:
 
     with pytest.raises(AgentTimeoutError, match="requirement_analyzer stage timeout exceeded"):
         RequirementAnalyzer(SlowRequirementClient(now), budget=budget).analyze("测试")
+
+
+def test_client_disconnect_stops_the_next_agent_stage() -> None:
+    cancellation = AgentCancellation()
+    budget = AgentBudget(
+        total_timeout_seconds=30.0,
+        stage_timeout_seconds=5.0,
+        cancellation=cancellation,
+    )
+    cancellation.cancel()
+
+    with pytest.raises(AgentClientDisconnected, match="client disconnected"):
+        with budget.stage("react_decision"):
+            pass

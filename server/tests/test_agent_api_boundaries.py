@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
-from app.agent.budget import AgentTimeoutError
+import pytest
+
+from app.agent.budget import (
+    AgentClientDisconnected,
+    AgentCancellation,
+    AgentTimeoutError,
+)
+from app.api.agent import _watch_client_disconnect
 from app.agent.runtime import AgentRunResult
 
 
@@ -30,6 +38,15 @@ class RichRuntime:
 class TimedOutRuntime:
     def run(self, _message: str, _user_id: int, _db: Any) -> AgentRunResult:
         raise AgentTimeoutError("Agent total timeout exceeded before itinerary_generator")
+
+
+class DisconnectingRequest:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def is_disconnected(self) -> bool:
+        self.calls += 1
+        return self.calls >= 2
 
 
 def test_invalid_itinerary_never_reaches_http_answer(client) -> None:
@@ -67,3 +84,16 @@ def test_agent_budget_timeout_maps_to_504(client) -> None:
 
     assert response.status_code == 504
     assert response.json()["detail"] == "Agent request timed out"
+
+
+def test_disconnect_watcher_sets_agent_cancellation() -> None:
+    cancellation = AgentCancellation()
+
+    asyncio.run(
+        _watch_client_disconnect(
+            DisconnectingRequest(), cancellation, "request-disconnect-test"
+        )
+    )
+
+    with pytest.raises(AgentClientDisconnected, match="client disconnected"):
+        cancellation.raise_if_cancelled()

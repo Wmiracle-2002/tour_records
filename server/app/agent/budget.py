@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from threading import Event
 from time import monotonic
 from typing import Callable, Iterator
 
@@ -12,6 +13,41 @@ from typing import Callable, Iterator
 _LLM_DEADLINE: ContextVar[tuple[float, Callable[[], float]] | None] = ContextVar(
     "agent_llm_timeout_seconds", default=None
 )
+_CANCELLATION: ContextVar["AgentCancellation | None"] = ContextVar(
+    "agent_cancellation", default=None
+)
+
+
+class AgentClientDisconnected(RuntimeError):
+    """The client closed the request before the Agent finished."""
+
+
+@dataclass
+class AgentCancellation:
+    """Thread-safe cancellation signal shared by the API and Agent worker."""
+
+    _event: Event = field(default_factory=Event, init=False)
+
+    def cancel(self) -> None:
+        self._event.set()
+
+    def raise_if_cancelled(self) -> None:
+        if self._event.is_set():
+            raise AgentClientDisconnected("Agent client disconnected")
+
+
+@contextmanager
+def cancellation_context(cancellation: AgentCancellation) -> Iterator[None]:
+    """Make a request cancellation signal available to the worker thread."""
+    token = _CANCELLATION.set(cancellation)
+    try:
+        yield
+    finally:
+        _CANCELLATION.reset(token)
+
+
+def current_cancellation() -> AgentCancellation | None:
+    return _CANCELLATION.get()
 
 
 class AgentTimeoutError(TimeoutError):
@@ -34,6 +70,7 @@ class AgentBudget:
     total_timeout_seconds: float
     stage_timeout_seconds: float
     clock: Callable[[], float] = monotonic
+    cancellation: AgentCancellation | None = None
     _started_at: float = field(init=False)
     _stage_elapsed: dict[str, float] = field(default_factory=dict, init=False)
 
@@ -67,6 +104,9 @@ class AgentBudget:
         self._check(stage_name)
 
     def _check(self, stage_name: str) -> None:
+        cancellation = self.cancellation or current_cancellation()
+        if cancellation is not None:
+            cancellation.raise_if_cancelled()
         if self._total_elapsed() >= self.total_timeout_seconds:
             raise AgentTimeoutError(
                 f"Agent total timeout exceeded before {stage_name}"

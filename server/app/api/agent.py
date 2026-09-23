@@ -1,14 +1,22 @@
 """Authenticated HTTP entry point for the Travel Agent."""
 
+import asyncio
 import logging
+from contextlib import suppress
 from time import monotonic
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
-from app.agent.budget import AgentTimeoutError
+from app.agent.budget import (
+    AgentClientDisconnected,
+    AgentCancellation,
+    AgentTimeoutError,
+    cancellation_context,
+)
 from app.agent.llm import (
     LLMInvalidResponseError,
     LLMNotConfiguredError,
@@ -59,8 +67,19 @@ def _llm_http_exception(error: Exception) -> HTTPException:
     raise TypeError(f"Unsupported LLM error: {type(error).__name__}")
 
 
+async def _watch_client_disconnect(
+    request: Request,
+    cancellation: AgentCancellation,
+    request_id: str,
+) -> None:
+    while not await request.is_disconnected():
+        await asyncio.sleep(0.1)
+    cancellation.cancel()
+    logger.info("Agent client disconnected request_id=%s", request_id)
+
+
 @router.post("/chat", response_model=AgentChatResponse)
-def chat(
+async def chat(
     payload: AgentChatRequest,
     request: Request,
     response: Response,
@@ -72,9 +91,18 @@ def chat(
     request_id = request.headers.get("X-Request-ID") or str(uuid4())
     response.headers["X-Request-ID"] = request_id
     logger.info("Agent request started request_id=%s user_id=%s", request_id, user.id)
+    cancellation = AgentCancellation()
+    disconnect_watcher = asyncio.create_task(
+        _watch_client_disconnect(request, cancellation, request_id)
+    )
     try:
-        with request_context(request_id):
-            result = request.app.state.agent_runtime.run(payload.message, user.id, db)
+        with request_context(request_id), cancellation_context(cancellation):
+            result = await run_in_threadpool(
+                request.app.state.agent_runtime.run,
+                payload.message,
+                user.id,
+                db,
+            )
     except (
         LLMNotConfiguredError,
         LLMTimeoutError,
@@ -90,6 +118,13 @@ def chat(
             (monotonic() - started_at) * 1000,
         )
         raise _llm_http_exception(error) from error
+    except AgentClientDisconnected as error:
+        logger.info(
+            "Agent request cancelled request_id=%s duration_ms=%.0f",
+            request_id,
+            (monotonic() - started_at) * 1000,
+        )
+        raise HTTPException(status_code=499, detail="Client disconnected") from error
     except ValueError as error:
         logger.warning(
             "Agent generated an invalid response request_id=%s detail=%s duration_ms=%.0f",
@@ -101,6 +136,10 @@ def chat(
             status_code=502,
             detail="Agent generated an invalid response",
         ) from error
+    finally:
+        disconnect_watcher.cancel()
+        with suppress(asyncio.CancelledError):
+            await disconnect_watcher
     if not isinstance(result, AgentRunResult):
         logger.warning("Agent returned an invalid response request_id=%s", request_id)
         raise HTTPException(status_code=502, detail="Agent returned an invalid response")
