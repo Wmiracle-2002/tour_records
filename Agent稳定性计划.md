@@ -62,12 +62,14 @@
 - 已覆盖 Requirement Analyzer、每轮 ReAct Decision、Tool 生命周期、Itinerary Generator、Validator、Reviser 和 Final Response。
 - Tool 的完成耗时继续覆盖执行和结果归一化过程；日志只记录状态、阶段、耗时和错误码，不记录 Prompt、密钥或原始模型结果。
 - API 开始、成功、LLM 失败和业务校验失败日志都包含同一个请求 ID。
+- 应用显式启用 INFO 级别日志，确保 API 请求、LLM 完成事件和结构化 Agent 阶段事件进入容器日志，而不只显示 Uvicorn 访问日志。
 - 已增加请求上下文恢复、API 日志关联、LLM 日志关联、阶段边界和运行时传播测试。
 - 本地 Agent 回归：204 passed，1 warning。warning 为现有依赖的弃用提示。
-- 服务端全量回归：228 passed，1 warning；从仓库根目录执行，避免读取 `server/.env` 中的真实 COS 凭据。
+- 服务端全量回归：229 passed，1 warning；从仓库根目录执行，避免读取 `server/.env` 中的真实 COS 凭据。
 - 本机普通权限运行带 `tmp_path` 的测试会被 pytest 临时目录权限阻断；使用提升权限后 Runtime/API 回归 16 passed。
 - 服务器部署验收：已完成代码包校验、容器重建、Nginx 语法检查和热重载；公网健康接口返回 200，Nginx access log 已记录 `request_id`。
 - 遗留验收：需要从手机发送一条已登录的 Agent 请求，确认 Nginx access log、API 日志中的请求 ID 和最终 HTTP 状态码可以对应起来。
+- 日志修复部署：提交 `a0a1627` 已部署；发送下一条 Agent 请求后应能在 API 容器日志中看到业务层请求、LLM 和阶段事件。
 
 ### P1：稳定基础问答
 

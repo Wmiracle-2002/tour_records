@@ -155,7 +155,7 @@ Agent Phase 1～15 的 State、Requirement Analyzer、Tool Layer、ReAct Collect
 
 Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件日志，Phase 15 完成架构、可靠性、反幻觉和用户输出检查；服务端全量回归 211 项通过。接入 API Task 1～9 的服务端实现、HTTPS 部署和六类真实 LLM 场景已完成。
 
-Agent 稳定性 P0 已完成：FastAPI、Nginx、Runtime、LangGraph、LLM 和 Tool 日志现在可以用同一个 `request_id` 关联；阶段事件包含开始、结束、耗时和状态，覆盖需求分析、ReAct、Tool/归一化、行程生成、校验、修订和最终回答。API 会通过 `X-Request-ID` 返回本次请求标识，服务器可用它对照 Nginx access log 与 API 容器日志。P0 Agent 回归为 204/204，服务器代码和 Nginx 配置已部署，公网健康检查通过，手机 Agent 请求仍待验收。
+Agent 稳定性 P0 已完成：FastAPI、Nginx、Runtime、LangGraph、LLM 和 Tool 日志现在可以用同一个 `request_id` 关联；阶段事件包含开始、结束、耗时和状态，覆盖需求分析、ReAct、Tool/归一化、行程生成、校验、修订和最终回答。API 会通过 `X-Request-ID` 返回本次请求标识，服务器可用它对照 Nginx access log 与 API 容器日志。P0 Agent 回归为 204/204，服务端全量回归 229/229；服务器代码和 Nginx 配置已部署，公网健康检查通过，手机 Agent 请求仍待验收。
 
 ## 下一步
 
