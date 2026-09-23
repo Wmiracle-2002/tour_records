@@ -65,6 +65,24 @@ def test_analyzer_keeps_missing_fields_empty() -> None:
     assert result.travelers is None
 
 
+def test_analyzer_infers_history_city_when_provider_omits_destination() -> None:
+    client = FakeStructuredOutputClient(TravelRequirement(intent="history_query"))
+
+    result = RequirementAnalyzer(client).analyze("我去过哈尔滨哪些地方？")
+
+    assert result.destination == "哈尔滨"
+
+
+def test_analyzer_infers_history_city_when_provider_returns_blank_destination() -> None:
+    client = FakeStructuredOutputClient(
+        TravelRequirement(intent="history_query", destination="")
+    )
+
+    result = RequirementAnalyzer(client).analyze("我去过哈尔滨哪些地方？")
+
+    assert result.destination == "哈尔滨"
+
+
 @pytest.mark.parametrize(
     ("query", "intent"),
     [

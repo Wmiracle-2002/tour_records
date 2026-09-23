@@ -1,5 +1,6 @@
 """Requirement Analyzer boundary for structured LLM output."""
 
+import re
 from typing import Any, Protocol
 
 from app.agent.models import TravelRequirement
@@ -20,6 +21,18 @@ class StructuredOutputClient(Protocol):
     ) -> TravelRequirement | dict[str, Any]: ...
 
 
+_HISTORY_DESTINATION_PATTERN = re.compile(
+    r"(?:\u53bb\u8fc7\u7684|\u6ca1\u6709\u53bb\u8fc7|\u6ca1\u53bb\u8fc7|\u53bb\u8fc7|\u5728)"
+    r"\s*([\u4e00-\u9fff]{2,12}?)"
+    r"(?=\s*(?:\u54ea\u4e9b|\u54ea\u51e0|\u54ea\u4e00\u4e9b|\u4ec0\u4e48|\u5417|\u5462|$))"
+)
+
+
+def _infer_history_destination(user_query: str) -> str | None:
+    match = _HISTORY_DESTINATION_PATTERN.search(user_query)
+    return match.group(1) if match else None
+
+
 class RequirementAnalyzer:
     """调用结构化输出客户端，把用户请求转换为旅行需求。"""
 
@@ -37,4 +50,9 @@ class RequirementAnalyzer:
             user_prompt=query,
             output_model=TravelRequirement,
         )
-        return TravelRequirement.model_validate(output)
+        requirement = TravelRequirement.model_validate(output)
+        if requirement.intent == "history_query" and not requirement.destination:
+            destination = _infer_history_destination(query)
+            if destination:
+                requirement = requirement.model_copy(update={"destination": destination})
+        return requirement

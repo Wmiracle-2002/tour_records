@@ -24,6 +24,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 - preferences 和 constraints 没有内容时使用空数组；
 - 不要使用 task_type 或其他字段名代替 intent；
 - 不要决定调用哪些 Tool；
+- history_query 时，如果用户询问“去过哈尔滨哪些地方”这类问题，必须把城市或地点提取到 destination，不要留空；
 - 不要规划 Tool 调用顺序；
 - 不要生成旅行方案；
 - 不要直接生成面向用户的最终回答；
