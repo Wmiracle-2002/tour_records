@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -10,6 +12,20 @@ from app.api.auth import router as auth_router
 from app.api.travel import router as travel_router
 from app.core.config import Settings, get_settings
 from app.storage import ObjectStorage, create_storage
+
+
+def _configure_logging() -> None:
+    """Make request and Agent diagnostics visible in the container logs."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s %(name)s %(message)s",
+    )
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger("app.api.agent").setLevel(logging.INFO)
+    logging.getLogger("footmarks.agent").setLevel(logging.INFO)
+
+
+_configure_logging()
 
 
 def create_app(
