@@ -159,3 +159,24 @@ def test_trip_response_handles_missing_itinerary() -> None:
     )
 
     assert response == "当前还没有可展示的完整行程。"
+
+
+def test_coarse_trip_budget_uses_chinese_labels_and_does_not_call_unestimated_tickets_free() -> None:
+    response = FinalResponseGenerator().generate(
+        TravelRequirement(intent="trip_planning", city="南京", duration_days=1),
+        CollectedInfo(budget=BudgetInfo(
+            estimated_min=168, estimated_max=252,
+            breakdown={"accommodation": 0, "food": 150, "transport": 60, "poi_tickets": 0},
+        )),
+        InformationStatus(budget=InfoRequirement(status="completed")),
+        Itinerary(days=[ItineraryDay(day_number=1, items=[])]),
+        ValidationResult(valid=True),
+    )
+
+    assert "住宿 0 元" in response
+    assert "餐饮 150 元" in response
+    assert "交通 60 元" in response
+    assert "景点门票未计入" in response
+    assert "poi_tickets" not in response
+    assert "校验说明：已安排地点通过规则检查" in response
+    assert "行程已通过可确定规则检查" not in response

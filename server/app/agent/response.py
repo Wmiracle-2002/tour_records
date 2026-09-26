@@ -24,9 +24,22 @@ _PERIOD_LABELS = {
     "afternoon": "下午", "dinner": "晚餐", "evening": "晚上",
 }
 
+_BUDGET_LABELS = {
+    "accommodation": "住宿", "food": "餐饮", "transport": "交通",
+    "poi_tickets": "景点门票",
+}
+
 
 def _number_text(value: float) -> str:
     return str(int(value)) if value.is_integer() else f"{value:g}"
+
+
+def _budget_details(breakdown: dict[str, float]) -> str:
+    return "、".join(
+        "景点门票未计入" if name == "poi_tickets" and amount == 0 else
+        f"{_BUDGET_LABELS.get(name, name)} {_number_text(amount)} 元"
+        for name, amount in breakdown.items()
+    )
 
 
 def _status_notice(
@@ -193,11 +206,7 @@ class FinalResponseGenerator:
             f"{_number_text(budget.estimated_max)} 元（非实时粗估）。"
         )
         if budget.breakdown:
-            details = "、".join(
-                f"{name} {_number_text(amount)} 元"
-                for name, amount in budget.breakdown.items()
-            )
-            line += f"费用明细：{details}。"
+            line += f"费用明细：{_budget_details(budget.breakdown)}。"
         lines.append(line)
 
     def _append_trip_history_notice(
@@ -230,7 +239,15 @@ class FinalResponseGenerator:
         unknowns = [issue for issue in validation.issues if issue.status == "unknown"]
         failures = [issue for issue in validation.issues if issue.status == "fail"]
         if not failures:
-            lines.append("校验说明：行程已通过可确定规则检查。")
+            incomplete = any(
+                day.day_number is not None
+                and set(_PERIOD_LABELS) - {item.period for item in day.items}
+                for day in itinerary.days
+            )
+            lines.append(
+                "校验说明：已安排地点通过规则检查，空白时段尚无可靠推荐。"
+                if incomplete else "校验说明：行程已通过可确定规则检查。"
+            )
         if unknowns:
             lines.append("未完成验证：")
             lines.extend(
@@ -352,11 +369,7 @@ class FinalResponseGenerator:
             f"{_number_text(budget.estimated_max)} 元。"
         )
         if budget.breakdown:
-            details = "、".join(
-                f"{name} {_number_text(amount)} 元"
-                for name, amount in budget.breakdown.items()
-            )
-            response += f"费用明细：{details}。"
+            response += f"费用明细：{_budget_details(budget.breakdown)}。"
         if budget.assumptions:
             response += f"估算依据：{'；'.join(budget.assumptions)}。"
         return response

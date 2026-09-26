@@ -238,6 +238,46 @@ def test_runtime_planning_collects_both_attractions_and_food(db_session: Session
     assert keywords == ["景点", "美食"]
 
 
+def test_runtime_one_day_plan_recovers_meals_omitted_by_llm(db_session: Session) -> None:
+    requirement = TravelRequirement(intent="trip_planning", city="南京", duration_days=1)
+
+    class PlanningClient(FakeStructuredClient):
+        def complete_structured(self, *, system_prompt, user_prompt, output_model):
+            if output_model.__name__ == "Itinerary":
+                return {"days": [{"day_number": 1, "items": [
+                    {"poi_id": "A1", "poi_name": "古鸡鸣寺", "period": "morning", "activity_type": "ATTRACTION"},
+                ]}]}
+            return super().complete_structured(
+                system_prompt=system_prompt, user_prompt=user_prompt,
+                output_model=output_model,
+            )
+
+    def transport(url: str, params: dict[str, str], _timeout: float) -> dict:
+        assert url.endswith("/v3/place/text")
+        food = params["keywords"] == "美食"
+        pois = [
+            {"id": "F1", "name": "金陵宴", "type": "餐饮服务;中餐厅"},
+            {"id": "F2", "name": "刘长兴", "type": "餐饮服务;中餐厅"},
+        ] if food else [{"id": "A1", "name": "古鸡鸣寺", "type": "风景名胜"}]
+        return {"status": "1", "pois": [
+            {**poi, "cityname": "南京市", "adcode": "320102", "location": "118.800000,32.050000"}
+            for poi in pois
+        ]}
+
+    result = AgentRuntime(
+        settings=Settings(token_secret="test-only-secret", amap_web_key="fake-key"),
+        llm_client=PlanningClient(requirement), amap_transport=transport,
+    ).run("给我规划一个南京一日游", 1, db_session)
+
+    assert "上午：古鸡鸣寺" in result.answer
+    assert "午餐：金陵宴" in result.answer
+    assert "晚餐：刘长兴" in result.answer
+    assert "早餐：暂无可靠推荐" in result.answer
+    assert "餐饮 150 元" in result.answer
+    assert "景点门票未计入" in result.answer
+    assert "accommodation" not in result.answer
+
+
 def test_runtime_recommendation_uses_fixed_poi_endpoint_without_react(db_session: Session) -> None:
     client = FakeStructuredClient(TravelRequirement(intent="poi_recommendation", city="南京"))
     requests: list[tuple[str, dict[str, str]]] = []

@@ -131,12 +131,44 @@ class StructuredItineraryGenerator:
             try:
                 itinerary = Itinerary.model_validate(output)
                 self._validate_itinerary(itinerary, requirement, collected_info)
+                itinerary = self._fill_missing_meals(itinerary, requirement, collected_info)
+                self._validate_itinerary(itinerary, requirement, collected_info)
                 return itinerary
             except ValueError as error:
                 last_error = error
                 if attempt == MAX_ITINERARY_GENERATION_ATTEMPTS - 1:
                     raise
         raise ValueError("Itinerary generation failed validation")
+
+    @staticmethod
+    def _fill_missing_meals(
+        itinerary: Itinerary,
+        requirement: TravelRequirement,
+        collected_info: CollectedInfo,
+    ) -> Itinerary:
+        if not all(day.day_number is not None for day in itinerary.days):
+            return itinerary
+        used_ids = {item.poi_id for day in itinerary.days for item in day.items}
+        if avoids_previous_places(requirement.constraints) and collected_info.history:
+            used_ids.update(collected_info.history.visited_poi_ids)
+        foods = iter(
+            poi for poi in collected_info.pois
+            if is_food_category(poi.category) and poi.poi_id not in used_ids
+        )
+        result = itinerary.model_copy(deep=True)
+        for day in result.days:
+            periods = {item.period for item in day.items}
+            for period in ("lunch", "dinner"):
+                if period in periods:
+                    continue
+                poi = next(foods, None)
+                if poi is None:
+                    break
+                day.items.append(ItineraryItem(
+                    poi_id=poi.poi_id, poi_name=poi.name,
+                    period=period, activity_type="FOOD",
+                ))
+        return result
 
     def _build_user_prompt(
         self,

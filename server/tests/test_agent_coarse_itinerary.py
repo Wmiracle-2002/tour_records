@@ -56,6 +56,46 @@ def test_undated_coarse_itinerary_generates_valid_readable_two_day_result() -> N
     assert "None" not in answer and "路线时间" not in answer
 
 
+def test_one_day_plan_fills_missing_meals_from_verified_food_candidates() -> None:
+    info = candidates()
+    info.pois.extend([
+        POIInfo(poi_id="F2", name="金陵宴", location="118.801,32.050", category="餐饮服务"),
+        POIInfo(poi_id="F3", name="刘长兴", location="118.802,32.050", category="餐饮服务"),
+    ])
+    output = {"days": [{"day_number": 1, "items": [
+        {"poi_id": "A1", "poi_name": "中山陵", "period": "morning", "activity_type": "ATTRACTION"},
+    ]}]}
+    requirement = TravelRequirement(intent="trip_planning", city="南京", duration_days=1)
+
+    itinerary = StructuredItineraryGenerator(FakeClient(output)).generate(requirement, info)
+
+    by_period = {item.period: item for item in itinerary.days[0].items}
+    assert by_period["lunch"].activity_type == "FOOD"
+    assert by_period["dinner"].activity_type == "FOOD"
+    assert by_period["lunch"].poi_id != by_period["dinner"].poi_id
+    assert "breakfast" not in by_period
+    assert ItineraryValidator().validate(requirement, itinerary, info).valid
+
+
+def test_meal_fill_respects_existing_meal_and_visited_pois() -> None:
+    info = candidates()
+    info.pois.append(POIInfo(
+        poi_id="F2", name="金陵宴", location="118.801,32.050", category="餐饮服务",
+    ))
+    info.history = TravelHistoryInfo(visited_poi_ids=["F2"])
+    output = {"days": [{"day_number": 1, "items": [
+        {"poi_id": "F1", "poi_name": "鸭血粉丝汤", "period": "lunch", "activity_type": "FOOD"},
+    ]}]}
+    requirement = TravelRequirement(
+        intent="trip_planning", city="南京", duration_days=1,
+        constraints=["不要去以前去过的地方"],
+    )
+
+    itinerary = StructuredItineraryGenerator(FakeClient(output)).generate(requirement, info)
+
+    assert [(item.period, item.poi_id) for item in itinerary.days[0].items] == [("lunch", "F1")]
+
+
 def test_coarse_generator_rejects_food_in_attraction_period() -> None:
     output = {"days": [{"day_number": 1, "items": [
         {"poi_id": "F1", "poi_name": "鸭血粉丝汤", "period": "morning", "activity_type": "ATTRACTION"},
