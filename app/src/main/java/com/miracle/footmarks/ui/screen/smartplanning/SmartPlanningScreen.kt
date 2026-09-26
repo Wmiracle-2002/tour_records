@@ -220,7 +220,7 @@ private fun ChatBubble(message: ChatMessage) {
                 topStart = 20.dp,
                 topEnd = 20.dp,
                 bottomStart = if (isUser) 20.dp else 6.dp,
-                bottomEnd = if (isUser) 6.dp else 20.dp
+                bottomEnd = 20.dp
             ),
             colors = CardDefaults.cardColors(
                 containerColor = if (isUser) ChatUserBlue else ChatAssistantGreen

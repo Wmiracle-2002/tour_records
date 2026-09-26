@@ -273,3 +273,83 @@ def test_chat_degrades_without_inventing_provider_facts(
     assert "鸭血粉丝汤" not in answer
     assert "晴" not in answer
     assert "元" not in answer
+
+
+@pytest.mark.parametrize("days", [2, 3])
+@pytest.mark.parametrize("dated", [False, True])
+def test_authenticated_multi_day_plan_uses_verified_pois_and_dates(
+    client: TestClient, days: int, dated: bool,
+) -> None:
+    start = date(2026, 10, 10) if dated else None
+    requirement = TravelRequirement(
+        intent="trip_planning", city="南京", duration_days=days,
+        start_date=start.isoformat() if start else None,
+    )
+
+    class MultiDayLLM(ScenarioLLM):
+        def complete_structured(self, *, system_prompt, user_prompt, output_model):
+            if output_model is Itinerary:
+                self.calls.append("Itinerary")
+                return {"days": [
+                    {
+                        "day_number": index,
+                        "date": (start + timedelta(days=index - 1)).isoformat() if start else None,
+                        "items": [
+                            {"poi_id": f"A{index}", "poi_name": f"景点{index}",
+                             "period": "morning", "activity_type": "ATTRACTION"},
+                            {"poi_id": f"F{index}", "poi_name": f"餐馆{index}",
+                             "period": "lunch", "activity_type": "FOOD"},
+                        ],
+                    }
+                    for index in range(1, days + 1)
+                ]}
+            return super().complete_structured(
+                system_prompt=system_prompt, user_prompt=user_prompt,
+                output_model=output_model,
+            )
+
+    calls: list[str] = []
+
+    def transport(url: str, params: dict[str, str], _timeout: float) -> dict:
+        assert url.endswith("/v3/place/text")
+        calls.append(params["keywords"])
+        food = params["keywords"] == "美食"
+        return {"status": "1", "infocode": "10000", "pois": [
+            {
+                "id": f"{'F' if food else 'A'}{index}",
+                "name": f"{'餐馆' if food else '景点'}{index}",
+                "type": "餐饮服务;中餐厅" if food else "风景名胜",
+                "cityname": "南京市", "adcode": "320102",
+                "location": "118.800000,32.050000",
+            }
+            for index in range(1, days + 1)
+        ]}
+
+    llm = MultiDayLLM(requirement)
+    observer = RecordingAgentObserver()
+    client.app.state.agent_runtime = AgentRuntime(
+        settings=Settings(token_secret="test-only-secret", amap_web_key="fake-key"),
+        llm_client=llm, observer=observer, amap_transport=transport,
+    )
+    trace_id = f"multi-day-{days}-{'dated' if dated else 'undated'}"
+    response = client.post(
+        "/api/v1/agent/chat",
+        json={"message": f"规划南京{days}日游"},
+        headers={"X-Request-ID": trace_id},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == trace_id
+    assert response.json()["request_id"] == trace_id
+    answer = response.json()["answer"]
+    for index in range(1, days + 1):
+        assert f"第{index}天" in answer
+        assert f"上午：景点{index}" in answer
+        assert f"午餐：餐馆{index}" in answer
+        if start:
+            assert (start + timedelta(days=index - 1)).isoformat() in answer
+    if not start:
+        assert "2026-" not in answer
+    assert calls == ["景点", "美食"]
+    assert llm.calls == ["TravelRequirement", "Itinerary"]
+    assert any(event.event == "final_response_ready" for event in observer.events)
