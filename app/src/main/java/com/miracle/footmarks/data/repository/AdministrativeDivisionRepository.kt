@@ -6,6 +6,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import org.json.JSONArray
 
+private val MUNICIPALITY_CODES = setOf("110000", "120000", "310000", "500000")
+
 data class AdministrativeArea(
     val code: String,
     val name: String
@@ -30,6 +32,46 @@ data class AdministrativeLocation(
     val breadcrumb: String
 )
 
+internal fun locationsFor(province: AdministrativeProvince): List<AdministrativeLocation> = buildList {
+    province.cities.forEach { city ->
+        when {
+            province.code in MUNICIPALITY_CODES -> {
+                if (city.name == "市辖区") add(
+                    AdministrativeLocation(province.code, province.name, province.code, province.name)
+                )
+            }
+            city.name == "省直辖县级行政区划" || city.name == "自治区直辖县级行政区划" -> {
+                city.areas.filter { it.name.endsWith("市") }.forEach { area ->
+                    add(AdministrativeLocation(
+                        area.code, area.name, province.code, "${province.name} · ${area.name}"
+                    ))
+                }
+            }
+            else -> add(AdministrativeLocation(
+                city.code, city.name, province.code, "${province.name} · ${city.name}"
+            ))
+        }
+    }
+}
+
+internal fun searchLocations(
+    provinces: List<AdministrativeProvince>, query: String
+): List<AdministrativeLocation> {
+    val keyword = query.trim()
+    if (keyword.isEmpty()) return emptyList()
+    return provinces.flatMap { province ->
+        val parentCodes = province.cities.asSequence()
+            .filter { city -> city.areas.any { it.name.contains(keyword, ignoreCase = true) } }
+            .map { city ->
+                if (province.code in MUNICIPALITY_CODES)
+                    province.code else city.code
+            }.toSet()
+        locationsFor(province).filter { location ->
+            location.name.contains(keyword, ignoreCase = true) || location.code in parentCodes
+        }
+    }
+}
+
 @Singleton
 class AdministrativeDivisionRepository @Inject constructor(
     @ApplicationContext private val context: Context
@@ -41,48 +83,9 @@ class AdministrativeDivisionRepository @Inject constructor(
     fun getProvinces(): List<AdministrativeProvince> = cachedProvinces
 
     fun getLocations(provinceCode: String): List<AdministrativeLocation> =
-        cachedProvinces.firstOrNull { it.code == provinceCode }?.toLocations().orEmpty()
+        cachedProvinces.firstOrNull { it.code == provinceCode }?.let(::locationsFor).orEmpty()
 
-    fun search(query: String): List<AdministrativeLocation> {
-        val keyword = query.trim()
-        if (keyword.isEmpty()) return emptyList()
-        return cachedProvinces.asSequence()
-            .flatMap { it.toLocations().asSequence() }
-            .filter { it.name.contains(keyword, ignoreCase = true) }
-            .toList()
-    }
-
-    private fun AdministrativeProvince.toLocations(): List<AdministrativeLocation> = buildList {
-        cities.forEach { city ->
-            if (!city.isGroupingNode()) {
-                val locationName = if (isMunicipality() && city.name == "市辖区") name else city.name
-                add(
-                    AdministrativeLocation(
-                        code = if (locationName == name) code else city.code,
-                        name = locationName,
-                        provinceCode = code,
-                        breadcrumb = if (locationName == name) name else "$name · ${city.name}"
-                    )
-                )
-            }
-            city.areas.forEach { area ->
-                add(
-                    AdministrativeLocation(
-                        code = area.code,
-                        name = area.name,
-                        provinceCode = code,
-                        breadcrumb = "$name · ${city.name} · ${area.name}"
-                    )
-                )
-            }
-        }
-    }
-
-    private fun AdministrativeProvince.isMunicipality(): Boolean =
-        code in setOf("110000", "120000", "310000", "500000")
-
-    private fun AdministrativeCity.isGroupingNode(): Boolean =
-        name == "省直辖县级行政区划" || name == "自治区直辖县级行政区划"
+    fun search(query: String): List<AdministrativeLocation> = searchLocations(cachedProvinces, query)
 
     private fun parse(json: String): List<AdministrativeProvince> {
         val provinceArray = JSONArray(json)

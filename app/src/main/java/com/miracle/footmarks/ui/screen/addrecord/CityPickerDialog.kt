@@ -63,12 +63,12 @@ fun CityPickerDialog(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("选择地区", style = MaterialTheme.typography.headlineSmall)
+                Text("选择城市", style = MaterialTheme.typography.headlineSmall)
 
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = viewModel::searchCities,
-                    label = { Text("搜索城市、自治州或区县") },
+                    label = { Text("搜索城市或下辖区县") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
@@ -95,7 +95,7 @@ fun CityPickerDialog(
                             modifier = Modifier.align(Alignment.Center)
                         )
                         uiState.locations.isEmpty() -> Text(
-                            text = "未找到匹配地区",
+                            text = "未找到匹配城市",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.align(Alignment.Center)
                         )
