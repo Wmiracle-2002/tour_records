@@ -31,6 +31,15 @@ _HISTORY_DESTINATION_PATTERN = re.compile(
 )
 
 _DISTANCE_QUESTION_PATTERN = re.compile(r"多远|距离|相距|(?:多少|几)(?:公里|千米|米)")
+_CURRENT_WEATHER_WORDS = ("现在", "当前", "此刻", "目前", "实时")
+
+
+def _current_weather_word(query: str) -> str | None:
+    if any(word in query for word in ("明天", "后天", "今晚", "未来", "中秋", "国庆", "到", "至")):
+        return None
+    if re.search(r"\d{4}[-年/]\d{1,2}|\d{1,2}月\d{1,2}日", query):
+        return None
+    return next((word for word in _CURRENT_WEATHER_WORDS if word in query), None)
 
 
 def _explicit_poi_kind(query: str) -> str | None:
@@ -89,6 +98,15 @@ class RequirementAnalyzer:
             kind = _explicit_poi_kind(query)
             if kind is not None:
                 requirement = requirement.model_copy(update={"poi_kind": kind})
+        if requirement.intent == "weather_query":
+            current_word = _current_weather_word(query)
+            if current_word is not None:
+                requirement = requirement.model_copy(update={
+                    "weather_time_kind": "realtime",
+                    "date_expression": current_word,
+                    "start_date": None,
+                    "end_date": None,
+                })
         if requirement.intent == "history_query" and not requirement.city:
             city = _infer_history_city(query)
             if city:

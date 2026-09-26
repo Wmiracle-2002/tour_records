@@ -79,6 +79,10 @@ def provider(calls: list[tuple[str, dict[str, str]]]):
                 {"name": "南京市", "level": "city", "adcode": "320100"},
             ]}
         if path == "/v3/weather/weatherInfo":
+            if params["extensions"] == "base":
+                return {"status": "1", "infocode": "10000", "lives": [{
+                    "adcode": "320100", "weather": "多云", "temperature": "23",
+                }]}
             target = china_today() + timedelta(days=1)
             return {"status": "1", "infocode": "10000", "forecasts": [{
                 "adcode": "320100", "reporttime": "2026-09-26 08:00:00",
@@ -127,6 +131,14 @@ def add_history(db_session: Session) -> None:
             "南京中山陵到夫子庙多远？",
             TravelRequirement(intent="route_query", city="南京", origin="中山陵", destination="夫子庙"),
             "直线距离约 5.2 公里", ["/v3/place/text", "/v3/place/text", "/v3/distance"],
+        ),
+        (
+            "南京现在天气怎么样？",
+            TravelRequirement(
+                intent="weather_query", city="南京", date_expression="现在",
+                weather_time_kind="forecast_date",
+            ),
+            "当前实况", ["/v3/config/district", "/v3/weather/weatherInfo"],
         ),
         (
             "南京明天天气怎么样？",
@@ -182,6 +194,8 @@ def test_authenticated_chat_scenarios_keep_request_trace_and_verified_facts(
     assert "上千公里" not in response.json()["answer"]
     assert "暂未开放" not in response.json()["answer"]
     assert [path for path, _ in calls] == paths
+    if message == "南京现在天气怎么样？":
+        assert calls[-1][1]["extensions"] == "base"
     assert all(path != "/v3/geocode/geo" for path, _ in calls)
     if message == "推荐南京美食":
         assert calls[0][1]["keywords"] == "美食"

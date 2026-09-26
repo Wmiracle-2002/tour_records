@@ -125,6 +125,31 @@ def test_analyzer_corrects_distance_question_mislabeled_as_route() -> None:
     assert result.destination == "夫子庙"
 
 
+@pytest.mark.parametrize("now_word", ["现在", "当前", "此刻", "目前"])
+@pytest.mark.parametrize("model_kind", ["forecast_date", "ambiguous", None])
+def test_analyzer_treats_explicit_current_weather_as_realtime(
+    now_word: str, model_kind: str | None,
+) -> None:
+    client = FakeStructuredOutputClient({
+        "intent": "weather_query", "city": "南京",
+        "date_expression": now_word, "weather_time_kind": model_kind,
+        "start_date": "2026-09-27",
+    })
+    result = RequirementAnalyzer(client).analyze(f"南京{now_word}天气怎么样？")
+    assert result.weather_time_kind == "realtime"
+    assert result.start_date is None
+    assert result.end_date is None
+
+
+def test_analyzer_does_not_turn_now_to_tomorrow_range_into_realtime() -> None:
+    client = FakeStructuredOutputClient({
+        "intent": "weather_query", "city": "南京",
+        "date_expression": "从现在到明天", "weather_time_kind": "forecast_range",
+    })
+    result = RequirementAnalyzer(client).analyze("从现在到明天南京天气怎么样？")
+    assert result.weather_time_kind == "forecast_range"
+
+
 @pytest.mark.parametrize(
     ("query", "intent"),
     [

@@ -31,6 +31,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 - distance_query 和 route_query 的终点写 destination；所在城市（已知时）写 city，不要把 city 当作 destination；
 - “中山陵到夫子庙有多远”是 distance_query，不是 route_query；route_query 只用于实际导航问法“怎么走/乘什么车”；
 - “今晚”把 start_date 填为当前中国日期，weather_time_kind 填 forecast_date；“从现在到明天”填 start_date、end_date 和 forecast_range，不因包含“现在”误判为实时；
+- 单独询问“现在/当前/此刻/目前/实时天气”时填 realtime，不需要为实况填写 start_date；“今天全天”仍为 forecast_date，不要把实时和全天预报混同；
 - 不要规划 Tool 调用顺序；
 - 不要生成旅行方案；
 - 不要直接生成面向用户的最终回答；
