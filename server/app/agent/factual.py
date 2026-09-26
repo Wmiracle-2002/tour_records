@@ -51,6 +51,8 @@ class FactualAnswerer:
 
     def answer(self, requirement: TravelRequirement) -> str:
         try:
+            if requirement.intent == "poi_recommendation":
+                return self._pois(requirement)
             if requirement.intent == "distance_query":
                 return self._distance(requirement)
             if requirement.intent == "weather_query":
@@ -59,12 +61,30 @@ class FactualAnswerer:
                 return self._budget(requirement)
         except (AmapApiError, ToolUnavailableError, ValueError) as error:
             label = {
+                "poi_recommendation": "地点信息",
                 "distance_query": "距离信息",
                 "weather_query": "天气信息",
                 "budget_query": "预算信息",
             }.get(requirement.intent, "信息")
             return f"{label}查询失败，原因：{error}。"
-        raise ValueError("factual answerer only supports distance, weather and budget")
+        raise ValueError("factual answerer only supports recommendation, distance, weather and budget")
+
+    def _pois(self, requirement: TravelRequirement) -> str:
+        if not requirement.city:
+            return "请先说明想查哪个城市的景点或美食。"
+        if not requirement.poi_kind:
+            return "请说明想推荐景点、美食，还是两者都要。"
+        kinds = ("attraction", "food") if requirement.poi_kind == "both" else (requirement.poi_kind,)
+        lines: list[str] = []
+        for kind in kinds:
+            label = "景点" if kind == "attraction" else "美食"
+            pois = self._amap.search_verified_pois(city=requirement.city, kind=kind)["pois"]
+            names = "、".join(poi["name"] for poi in pois)
+            lines.append(
+                f"{requirement.city}{label}推荐：{names}。" if names
+                else f"{requirement.city}暂无可靠的{label}推荐。"
+            )
+        return "\n".join(lines)
 
     def _budget(self, requirement: TravelRequirement) -> str:
         if requirement.duration_days is None:

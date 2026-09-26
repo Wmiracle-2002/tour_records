@@ -30,6 +30,20 @@ _HISTORY_DESTINATION_PATTERN = re.compile(
     r"(?=\s*(?:\u54ea\u4e9b|\u54ea\u51e0|\u54ea\u4e00\u4e9b|\u4ec0\u4e48|\u5417|\u5462|$))"
 )
 
+_DISTANCE_QUESTION_PATTERN = re.compile(r"多远|距离|相距|(?:多少|几)(?:公里|千米|米)")
+
+
+def _explicit_poi_kind(query: str) -> str | None:
+    food = any(word in query for word in ("美食", "餐厅", "餐馆", "饭店", "小吃", "吃什么"))
+    attraction = any(word in query for word in ("景点", "风景", "游玩", "好玩", "景区"))
+    if food and attraction:
+        return "both"
+    if food:
+        return "food"
+    if attraction:
+        return "attraction"
+    return None
+
 
 def _infer_history_city(user_query: str) -> str | None:
     match = _HISTORY_DESTINATION_PATTERN.search(user_query)
@@ -69,6 +83,12 @@ class RequirementAnalyzer:
                 output_model=TravelRequirement,
             )
         requirement = TravelRequirement.model_validate(output)
+        if requirement.intent == "route_query" and _DISTANCE_QUESTION_PATTERN.search(query):
+            requirement = requirement.model_copy(update={"intent": "distance_query"})
+        if requirement.intent == "poi_recommendation":
+            kind = _explicit_poi_kind(query)
+            if kind is not None:
+                requirement = requirement.model_copy(update={"poi_kind": kind})
         if requirement.intent == "history_query" and not requirement.city:
             city = _infer_history_city(query)
             if city:

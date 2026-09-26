@@ -593,7 +593,9 @@ def _initial_route(
     planning_enabled: bool,
 ) -> str:
     intent = state["requirement"].intent
-    if factual_enabled and intent in {"distance_query", "weather_query", "budget_query"}:
+    if factual_enabled and intent in {
+        "poi_recommendation", "distance_query", "weather_query", "budget_query",
+    }:
         return "direct"
     if planning_enabled and intent == "trip_planning":
         pois = state["information_status"].pois

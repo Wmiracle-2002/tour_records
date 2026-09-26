@@ -16,6 +16,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 - distance_mode：仅 distance_query 可填写 straight、driving、walking 或 null；用户未指定测距方式时留 null，服务端默认直线距离；
 - weather_time_kind：仅 weather_query 可填写 realtime、forecast_date、forecast_range、ambiguous 或 null；“此刻/目前”是实时，“今天全天/今晚/明天/指定日期”是单日预报，“从现在到明天/未来几天”是范围预报；仅说“南京天气怎么样”可按实时处理；
 - history_category：只能是 ATTRACTION、FOOD 或 null；询问去过哪些景点时填写 ATTRACTION，询问去过哪些美食时填写 FOOD；
+- poi_kind：仅 poi_recommendation 可填写 attraction、food、both 或 null；推荐景点填 attraction，推荐美食/餐厅填 food，同时要两类填 both；不要把推荐美食当成景点；
 - duration_days、travelers：整数或 null；
 - budget：数字或 null；
 - preferences、constraints：字符串数组。
@@ -28,6 +29,7 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 - 不要决定调用哪些 Tool；
 - 城市一律填 city；history_query 时，如果用户询问“去过哈尔滨哪些地方”这类问题，必须把哈尔滨提取到 city，不要留空；
 - distance_query 和 route_query 的终点写 destination；所在城市（已知时）写 city，不要把 city 当作 destination；
+- “中山陵到夫子庙有多远”是 distance_query，不是 route_query；route_query 只用于实际导航问法“怎么走/乘什么车”；
 - “今晚”把 start_date 填为当前中国日期，weather_time_kind 填 forecast_date；“从现在到明天”填 start_date、end_date 和 forecast_range，不因包含“现在”误判为实时；
 - 不要规划 Tool 调用顺序；
 - 不要生成旅行方案；

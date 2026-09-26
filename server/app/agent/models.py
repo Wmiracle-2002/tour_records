@@ -38,6 +38,9 @@ RouteMode = Literal["walking", "driving", "transit", "cycling"]
 DistanceMode = Literal["straight", "driving", "walking"]
 # 距离问答的测量方式；未指定时由服务端使用直线距离。
 
+RecommendationKind = Literal["attraction", "food", "both"]
+# 地点推荐的类别：景点、餐饮或两者。
+
 WeatherTimeKind = Literal["realtime", "forecast_date", "forecast_range", "ambiguous"]
 # 天气问题按时间语义分类，避免依赖“现在”等字面关键词。
 
@@ -77,6 +80,7 @@ class TravelRequirement(BaseModel):
     distance_mode: DistanceMode | None = None
     weather_time_kind: WeatherTimeKind | None = None
     history_category: HistoryRecordCategory | None = None
+    poi_kind: RecommendationKind | None = None
     date_expression: str | None = None
     start_date: str | None = None
     end_date: str | None = None
@@ -113,6 +117,8 @@ class TravelRequirement(BaseModel):
             raise ValueError("destination is only valid for route/distance queries; use city for a city")
         if self.intent != "distance_query" and self.distance_mode is not None:
             raise ValueError("distance_mode is only valid for distance_query")
+        if self.intent != "poi_recommendation" and self.poi_kind is not None:
+            raise ValueError("poi_kind is only valid for poi_recommendation")
         if self.intent != "weather_query" and self.weather_time_kind is not None:
             raise ValueError("weather_time_kind is only valid for weather_query")
         if self.start_date and self.end_date and self.end_date < self.start_date:

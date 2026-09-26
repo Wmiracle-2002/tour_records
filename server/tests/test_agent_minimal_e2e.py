@@ -119,8 +119,13 @@ def add_history(db_session: Session) -> None:
             "中山陵", ["/v3/place/text"],
         ),
         (
+            "推荐南京美食",
+            TravelRequirement(intent="poi_recommendation", city="南京", poi_kind="attraction"),
+            "鸭血粉丝汤", ["/v3/place/text"],
+        ),
+        (
             "南京中山陵到夫子庙多远？",
-            TravelRequirement(intent="distance_query", city="南京", origin="中山陵", destination="夫子庙"),
+            TravelRequirement(intent="route_query", city="南京", origin="中山陵", destination="夫子庙"),
             "直线距离约 5.2 公里", ["/v3/place/text", "/v3/place/text", "/v3/distance"],
         ),
         (
@@ -177,6 +182,12 @@ def test_authenticated_chat_scenarios_keep_request_trace_and_verified_facts(
     assert "上千公里" not in response.json()["answer"]
     assert "暂未开放" not in response.json()["answer"]
     assert [path for path, _ in calls] == paths
+    assert all(path != "/v3/geocode/geo" for path, _ in calls)
+    if message == "推荐南京美食":
+        assert calls[0][1]["keywords"] == "美食"
+        assert llm.calls == ["TravelRequirement"]
+    if "多远" in message:
+        assert llm.calls == ["TravelRequirement"]
     assert observer.events
     assert all(event.request_id == trace_id for event in observer.events)
     assert any(event.event == "final_response_ready" for event in observer.events)
@@ -198,7 +209,7 @@ def test_authenticated_chat_scenarios_keep_request_trace_and_verified_facts(
         ),
         (
             TravelRequirement(intent="poi_recommendation", city="南京"),
-            "推荐南京景点", "empty_pois", "地点信息暂不可用",
+            "推荐南京景点", "empty_pois", "暂无可靠的景点推荐",
         ),
         (
             TravelRequirement(intent="weather_query", city="南京", date_expression="明天", weather_time_kind="forecast_date"),

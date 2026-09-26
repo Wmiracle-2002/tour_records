@@ -238,22 +238,26 @@ def test_runtime_planning_collects_both_attractions_and_food(db_session: Session
     assert keywords == ["景点", "美食"]
 
 
-def test_runtime_exposes_only_planned_poi_endpoint(db_session: Session) -> None:
+def test_runtime_recommendation_uses_fixed_poi_endpoint_without_react(db_session: Session) -> None:
     client = FakeStructuredClient(TravelRequirement(intent="poi_recommendation", city="南京"))
-    AgentRuntime(
+    requests: list[tuple[str, dict[str, str]]] = []
+
+    def transport(url: str, params: dict[str, str], _timeout: float) -> dict:
+        requests.append((url, params))
+        return {"status": "1", "pois": [{
+            "id": "A1", "name": "中山陵", "type": "风景名胜",
+            "cityname": "南京市", "location": "118.858000,32.058000",
+        }]}
+
+    result = AgentRuntime(
         settings=Settings(token_secret="test-only-secret", amap_web_key="fake-key"),
-        llm_client=client,
+        llm_client=client, amap_transport=transport,
     ).run("推荐南京景点", 1, db_session)
-    names = {tool["name"] for tool in client.react_contexts[0]["available_tools"]}
-    assert "keyword_search" in names
-    assert "around_search" not in names
-    assert "poi_detail" not in names
-    poi_tool = next(
-        tool for tool in client.react_contexts[0]["available_tools"]
-        if tool["name"] == "keyword_search"
-    )
-    assert "kind" in poi_tool["parameters"]["required"]
-    assert "city" in poi_tool["parameters"]["required"]
+    assert "中山陵" in result.answer
+    assert client.react_contexts == []
+    assert len(requests) == 1
+    assert requests[0][0].endswith("/v3/place/text")
+    assert requests[0][1]["keywords"] == "景点"
 
 
 def test_runtime_does_not_call_navigation_for_route_question(db_session: Session) -> None:

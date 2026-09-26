@@ -106,6 +106,25 @@ def test_analyzer_infers_history_city_when_provider_returns_blank_destination() 
     assert result.city == "哈尔滨"
 
 
+def test_analyzer_corrects_food_recommendation_even_if_model_says_attraction() -> None:
+    client = FakeStructuredOutputClient({
+        "intent": "poi_recommendation", "city": "南京", "poi_kind": "attraction",
+    })
+    result = RequirementAnalyzer(client).analyze("推荐南京美食")
+    assert result.poi_kind == "food"
+
+
+def test_analyzer_corrects_distance_question_mislabeled_as_route() -> None:
+    client = FakeStructuredOutputClient({
+        "intent": "route_query", "city": "南京",
+        "origin": "中山陵", "destination": "夫子庙",
+    })
+    result = RequirementAnalyzer(client).analyze("南京中山陵到夫子庙有多远？")
+    assert result.intent == "distance_query"
+    assert result.origin == "中山陵"
+    assert result.destination == "夫子庙"
+
+
 @pytest.mark.parametrize(
     ("query", "intent"),
     [
