@@ -19,6 +19,11 @@ _ROUTE_MODE_LABELS = {
     "cycling": "骑行",
 }
 
+_PERIOD_LABELS = {
+    "breakfast": "早餐", "morning": "上午", "lunch": "午餐",
+    "afternoon": "下午", "dinner": "晚餐", "evening": "晚上",
+}
+
 
 def _number_text(value: float) -> str:
     return str(int(value)) if value.is_integer() else f"{value:g}"
@@ -70,7 +75,11 @@ class FinalResponseGenerator:
         if requirement.intent == "poi_recommendation":
             return self._pois(collected_info, information_status)
         if requirement.intent == "route_query":
+            if information_status.routes is None:
+                return "当前不提供具体路线导航；可以询问两个地点相距多远。"
             return self._routes(collected_info, information_status)
+        if requirement.intent == "distance_query":
+            return "距离查询正在完善，请稍后再试。"
         return "当前支持天气、路线、历史记录、预算和景点推荐等通用旅行问答。"
 
     def _trip_planning(
@@ -83,14 +92,18 @@ class FinalResponseGenerator:
         if itinerary is None:
             return "当前还没有可展示的完整行程。"
 
-        poi_names = {
-            item.poi_id: item.poi_name
-            for day in itinerary.days
-            for item in day.items
-        }
         lines = ["行程安排："]
         for day_number, day in enumerate(itinerary.days, start=1):
-            lines.append(f"第{day_number}天（{day.date}）：")
+            heading = f"第{day_number}天"
+            if day.date:
+                heading += f"（{day.date}）"
+            lines.append(f"{heading}：")
+            if day.day_number is not None:
+                by_period = {item.period: item for item in day.items if item.period}
+                for period, label in _PERIOD_LABELS.items():
+                    item = by_period.get(period)
+                    lines.append(f"- {label}：{item.poi_name if item else '暂无可靠推荐'}")
+                continue
             if not day.items:
                 lines.append("- 暂无安排。")
                 continue
@@ -103,7 +116,8 @@ class FinalResponseGenerator:
                     line += f"，预计花费 {_number_text(item.estimated_cost)} 元"
                 lines.append(line)
 
-        route_lines = self._trip_route_lines(itinerary, collected_info)
+        coarse = any(day.day_number is not None for day in itinerary.days)
+        route_lines = [] if coarse else self._trip_route_lines(itinerary, collected_info)
         if route_lines:
             lines.append("路线参考：")
             lines.extend(route_lines)
@@ -112,6 +126,8 @@ class FinalResponseGenerator:
         self._append_trip_budget(lines, collected_info, information_status)
         self._append_trip_history_notice(lines, collected_info, information_status)
         self._append_validation_notes(lines, itinerary, validation)
+        if coarse:
+            lines.append("开放时间和实际费用请在出行前核实。")
         return "\n".join(lines)
 
     def _trip_route_lines(
@@ -174,7 +190,7 @@ class FinalResponseGenerator:
         line = (
             "预算参考（人民币）：约 "
             f"{_number_text(budget.estimated_min)} 元至 "
-            f"{_number_text(budget.estimated_max)} 元。"
+            f"{_number_text(budget.estimated_max)} 元（非实时粗估）。"
         )
         if budget.breakdown:
             details = "、".join(
@@ -287,7 +303,7 @@ class FinalResponseGenerator:
         if history is None:
             return "历史记录当前没有可展示的数据。"
 
-        destination = (requirement.destination or "").strip()
+        destination = (requirement.city or "").strip()
         if destination:
             matched_city = any(
                 destination in city or city in destination

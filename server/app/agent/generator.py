@@ -8,11 +8,56 @@ from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from app.agent.budget import AgentBudget
-from app.agent.models import CollectedInfo, Itinerary, TravelRequirement
-from app.agent.utils import avoids_previous_places, time_to_minutes
+from app.agent.models import CollectedInfo, Itinerary, ItineraryDay, ItineraryItem, TravelRequirement
+from app.agent.utils import avoids_previous_places, is_food_category, time_to_minutes
 
 
 MAX_ITINERARY_GENERATION_ATTEMPTS = 2
+
+
+def fallback_itinerary(
+    requirement: TravelRequirement, collected_info: CollectedInfo,
+) -> Itinerary:
+    """Build a sparse plan from verified candidates when generation fails."""
+    visited = set(
+        collected_info.history.visited_poi_ids if collected_info.history else []
+    ) if avoids_previous_places(requirement.constraints) else set()
+    attractions = []
+    foods = []
+    for poi in collected_info.pois:
+        if poi.poi_id in visited:
+            continue
+        category = (poi.category or "").lower()
+        if is_food_category(category):
+            foods.append(poi)
+        elif any(word in category for word in (
+            "风景名胜", "景点", "历史文化", "博物馆", "公园", "attraction",
+        )):
+            attractions.append(poi)
+    start = datetime.strptime(requirement.start_date, "%Y-%m-%d") if requirement.start_date else None
+    days = []
+    for index in range(requirement.duration_days or 1):
+        items = []
+        for period, pool, activity in (
+            ("breakfast", foods, "FOOD"),
+            ("morning", attractions, "ATTRACTION"),
+            ("lunch", foods, "FOOD"),
+            ("afternoon", attractions, "ATTRACTION"),
+            ("dinner", foods, "FOOD"),
+            ("evening", attractions, "ATTRACTION"),
+        ):
+            if pool:
+                poi = pool.pop(0)
+                items.append(ItineraryItem(
+                    poi_id=poi.poi_id, poi_name=poi.name,
+                    period=period, activity_type=activity,
+                ))
+        days.append(ItineraryDay(
+            date=(start + timedelta(days=index)).date().isoformat() if start else None,
+            day_number=index + 1,
+            items=items,
+        ))
+    return Itinerary(days=days)
 
 
 ITINERARY_GENERATOR_SYSTEM_PROMPT = """
@@ -20,15 +65,16 @@ ITINERARY_GENERATOR_SYSTEM_PROMPT = """
 
 输入是 TravelRequirement 和 CollectedInfo。请根据已有候选地点、路线、距离、预算、偏好和硬约束生成 Itinerary。
 
-输出 JSON 必须严格使用以下结构：根对象只能包含 days，days 是数组；每个 day 只能包含 date 和 items；每个 item 只能包含 poi_id、poi_name、start_time、end_time、activity_type、estimated_cost。不要使用 itinerary 字段包裹，不要改名或增加外层字段。
+输出 JSON 必须严格使用以下结构：根对象只能包含 days；每个 day 包含 day_number、date、items；每个 item 包含 poi_id、poi_name、period、activity_type。不要使用 itinerary 字段包裹，不要改名或增加外层字段。
 
 规则：
 - 只能使用 CollectedInfo 中已有的事实，不要虚构地点、地址、开放时间、价格、距离或路线时间；
 - 每个行程项必须使用候选 POI 的 poi_id，并填写对应的 poi_name；
 - 如果 TravelRequirement.duration_days 有值，days 必须恰好包含 duration_days 天，不得省略、合并或追加；
 - 遵守用户的 preferences 和 constraints；
-- date 只能使用 YYYY-MM-DD；如果用户使用“国庆”等非具体日期表达，不能把该词写入 date 字段，应转化为标准格式的日期；
-- 日期格式必须是 YYYY-MM-DD，时间格式必须是 HH:MM；
+- day_number 从 1 连续编号；仅当 TravelRequirement.start_date 是具体 YYYY-MM-DD 日期时填写逐日 date，否则 date 为 null，不猜测日期；
+- 景点用 morning/afternoon/evening 和 ATTRACTION，美食用 breakfast/lunch/dinner 和 FOOD；每个时段最多一个地点，同一天不得重复 POI；候选不足时省略对应时段，不编造地点；
+- 不生成 HH:MM 精确时间、价格或导航路线；
 - 只返回符合 Itinerary 的结构化数据，不要输出自然语言旅行攻略。
 """.strip()
 
@@ -110,6 +156,8 @@ class StructuredItineraryGenerator:
         requirement: TravelRequirement,
         collected_info: CollectedInfo,
     ) -> None:
+        if requirement.end_date and not requirement.start_date:
+            raise ValueError("Itinerary start_date is required when end_date is given")
         if (
             requirement.duration_days is not None
             and len(itinerary.days) != requirement.duration_days
@@ -130,12 +178,23 @@ class StructuredItineraryGenerator:
         should_avoid_previous_places = avoids_previous_places(requirement.constraints)
 
         planned_dates = []
-        for day in itinerary.days:
-            planned_date = self._parse_date(day.date)
-            planned_dates.append(planned_date)
+        for day_number, day in enumerate(itinerary.days, start=1):
+            if day.day_number is not None and day.day_number != day_number:
+                raise ValueError("Itinerary day_number must be consecutive")
+            if requirement.start_date:
+                if day.date is None:
+                    raise ValueError("Itinerary date is required when start_date is known")
+                planned_dates.append(self._parse_date(day.date))
+            elif day.date is not None:
+                raise ValueError("Itinerary date is not allowed without start_date")
+            elif day.day_number is None:
+                raise ValueError("Itinerary day_number is required without start_date")
+            used_periods: set[str] = set()
+            used_pois: set[str] = set()
             for item in day.items:
-                time_to_minutes(item.start_time)
-                time_to_minutes(item.end_time)
+                if item.period is None:
+                    time_to_minutes(item.start_time)
+                    time_to_minutes(item.end_time)
                 poi = known_pois.get(item.poi_id)
                 if poi is None:
                     raise ValueError(f"unknown poi_id: {item.poi_id}")
@@ -147,6 +206,18 @@ class StructuredItineraryGenerator:
                     raise ValueError(
                         f"itinerary contains previously visited poi_id: {item.poi_id}"
                     )
+                if item.period is not None:
+                    if item.period in used_periods or item.poi_id in used_pois:
+                        raise ValueError("duplicate period or poi_id within a day")
+                    used_periods.add(item.period)
+                    used_pois.add(item.poi_id)
+                    food = item.period in {"breakfast", "lunch", "dinner"}
+                    category = (poi.category or "").lower()
+                    poi_is_food = is_food_category(category)
+                    if not category or poi_is_food != food or item.activity_type != (
+                        "FOOD" if food else "ATTRACTION"
+                    ):
+                        raise ValueError(f"poi category does not match period: {item.poi_id}")
 
         if requirement.start_date:
             start_date = self._parse_date(requirement.start_date)

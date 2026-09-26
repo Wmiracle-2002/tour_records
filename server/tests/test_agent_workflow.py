@@ -6,6 +6,7 @@ from app.agent.collector import ReActCollector, ReActDecision, ToolCall
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
 from app.agent.workflow import TravelAgentWorkflow
+from app.agent.tools.amap import WeatherInput
 
 
 class FakeStructuredOutputClient:
@@ -27,6 +28,8 @@ class FakeDecisionClient:
 class FakeTool:
     name = "weather"
     description = "查询天气"
+    input_model = WeatherInput
+    information_need = "weather"
 
     def __init__(self, results: Iterable[ToolResult[Any]]) -> None:
         self.results = iter(results)
@@ -38,7 +41,7 @@ class FakeTool:
 def test_workflow_runs_analyzer_collector_and_final_response_for_weather() -> None:
     analyzer = RequirementAnalyzer(
         FakeStructuredOutputClient(
-            {"intent": "weather_query", "destination": "南京"}
+            {"intent": "weather_query", "city": "南京"}
         )
     )
     tool = FakeTool(

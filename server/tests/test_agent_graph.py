@@ -132,7 +132,7 @@ def test_graph_finishes_with_available_final_response_when_information_is_incomp
 def test_graph_degrades_incomplete_trip_before_itinerary_generation() -> None:
     requirement = TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         duration_days=1,
     )
     graph, generator, validator, reviser, collector = _build_graph(
@@ -153,7 +153,7 @@ def test_graph_degrades_incomplete_trip_before_itinerary_generation() -> None:
 def test_graph_generates_trip_when_only_optional_information_is_incomplete() -> None:
     requirement = TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         duration_days=1,
     )
     itinerary = Itinerary(
@@ -196,7 +196,7 @@ def test_graph_generates_trip_when_only_optional_information_is_incomplete() -> 
 def test_graph_routes_trip_planning_through_generator_validator_and_final_response() -> None:
     requirement = TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         duration_days=1,
     )
     itinerary = Itinerary(
@@ -236,7 +236,7 @@ def test_graph_routes_trip_planning_through_generator_validator_and_final_respon
 
 
 def test_graph_revises_failures_before_final_response() -> None:
-    requirement = TravelRequirement(intent="trip_planning", destination="南京")
+    requirement = TravelRequirement(intent="trip_planning", city="南京")
     itinerary = Itinerary(
         days=[
             ItineraryDay(

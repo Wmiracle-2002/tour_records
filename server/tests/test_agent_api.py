@@ -13,6 +13,10 @@ from app.agent.llm import (
     LLMUpstreamError,
 )
 from app.agent.runtime import AgentRunResult
+from app.agent.runtime import AgentRuntime
+from app.agent.collector import ReActDecision
+from app.agent.models import TravelRequirement
+from app.core.config import Settings
 
 
 class FakeRuntime:
@@ -121,6 +125,56 @@ def test_agent_chat_uses_authenticated_user_id(client: TestClient) -> None:
     assert response.status_code == 200
     assert runtime.calls[0][0] == "查看我的旅行记录"
     assert runtime.calls[0][1] == 1
+
+
+def test_chat_message_reaches_llm_pipeline_without_android_client(
+    client: TestClient,
+) -> None:
+    user_message = "南京明天天气怎么样？"
+
+    class RecordingLLM:
+        def __init__(self) -> None:
+            self.analyzer_message: str | None = None
+            self.react_context: str | None = None
+
+        def complete_structured(
+            self,
+            *,
+            system_prompt: str,
+            user_prompt: str,
+            output_model,
+        ):
+            if output_model is TravelRequirement:
+                self.analyzer_message = user_prompt
+                return {"intent": "weather_query", "city": "南京"}
+            if output_model is ReActDecision:
+                self.react_context = user_prompt
+                return output_model.model_validate(
+                    {
+                        "tool_call": {
+                            "name": "weather",
+                            "arguments": {"city": "南京"},
+                        }
+                    }
+                )
+            raise AssertionError(f"Unexpected LLM output model: {output_model}")
+
+    llm = RecordingLLM()
+    runtime = AgentRuntime(
+        Settings(
+            database_url="sqlite:///:memory:",
+            token_secret="test-only-secret-for-message-pipeline",
+        ),
+        llm_client=llm,
+    )
+    use_runtime(client, runtime)
+
+    response = client.post("/api/v1/agent/chat", json={"message": user_message})
+
+    assert response.status_code == 200
+    assert llm.analyzer_message == user_message
+    assert llm.react_context is None
+    assert "天气" in response.json()["answer"]
 
 
 def test_agent_chat_returns_503_when_llm_is_not_configured(client: TestClient) -> None:

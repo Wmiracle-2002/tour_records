@@ -12,5 +12,9 @@ def test_alembic_upgrade_creates_initial_schema(tmp_path: Path) -> None:
 
     command.upgrade(config, "head")
 
-    tables = set(inspect(create_engine(f"sqlite:///{database_path}")).get_table_names())
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        tables = set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
     assert {"users", "trips", "records", "record_images", "alembic_version"} <= tables

@@ -14,6 +14,11 @@ def avoids_previous_places(constraints: list[str]) -> bool:
     return any(keyword in normalized for keyword in _PREVIOUS_PLACE_KEYWORDS)
 
 
+def is_food_category(category: str | None) -> bool:
+    normalized = (category or "").lower()
+    return any(word in normalized for word in ("餐饮", "美食", "food"))
+
+
 def time_to_minutes(value: str) -> int:
     """Convert an exact HH:MM value to minutes after midnight."""
     if not re.fullmatch(r"\d{2}:\d{2}", value):

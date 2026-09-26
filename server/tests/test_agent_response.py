@@ -15,7 +15,7 @@ from app.agent.response import FinalResponseGenerator
 
 def test_weather_response_uses_only_collected_weather_facts() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="weather_query", destination="南京"),
+        TravelRequirement(intent="weather_query", city="南京"),
         CollectedInfo(
             weather=WeatherInfo(
                 location="南京市",
@@ -37,7 +37,7 @@ def test_weather_response_uses_only_collected_weather_facts() -> None:
 
 def test_failed_information_is_explained_explicitly() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="weather_query", destination="南京"),
+        TravelRequirement(intent="weather_query", city="南京"),
         CollectedInfo(),
         InformationStatus(
             weather=InfoRequirement(
@@ -53,7 +53,7 @@ def test_failed_information_is_explained_explicitly() -> None:
     assert "天气服务没有返回数据" in response
 
     failed_response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="weather_query", destination="南京"),
+        TravelRequirement(intent="weather_query", city="南京"),
         CollectedInfo(),
         InformationStatus(
             weather=InfoRequirement(
@@ -89,7 +89,7 @@ def test_history_response_uses_structured_history_facts() -> None:
 
 def test_history_response_reports_no_matching_city_instead_of_zero_summary() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="history_query", destination="哈尔滨"),
+        TravelRequirement(intent="history_query", city="哈尔滨"),
         CollectedInfo(
             history=TravelHistoryInfo(
                 trip_count=1,
@@ -109,7 +109,7 @@ def test_history_response_lists_places_for_requested_city() -> None:
     response = FinalResponseGenerator().generate(
         TravelRequirement(
             intent="history_query",
-            destination="南京",
+            city="南京",
             history_category="ATTRACTION",
         ),
         CollectedInfo(
@@ -144,7 +144,7 @@ def test_route_response_uses_route_facts_and_rmb_budget_is_labeled() -> None:
         InformationStatus(routes=InfoRequirement(status="completed", critical=True)),
     )
     budget_response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="budget_query", destination="南京"),
+        TravelRequirement(intent="budget_query", city="南京"),
         CollectedInfo(
             budget=BudgetInfo(
                 estimated_min=800,
@@ -165,7 +165,7 @@ def test_route_response_uses_route_facts_and_rmb_budget_is_labeled() -> None:
 
 def test_poi_response_lists_only_available_poi_fields() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="poi_recommendation", destination="杭州"),
+        TravelRequirement(intent="poi_recommendation", city="杭州"),
         CollectedInfo(
             pois=[
                 POIInfo(

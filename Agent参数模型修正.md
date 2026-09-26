@@ -2,308 +2,153 @@
 
 更新时间：2026-09-24  
 优先级：P1 前置阶段，先于路线、开放时间和完整行程质量改造  
-状态：设计已确认，待按本文实施
+状态：代码实现完成；真实 LLM/高德联网验证待环境实测
 
-## 1. 目标
+## 1. 目标与原则
 
-解决 Agent 当前“外层 JSON 合法，但 Tool 参数不符合实际签名”的问题。
+解决 Agent 外层 JSON 合法、Tool 参数却与实际签名不符的问题。当前 `ReActDecision.tool_call.arguments` 是 `dict[str, Any]`；只靠 Prompt 无法阻止未知字段、错类型和错工具真正执行。
 
-当前 `ReActDecision.tool_call.arguments` 是 `dict[str, Any]`，LLM 只看到 Tool 名称和一段文字描述，看不到准确的字段、类型、必填关系和调用示例。因此会出现以下问题：
+**硬约束优先于软约束**：先统一 Agent 对外字段、定义唯一输入模型，并在执行前校验；JSON Schema 和示例从同一模型提供给 LLM，作为降低错误率的辅助信息。Prompt 不能充当最终校验。
 
-- 天气 Tool 收到 `date`、`date_expression` 等不支持的字段，调用在到达高德之前就失败；
-- 城市、地点、景点 ID 等字段名称混用；
-- 路线 Tool 缺少 `origin` 或 `destination`，或者把城市名称和 POI 名称放错字段；
-- 历史记录、预算 Tool 收到不属于自身的参数；
-- 参数校验异常被统一转换为 `Tool execution failed`，无法判断是 LLM 参数错误还是上游服务错误；
-- 同类参数错误可能被重复尝试，浪费 LLM 调用次数。
+成功标准：每个向 LLM 暴露的 Tool 都有准确契约；未通过校验的参数绝不到达 handler 或高德；确定性的上下文可安全补充，仍非法时仅让 LLM 重试同一 Tool 一次，失败后给出可定位的降级结果。
 
-本阶段的成功标准：任何 Tool 在真正执行前都必须经过对应的参数模型校验；可安全修正的字段自动修正，仍不符合规范时让 LLM 根据结构化错误重试一次，第二次仍失败则受控降级，不能产生模糊的通用错误。
+## 2. 字段语义统一
 
-## 2. 已确认的处理策略
+**相同含义使用相同 JSON 键；不同含义即使原先同名，也要明确区分。**统一范围是 Agent 的需求、决策上下文和 Tool 输入，不要求同时改 Android 公共 API、数据库字段或高德原始响应。服务商格式只在适配器边界处理。
 
-采用“安全字段自动修正，仍不合规则让 LLM 重试一次”的策略。
+| 含义 | Agent 对外键 | 使用边界 |
+|---|---|---|
+| 行政城市或高德城市编码 | `city` | 历史筛选、天气、POI 搜索、预算目的城市 |
+| 经纬度 `经度,纬度` | `coordinates` | 周边搜索、逆地理编码；必须按坐标规则校验 |
+| 路线起点、终点 | `origin`、`destination` | 可为明确地点或坐标；不能把仅有的城市当成具体景点 |
+| 景点唯一标识 | `poi_id` | POI 详情；不能拿景点名称替代 |
+| 旅行或筛选日期区间 | `start_date`、`end_date` | ISO 日期；相对日期先在需求层解析或保留未确定状态 |
+| 历史记录类别 | `category` | 与高德 POI 类型筛选 `types` 是不同概念 |
 
-### 2.1 可以自动修正的内容
+现有高德 `around_search.location` 和 `reverse_geocode.location` 指**坐标**，并不是 `weather.city` 的同义词；把 `location="南京"` 自动改为 `city="南京"` 是错误做法。Agent 统一用 `coordinates`，高德适配器内部再映射为 `location`。`poi_detail.poi_id` 到高德请求的 `id` 也仅在适配器转换。
 
-只允许明确、无歧义的修正：
+现有 `TravelRequirement.destination` 表示旅行目的地，可能是城市或地点；它与路线 Tool 的 `destination`（具体终点）不能无条件互相复制。实施时先明确需求层的城市字段，只有已确认是城市时才补 Tool 的 `city`。若目的地含糊，留待重试或澄清，不做字符串猜测。预算 Tool 的现有 `destination` 若表示目的城市，同步改为 Agent 对外 `city`，由预算适配器映射给当前实现；不要在一个 Tool 的公开 Schema 里同时提供两个键。
 
-1. 字段别名转换。
+## 3. 唯一 Tool 契约与硬校验
 
-   例如：
+Tool 注册信息包含 `name`、`description`、`input_model`、归属的 `information_need`、正确示例。输入模型是唯一事实来源，供执行前校验和生成 LLM 所见 JSON Schema。不要再维护另一份手写字段列表、别名表或允许忽略字段表。Schema 要表达必填、类型、枚举、范围、格式及 `additionalProperties: false`；校验发生在 handler 之前，不能只依赖 handler 内部的 Pydantic 模型。
 
-   ```json
-   {"location": "南京"}
-   ```
+第一批覆盖当前可供 Agent 使用的 Tool：
 
-   在天气 Tool 中转换为：
-
-   ```json
-   {"city": "南京"}
-   ```
-
-2. 从 `TravelRequirement` 补充确定的默认值。
-
-   例如天气参数缺少 `city`，但需求分析已经得到 `destination="南京"`，可以补充 `city="南京"`。
-
-3. 只做契约允许的简单类型转换。
-
-   例如把可确认的数字字符串转换为整数或浮点数。不能把含糊的自然语言直接猜成数字。
-
-4. 删除明确标记为“上下文字段”的字段。
-
-   例如天气请求中的 `date`、`date_expression`、`start_date`、`end_date` 不属于高德天气接口参数，但日期信息会由 `TravelRequirement` 和 Collector 负责筛选，因此可以记录为已处理的上下文字段，不转发给 Tool。
-
-### 2.2 不允许自动猜测的内容
-
-以下情况必须进入参数错误重试：
-
-- 缺少必填字段，且无法从需求中唯一补充；
-- 一个字段同时出现两个不同值的别名；
-- 城市、地点、POI ID 无法判断；
-- 出行方式、历史记录类型等枚举值不在允许范围内；
-- 数字、日期、坐标或列表格式无法可靠转换；
-- 未知字段不是已登记的上下文字段；
-- 参数之间互相矛盾。
-
-不能静默丢弃任意未知字段。只有 Tool 契约中明确列出的上下文字段可以被忽略，其他未知字段必须报错并反馈给 LLM。
-
-## 3. Tool 参数契约
-
-### 3.1 每个 Tool 必须有输入模型
-
-在 Tool 注册信息中增加以下内容：
-
-- `name`：Tool 名称；
-- `description`：用途和适用场景；
-- `input_model`：对应的 Pydantic 参数模型；
-- `aliases`：允许的字段别名；
-- `context_fields`：允许接收但不转发给实际接口的上下文字段；
-- `examples`：至少一个正确调用示例和必要的错误示例。
-
-输入模型默认使用 `extra="forbid"`，保证未知字段不会直接进入真实 Tool。
-
-### 3.2 第一批参数模型
-
-需要覆盖当前所有 Agent Tool：
-
-| Tool | 参数模型需要明确的内容 |
+| Tool | Agent 对外参数与关键硬约束 |
 |---|---|
-| `get_travel_summary` | 不接受任何参数 |
-| `search_trip_history` | `city`、`category`、`start_date`、`end_date` |
-| `search_records` | `trip_id`、`city`、`category`、`min_rating`、`max_rating`、`min_cost`、`max_cost` |
-| `get_trip_detail` | 必填 `trip_id`，且必须为正整数 |
-| `estimate_budget` | `destination`、`duration_days`、`travelers`、`level` |
-| `keyword_search` | 必填 `keywords`，可选 `city`、`types`、`page`、`offset` |
-| `around_search` | 必填 `location`，可选 `keywords`、`types`、`radius`、`page`、`offset` |
-| `poi_detail` | 必填 `poi_id` |
-| `weather` | 必填 `city`，可选 `forecast`；日期只作为上下文，不传给高德 |
-| `distance` | 必填 `origins`、`destination`，可选 `distance_type` |
-| `driving_route` | 必填 `origin`、`destination`，可选 `city`、`strategy`、`waypoints` |
-| `transit_route` | 必填 `origin`、`destination`、`city`，可选 `cityd`、`strategy`、`waypoints` |
-| `walking_route` | 必填 `origin`、`destination`，可选 `city`、`waypoints` |
-| `cycling_route` | 必填 `origin`、`destination`，可选 `city`、`waypoints` |
+| `get_travel_summary` | 空对象；任何字段均报错 |
+| `search_trip_history` | `city`、`category`、`start_date`、`end_date`；日期范围有序 |
+| `search_records` | `trip_id`、`city`、`category`、`min_rating`、`max_rating`、`min_cost`、`max_cost`；范围有序，金额非负 |
+| `get_trip_detail` | 必填正整数 `trip_id` |
+| `estimate_budget` | `city`、必填正整数 `duration_days`、`travelers`，以及 `accommodation_level`、`food_level`、`transport_mode`、`pois`；当前代码没有 `level` 字段 |
+| `keyword_search` | 必填非空 `keywords`，可选 `city`、`types`、正整数 `page`、`offset` |
+| `around_search` | 必填 `coordinates`，可选 `keywords`、`types`、正整数 `radius`、`page`、`offset` |
+| `poi_detail` | 必填非空 `poi_id` |
+| `weather` | 必填 `city`，可选布尔 `forecast`；日期不属于此 Tool 参数 |
+| `distance` | 必填非空起点列表 `origins`、终点 `destination`，可选 `distance_type`（只允许当前代码支持的值）；起终点可为明确地点名或坐标，当前高德客户端会先解析地点名 |
+| `driving_route`、`walking_route`、`cycling_route` | 必填 `origin`、`destination`；其余参数按对应方式实际支持情况建模 |
+| `transit_route` | 必填 `origin`、`destination`、`city`；可选 `cityd` 等仅在实际支持时暴露 |
 
-已有的 `SearchTripHistoryInput`、`SearchRecordsInput`、`GetTripDetailInput` 和 `EstimateBudgetInput` 应作为正式 Tool 契约复用或统一整理，避免同一 Tool 在不同位置有两套字段规则。
+`geocode`、`reverse_geocode` 已在高德工具注册，但当前 Collector 没有它们的 `information_need` 映射。Step 1 必须二选一：给它们定义输入模型和明确的信息需求、结果归一化路径，或暂时不向 LLM 暴露。不能出现“可选工具”与“能被 Collector 正常执行的工具”不一致。
 
-## 4. 提供给 LLM 的格式
+实施时逐项对照真实 handler：路线各方式的 `strategy`、`extensions`、`waypoints` 等只在已验证支持的方式中暴露；不能从统一 `route()` 签名推断每种方式都支持。已有内部输入模型应复用或改成共享的正式契约，避免一处严格、一处宽松。
 
-`ToolDescriptor` 不再只包含名称和一句描述，至少增加：
+校验至少包括：未知键拒绝、必填、严格类型（不依赖 Pydantic 默认强制转换）、非空文本、数值范围、枚举、坐标格式及经纬度范围、日期格式与先后、评分/费用上下界的交叉校验。`city` 不接受坐标，`coordinates` 不接受城市名称；路线和距离端点允许明确地点名或合法坐标，不能要求它们一定是坐标。可选字段缺省值由模型定义。JSON Schema 表达不了的跨字段规则，由同一模型的验证器在执行前强制执行。
 
-```json
-{
-  "name": "weather",
-  "description": "查询指定城市的天气；用户说某个节日或日期时仍使用 city，日期由系统上下文处理",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "city": {"type": "string", "description": "城市名称或高德城市编码"},
-      "forecast": {"type": "boolean", "default": false}
-    },
-    "required": ["city"],
-    "additionalProperties": false
-  },
-  "examples": [
-    {
-      "tool_call": {
-        "name": "weather",
-        "arguments": {"city": "南京", "forecast": true}
-      }
-    }
-  ]
-}
-```
+工具名称与信息需求的关系由注册信息确定，不接受 LLM 覆盖。当前 `call.information_need or TOOL_INFORMATION_NEEDS.get(call.name)` 允许模型把工具结果写入错误的信息槽；改为服务端确定。`critical` 也由业务状态确定，不信任模型直接指定。需要同步调整 `ToolCall` 结构并拒绝未知控制字段，避免让模型继续输出这两个值。
 
-Prompt 必须明确：
+## 4. 确定性修正与一次重试
 
-- 只能使用当前 `available_tools` 中的 Tool；
-- `arguments` 必须严格匹配对应 Tool 的参数 Schema；
-- 不要把用户日期、解释文字或内部上下文字段放入 Tool 参数，除非 Schema 明确允许；
-- 不要把城市名称、POI 名称、POI ID 混用；
-- 缺少必填参数时不要猜测，返回当前 Tool 调用并等待系统反馈或选择其他可用 Tool；
-- `reason` 只写简短操作说明，不输出隐藏推理过程。
+保留已确认的“安全字段自动修正，然后仍不合规则让 LLM 重试一次”，但**不做通用别名猜测或未知字段静默删除**：
 
-每个容易出错的 Tool 都要有一个正确示例和一个边界示例。示例必须与实际输入模型和实际 handler 签名保持一致，不能只修改 Prompt 而不修改模型。
+1. 在 Agent 对外只发布一种规范键名；历史别名若没有兼容需求，就删除现有 `_TOOL_ARGUMENT_ALIASES`，不再把 `query`、`keyword`、`location` 等都当作模型可用写法。若已有必须兼容的持久化旧调用，兼容逻辑只在该输入边界按版本处理，绝不放进 LLM Schema。
+2. 仅从已校验的需求状态补充能唯一确定的缺失值。例如需求中明确 `city="南京"` 时可补天气的 `city`。不能把含糊的旅行目的地、城市或 POI 名称猜成路线终点、坐标或 POI ID。
+3. 只允许无损且明文规定的文本清理，例如首尾空白；数字字符串原则上报类型错误，让 LLM 输出正确的 JSON 数值。若某个非 LLM 入口必须兼容数字字符串，应在该入口处理并单独测试。
+4. 用户的“中秋天气”日期属于需求与天气能力判断：先解析实际日期，再判断高德预报覆盖范围。若日期未确定或超出范围，返回明确的不可查询结果，不能降级为“今天的天气”。LLM 把 `date` / `date_expression` 塞进 `weather.arguments` 时属于未知键错误，不能悄悄丢掉，否则可能答非所问。
 
-## 5. 参数处理流程
-
-统一流程如下：
+处理顺序：
 
 ```text
-LLM ReActDecision
-        |
-        v
-读取 ToolSpec
-        |
-        v
-字段别名和上下文默认值修正
-        |
-        +---- 修正后通过输入模型 ----> 执行 Tool
-        |
-        +---- 仍不通过 -----------> 生成结构化参数错误反馈
-                                      |
-                                      v
-                                LLM 重试一次
-                                      |
-                       +--------------+--------------+
-                       |                             |
-                    通过                         再次失败
-                       |                             |
-                    执行 Tool                  标记为 failed
-                                                   受控降级
+LLM ToolCall -> 查注册契约/确定信息需求 -> 有依据的上下文补值
+             -> 输入模型校验 -> 通过才调用 Tool/服务商适配器
+             -> 失败时反馈字段级错误 -> 同一 Tool 最多重试一次
+             -> 再失败则该需求受控降级，不调用上游、不无限循环
 ```
 
-### 5.1 参数错误反馈模型
+由于外层 `ReActDecision` 的 `arguments: dict[str, Any]` 无法单独保证不同工具各自的动态参数 Schema，**执行前校验是不可省的硬边界**；向 LLM 提供 Schema 和示例只用于减少重试。若后续改为每个 Tool 的判别联合类型，也仍保留执行边界校验。
 
-建议增加内部模型 `ToolArgumentError`，至少包含：
+重试反馈包含 `tool_name`、`error_code`、`invalid_fields`、`missing_fields`、期望类型/允许范围、`attempt`；只反馈字段规则，不输出密钥、完整参数或原始模型响应。参数重试与网络重试分开计数；只因参数错误触发，超时、提供方错误和结果归一化错误不得进入参数修正循环。重试须固定原 Tool 和信息需求，不能借机切换工具或修改 `critical`。
 
-- `tool_name`；
-- `error_code`；
-- `invalid_fields`；
-- `missing_fields`；
-- `expected_schema_summary`；
-- `retryable`；
-- `attempt`。
+## 5. 错误分类与观测
 
-反馈给 LLM 时只提供字段名、类型和修正要求，不提供 API Key、完整请求内容或敏感参数值。
+目前 `ToolLayer` 把普通异常统一变成 `tool_execution_failed`。要区分：`invalid_tool_arguments`、`tool_not_found`、`tool_unavailable`、`tool_timeout`、`tool_provider_error`、`invalid_tool_response`、`tool_execution_error`。参数错误应在调用 handler 前产生；第二次失败时回答具体哪类信息未能获得，不显示笼统的 `Tool execution failed`。
 
-### 5.2 重试限制
+日志记录 `request_id`、工具名、错误码、失败字段名、重试次数、耗时和状态。不要记录 API Key、完整参数、完整 Prompt、原始 LLM 响应或隐藏推理。
 
-- 每次逻辑 Tool 调用最多进行一次参数修正重试；
-- 参数错误重试与上游网络重试分开计数；
-- 第二次参数仍非法时，不再调用上游接口；
-- 不得因为参数错误无限增加 ReAct 轮次；
-- 最终回答必须说明具体 Tool 信息不可用及原因，例如“天气查询参数未通过校验”，不能统一显示“Tool execution failed”。
+## 6. 实施步骤与逐步验收
 
-## 6. 错误分类和日志
+### Step 1：字段字典和 Tool 契约
 
-当前 `ToolLayer` 将所有普通异常都转成 `tool_execution_failed`，需要拆分为：
+- 按第 2、3 节整理输入模型及服务商适配器；现有预算 `destination`/错误文档 `level` 与真实实现对齐。
+- 注册信息、运行时模型和生成的 JSON Schema 使用同一来源；只暴露已接上信息需求与归一化的工具。
+- 去掉 Agent 面向 LLM 的多套别名，保留必要的提供方字段映射。
 
-- `invalid_tool_arguments`：调用前参数模型校验失败；
-- `tool_not_found`：Tool 名称不存在；
-- `tool_unavailable`：依赖服务未配置或暂时不可用；
-- `tool_timeout`：上游请求超时；
-- `tool_provider_error`：上游返回业务错误；
-- `invalid_tool_response`：返回结果无法归一化；
-- `tool_execution_error`：Tool 内部未预期异常。
+验收：逐一核对所有已暴露 Tool 的 Schema、handler、信息需求和归一化路径；未知键和语义错误字段均在执行前拒绝。
 
-日志只记录：
+### Step 2：向 LLM 提供准确 Schema
 
-- `request_id`；
-- `tool_name`；
-- `error_code`；
-- 参数校验失败的字段名；
-- 参数修正次数；
-- Tool 执行耗时和状态。
+- `ToolDescriptor` 从输入模型生成参数 JSON Schema；为易错工具提供与模型一致的简短正反示例。
+- Prompt 说明字段含义、只选当前可用工具、不能猜测缺失值；`reason` 只写操作说明。
 
-禁止记录 API Key、完整参数值、完整 Prompt、原始模型响应和隐藏推理过程。
+验收：决策测试核对必填、类型、枚举、`additionalProperties: false` 与示例；不允许手写 Schema 漂移。
 
-## 7. 实施步骤
+### Step 3：执行前校验与确定性补值
 
-### Step 1：建立 ToolSpec 和输入模型
+- 在 `ToolLayer` 或紧贴其前的单一边界校验 ToolCall；由注册信息确定信息需求。
+- 只补能从需求中唯一确认的值，其他未知键、错类型、错含义一律反馈错误。
 
-- 整理所有 Tool 的 Pydantic 输入模型；
-- 为字段补充类型、约束和中文说明；
-- 统一 `extra="forbid"`；
-- 让 Tool Registry 保存输入模型、别名、上下文字段和示例；
-- 保持已有 Tool 的业务行为不变。
+验收：参数错误时 handler/高德调用次数为零；合法输入仍执行一次。
 
-验收：每个已注册 Tool 都能生成 JSON Schema，错误字段不会进入 handler。
+### Step 4：同一工具重试一次
 
-### Step 2：扩展 ReAct 上下文和 Prompt
+- 保存最近参数错误的结构化反馈；限定一次 LLM 修正，第二次失败受控结束。
+- 不把上游超时、网络错误或结果错误算作参数错误。
 
-- 扩展 `ToolDescriptor`，向 LLM 提供 JSON Schema 和示例；
-- 增加天气、路线、历史、预算四类最容易出错的 Prompt 示例；
-- 增加参数不确定时的行为约束；
-- 保持不输出隐藏推理过程。
+验收：首次错误后修正成功、连续两次错误、上游失败三种路径都终止，轮次有明确上界。
 
-验收：LLM 决策测试能够断言收到的 Tool Schema、必填字段和示例。
+### Step 5：日志及回归
 
-### Step 3：实现安全修正和输入校验
+- 细分错误码与脱敏日志，执行 Agent、服务端 API 的相关回归和真实问答验证。
 
-- 将当前 `_normalize_tool_arguments` 改为基于 ToolSpec 的统一处理器；
-- 支持显式别名、需求上下文默认值和有限类型转换；
-- 对未知字段执行白名单处理；
-- 参数不通过时不调用真实 Tool。
+验收：日志能定位工具与字段，且不泄露敏感值；历史、天气、POI、预算和路线的正常查询仍可用。
 
-验收：天气带日期字段、路线缺参数、历史字段别名、预算数字字符串等边界用例均有明确结果。
+## 7. 边界测试清单
 
-### Step 4：增加一次参数重试
+1. `city="南京"` 通过天气和城市筛选；`coordinates="南京"`、`city="118.78,32.04"` 都在调用前失败。`around_search` 的规范键为 `coordinates`，适配器才映射为高德 `location`。
+2. `weather.arguments` 出现 `date` / `date_expression` 被拒绝并重试；用户问超出预报范围的中秋天气时，不误报今日天气。
+3. `get_travel_summary` 带任意键、`get_trip_detail.trip_id<=0`、空 `poi_id` 或空 `keywords` 均拒绝。
+4. 路线缺起终点、把不明确的城市当终点、公交缺 `city` 均不访问高德。
+5. 预算使用不存在的 `level`、把字符串 `"3"` 当作 `duration_days`、人数为零或负数均拒绝；合法 `accommodation_level`、`food_level`、`transport_mode` 可执行。
+6. 日期倒序、评分或费用上下界倒序、负费用、无效坐标、无效 `distance_type` 均反馈字段级错误。
+7. LLM 提供 `information_need`、`critical` 或未知别名不能改变系统路由；`geocode` / `reverse_geocode` 要么契约及归一化完整，要么不向 LLM 暴露。
+8. 参数修正只重试同一 Tool 一次；两次失败后不执行上游；网络失败不进入参数重试。
+9. Schema 与运行时模型一致，正常结果、空结果、超时、提供方错误、结果归一化错误的既有回归通过；日志不含密钥或完整参数。
 
-- 在 Agent State 中保存最近一次参数错误反馈；
-- 下一轮 ReAct Context 携带结构化错误，而不是只返回笼统错误；
-- 增加单次参数重试计数；
-- 第二次失败后进入受控降级。
+## 8. 本阶段边界
 
-验收：首次错误、第二次修正成功、连续两次错误三个场景都能结束，不出现死循环。
+本阶段只解决 Tool 参数和执行契约。强制查路线、POI 搜索与详情的独立信息状态、开放时间缺失时的行程展示策略、规划后的路线补查、长任务与 Android 流式展示另行处理。参数契约稳定后，才能准确区分业务流程失败与参数失败。
 
-### Step 5：完善错误日志和回归测试
+## 9. 实施记录
 
-- 拆分错误码；
-- 日志记录错误类型和字段名；
-- 保证参数值和密钥不进入日志；
-- 运行 Agent 全量回归、服务端 API 回归和真实服务器基础问答。
+### 2026-09-24：Step 1–5 完成
 
-验收：日志能够区分参数错误、上游错误和归一化错误；原有历史、天气、POI、预算、路线查询仍然可用。
+- 统一 Agent 字段：城市使用 `city`，坐标使用 `coordinates`，POI 详情使用 `poi_id`；预算参数与真实处理逻辑对齐。高德原生字段只在适配器中转换。
+- 为已暴露工具建立严格输入模型；注册信息同时提供信息需求、运行 Schema 和示例。未知字段、缺失字段、错误类型、非法坐标/日期范围/数值范围等在 handler 执行前拒绝。
+- 从输入模型生成传给 LLM 的 JSON Schema；决策结构拒绝额外控制字段，信息需求和 critical 状态由服务端确定。没有完整信息需求与归一化链路的 `geocode`、`reverse_geocode` 不向 LLM 暴露。
+- 只从需求结构补充可唯一确定的参数；移除通用别名映射。参数校验失败时只允许同一工具重试一次，第二次仍失败会终止对应信息需求；不触发高德调用。
+- 区分参数、未注册工具、超时、提供方错误和执行错误；参数重试日志只记录字段名，不记录参数值、Prompt 或密钥。
+- 增加 API 级消息注入测试：直接提交与 Android 相同的 `POST /api/v1/agent/chat` 消息，验证消息进入需求分析客户端并验证工具 Schema 被传入决策客户端，不启动 Android。
+- 全量服务端回归：在 `server` 目录运行 `python -m pytest -q -p no:cacheprovider`，结果 **274 passed**。唯一提示是 Starlette 测试客户端依赖弃用警告。
 
-## 8. 测试清单
-
-必须覆盖以下边界：
-
-1. 天气参数包含 `date`、`date_expression` 时，日期被当作上下文处理，不产生 Python `unexpected keyword` 错误。
-2. 天气缺少 `city`，但 `destination` 唯一时可以补充；两者都缺少时进入参数重试。
-3. 路线缺少 `origin` 或 `destination` 时不访问高德接口。
-4. 路线使用 `from`、`to` 等别名时，只有在 ToolSpec 明确登记后才允许转换。
-5. `get_travel_summary` 收到任意参数时，返回参数错误而不是模糊的执行错误。
-6. 历史查询的 `city`、`category`、日期字段类型错误时，返回字段级错误。
-7. 预算的 `duration_days`、`travelers` 为数字字符串时按约定转换；负数、零和无法转换的文本被拒绝。
-8. 未知字段不能被静默转发给 handler。
-9. 参数错误最多触发一次 LLM 重试。
-10. 第二次仍失败时，最终回答明确说明参数校验失败，且不再调用上游 Tool。
-11. 日志不包含 API Key、完整 Prompt、原始模型响应和敏感参数值。
-12. 现有正常 Tool 调用、空结果、上游错误、超时和归一化错误测试全部通过。
-
-## 9. 本阶段边界
-
-本文优先解决“Tool 参数格式和调用契约不可靠”的问题。
-
-以下内容放到参数契约稳定后单独处理：
-
-- 行程规划必须强制查询路线；
-- POI 搜索与 POI 详情的独立信息状态；
-- 开放时间缺失时是否阻止展示完整行程；
-- 生成行程后按相邻 POI 补查路线；
-- 行程规划的长任务、流式进度和 Android 展示协议。
-
-这些问题依赖稳定的 Tool 参数模型，否则无法判断失败究竟来自业务流程还是参数格式。
-
-## 10. 完成标准
-
-本阶段完成后，以下行为必须成立：
-
-- LLM 生成的外层 JSON 和 Tool 参数都经过模型校验；
-- Tool 参数错误不再以笼统的 `Tool execution failed` 掩盖；
-- 安全字段可以自动修正；
-- 不安全或含糊字段会反馈给 LLM，并最多重试一次；
-- 参数仍不合规时不会调用上游服务，也不会无限循环；
-- 日志可以准确定位参数校验失败的 Tool 和字段；
-- 真实天气、历史、景点、预算和路线问答回归通过。
+该自动化消息测试使用记录型 LLM 替身和本地工具响应，不访问真实 LLM/高德服务；它验证 Android 请求到 Agent 分析/决策边界的数据链路，不替代部署后对真实供应商参数兼容性的联网验证。

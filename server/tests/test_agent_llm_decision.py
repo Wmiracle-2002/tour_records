@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from app.agent.collector import (
     ReActContext,
@@ -8,6 +9,7 @@ from app.agent.collector import (
     ToolCall,
     ToolDescriptor,
 )
+from app.agent.tools.amap import WeatherInput
 from app.agent.llm import (
     REACT_DECISION_SYSTEM_PROMPT,
     LLMInvalidResponseError,
@@ -45,13 +47,20 @@ def weather_context(*, tool_name: str = "weather") -> ReActContext:
     return ReActContext(
         requirement=TravelRequirement(
             intent="weather_query",
-            destination="南京",
+            city="南京",
         ),
         information_status=InformationStatus(
             weather=InfoRequirement(status="pending", critical=True),
         ),
         collected_info=CollectedInfo(),
-        available_tools=[ToolDescriptor(name=tool_name, description="查询天气")],
+        available_tools=[
+            ToolDescriptor(
+                name=tool_name,
+                description="查询天气",
+                parameters=WeatherInput.model_json_schema(),
+                examples=[{"city": "南京", "forecast": True}],
+            )
+        ],
         react_round=1,
     )
 
@@ -116,7 +125,23 @@ def test_react_client_prompt_declares_exact_decision_shape() -> None:
     assert "根对象只能包含 tool_call 和 reason" in prompt
     assert "不要使用 decision 字段包裹" in prompt
     assert "arguments 必须是对象" in prompt
-    assert "information_need 只能是" in prompt
+    assert "information_need" in prompt
+    assert "critical" in prompt
+    assert "Tool 的 parameters 是执行时的硬 Schema" in prompt
+
+
+def test_tool_call_rejects_system_control_fields_from_llm() -> None:
+    with pytest.raises(ValidationError):
+        ReActDecision.model_validate(
+            {
+                "tool_call": {
+                    "name": "weather",
+                    "arguments": {"city": "南京"},
+                    "information_need": "history",
+                    "critical": False,
+                }
+            }
+        )
 
 
 def test_react_prompt_distinguishes_history_tools() -> None:

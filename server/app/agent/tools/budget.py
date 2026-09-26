@@ -5,10 +5,10 @@ from __future__ import annotations
 from math import ceil
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
 from app.agent.models import BudgetInfo
-from app.agent.tools.layer import ToolResult
+from app.agent.tools.layer import ToolInputModel, ToolResult
 
 
 AccommodationLevel = Literal["budget", "standard", "premium"]
@@ -35,23 +35,29 @@ TRANSPORT_PER_PERSON_DAY = {
 POI_TICKET_PER_PERSON = 50.0
 
 
-class EstimateBudgetInput(BaseModel):
+class EstimateBudgetInput(ToolInputModel):
     """预算估算的输入参数。"""
 
-    destination: str | None = None
-    duration_days: int = Field(ge=1)
-    travelers: int = Field(ge=1)
-    accommodation_level: AccommodationLevel = "standard"
-    food_level: FoodLevel = "standard"
-    transport_mode: BudgetTransportMode = "mixed"
-    pois: list[str] = Field(default_factory=list)
+    city: str | None = Field(default=None, description="旅行目的城市")
+    duration_days: int = Field(ge=1, description="旅行天数")
+    travelers: int = Field(ge=1, description="出行人数")
+    accommodation_level: AccommodationLevel = Field(
+        default="standard", description="住宿档次：budget、standard、premium"
+    )
+    food_level: FoodLevel = Field(
+        default="standard", description="餐饮档次：budget、standard、premium"
+    )
+    transport_mode: BudgetTransportMode = Field(
+        default="mixed", description="交通方式"
+    )
+    pois: list[str] = Field(default_factory=list, description="计划游览的景点名称")
 
-    @field_validator("destination", mode="before")
+    @field_validator("city")
     @classmethod
-    def normalize_destination(cls, value: Any) -> str | None:
+    def normalize_city(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        normalized = str(value).strip()
+        normalized = value.strip()
         return normalized or None
 
     @field_validator("pois")
@@ -68,6 +74,11 @@ class EstimateBudgetTool:
 
     name = "estimate_budget"
     description = "按旅行天数、人数和消费档次估算人民币预算"
+    input_model = EstimateBudgetInput
+    information_need = "budget"
+    examples = (
+        {"city": "南京", "duration_days": 3, "travelers": 2},
+    )
 
     def run(self, **arguments: Any) -> ToolResult[BudgetInfo]:
         query = EstimateBudgetInput.model_validate(arguments)
@@ -99,9 +110,9 @@ class EstimateBudgetTool:
             f"餐饮按 {query.food_level} 档、{query.travelers} 人、{query.duration_days} 天估算",
             f"交通按 {query.transport_mode} 方式估算",
         ]
-        if query.destination:
+        if query.city:
             assumptions.append(
-                f"未接入 {query.destination} 的实时价格，使用通用估算参数"
+                f"未接入 {query.city} 的实时价格，使用通用估算参数"
             )
         else:
             assumptions.append("未指定目的地，使用通用估算参数")

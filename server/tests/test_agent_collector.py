@@ -12,13 +12,32 @@ from app.agent.information import ensure_information_need, initialize_informatio
 from app.agent.models import CollectedInfo, TravelRequirement
 from app.agent.state import TravelAgentState
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
+from agent_tool_test_utils import AgentTestInput, TEST_INFORMATION_NEEDS
+from app.agent.tools.amap import KeywordSearchInput, VerifiedPoiSearchInput
+
+
+def test_verified_poi_tool_uses_analyzed_city_instead_of_llm_city() -> None:
+    tool = FakeTool("keyword_search", [ToolResult.completed({"status": "1", "pois": []})])
+    tool.input_model = VerifiedPoiSearchInput
+    client = FakeDecisionClient([
+        ReActDecision(tool_call=ToolCall(
+            name="keyword_search",
+            arguments={"city": "上海", "kind": "attraction"},
+        ))
+    ])
+    ReActCollector(build_layer(tool), client).collect(
+        build_state(TravelRequirement(intent="poi_recommendation", city="南京"))
+    )
+    assert tool.calls == [{"city": "南京", "kind": "attraction"}]
 
 
 class FakeTool:
     description = "测试工具"
+    input_model = AgentTestInput
 
     def __init__(self, name: str, results: Iterable[ToolResult[Any]]) -> None:
         self.name = name
+        self.information_need = TEST_INFORMATION_NEEDS[name]
         self._results = iter(results)
         self.calls: list[dict[str, Any]] = []
 
@@ -103,6 +122,20 @@ def test_collector_executes_weather_tool_normalizes_and_stops() -> None:
     assert client.contexts[0].collected_info == CollectedInfo()
 
 
+def test_unknown_tool_name_is_rejected_without_crashing_or_execution() -> None:
+    tool = FakeTool("weather", [ToolResult.completed({"status": "1"})])
+    client = FakeDecisionClient(
+        [ReActDecision(tool_call=ToolCall(name="unregistered_tool"))]
+    )
+    state = build_state(TravelRequirement(intent="weather_query", city="南京"))
+
+    result = ReActCollector(build_layer(tool), client, max_rounds=1).collect(state)
+
+    assert result["react_round"] == 1
+    assert result["information_status"].weather.status == "pending"
+    assert tool.calls == []
+
+
 def test_weather_forecast_uses_requested_date_instead_of_first_day() -> None:
     tool = FakeTool(
         "weather",
@@ -145,7 +178,7 @@ def test_weather_forecast_uses_requested_date_instead_of_first_day() -> None:
     state = build_state(
         TravelRequirement(
             intent="weather_query",
-            destination="南京",
+            city="南京",
             date_expression="中秋",
             start_date="2026-09-25",
         )
@@ -186,7 +219,7 @@ def test_weather_does_not_fall_back_to_today_when_requested_date_is_unresolved()
     state = build_state(
         TravelRequirement(
             intent="weather_query",
-            destination="南京",
+            city="南京",
             date_expression="中秋",
         )
     )
@@ -231,7 +264,7 @@ def test_collector_normalizes_internal_history_result() -> None:
     assert result["collected_info"].history.visited_names == ["中山陵"]
 
 
-def test_collector_defaults_history_city_from_requirement_destination() -> None:
+def test_collector_defaults_history_city_from_requirement_city() -> None:
     tool = FakeTool(
         "search_trip_history",
         [ToolResult.completed([{"trip_id": 1, "city_name": "南京市", "records": []}])],
@@ -246,7 +279,7 @@ def test_collector_defaults_history_city_from_requirement_destination() -> None:
     state = build_state(
         TravelRequirement(
             intent="history_query",
-            destination="南京",
+            city="南京",
             history_category="ATTRACTION",
         )
     )
@@ -256,7 +289,7 @@ def test_collector_defaults_history_city_from_requirement_destination() -> None:
     assert tool.calls == [{"city": "南京", "category": "ATTRACTION"}]
 
 
-def test_collector_defaults_route_endpoints_from_requirement() -> None:
+def test_collector_skips_navigation_when_route_is_not_supported() -> None:
     tool = FakeTool(
         "walking_route",
         [
@@ -286,7 +319,7 @@ def test_collector_defaults_route_endpoints_from_requirement() -> None:
 
     ReActCollector(build_layer(tool), client).collect(state)
 
-    assert tool.calls == [{"origin": "南京站", "destination": "中山陵"}]
+    assert tool.calls == []
 
 
 def test_trip_planning_decisions_can_collect_multiple_needs_in_any_order() -> None:
@@ -355,7 +388,7 @@ def test_trip_planning_decisions_can_collect_multiple_needs_in_any_order() -> No
     assert result["collected_info"].budget.estimated_max == 1200
 
 
-def test_collector_normalizes_common_keyword_search_argument_alias() -> None:
+def test_collector_retries_keyword_alias_with_canonical_parameter() -> None:
     tool = FakeTool(
         "keyword_search",
         [
@@ -373,13 +406,19 @@ def test_collector_normalizes_common_keyword_search_argument_alias() -> None:
             )
         ],
     )
+    tool.input_model = KeywordSearchInput
     client = FakeDecisionClient(
         [
             ReActDecision(
                 tool_call=ToolCall(
                     name="keyword_search", arguments={"keyword": "历史建筑"}
                 )
-            )
+            ),
+            ReActDecision(
+                tool_call=ToolCall(
+                    name="keyword_search", arguments={"keywords": "历史建筑"}
+                )
+            ),
         ]
     )
 
@@ -389,6 +428,26 @@ def test_collector_normalizes_common_keyword_search_argument_alias() -> None:
 
     assert result["information_status"].pois.status == "completed"
     assert tool.calls == [{"keywords": "历史建筑"}]
+    assert client.contexts[1].tool_argument_error.invalid_fields == ["keyword"]
+    assert client.contexts[1].tool_argument_error.attempt == 1
+
+
+def test_collector_stops_after_one_invalid_argument_correction() -> None:
+    tool = FakeTool("keyword_search", [ToolResult.completed({"status": "1", "pois": []})])
+    tool.input_model = KeywordSearchInput
+    invalid_call = ReActDecision(
+        tool_call=ToolCall(name="keyword_search", arguments={"keyword": "历史建筑"})
+    )
+    client = FakeDecisionClient([invalid_call, invalid_call])
+
+    result = ReActCollector(build_layer(tool), client).collect(
+        build_state(TravelRequirement(intent="poi_recommendation"))
+    )
+
+    assert result["information_status"].pois.status == "failed"
+    assert result["information_status"].pois.attempts == 1
+    assert len(client.contexts) == 2
+    assert tool.calls == []
 
 
 def test_empty_result_retries_three_times_then_stops() -> None:

@@ -1,9 +1,12 @@
 from collections.abc import Iterator
 from pathlib import Path
+from shutil import rmtree
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
@@ -14,8 +17,22 @@ from app.security import hash_password
 
 
 @pytest.fixture
-def db_session(tmp_path: Path) -> Iterator[Session]:
-    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+def tmp_path() -> Iterator[Path]:
+    path = Path(__file__).parent / f".test-data-{uuid4().hex}"
+    path.mkdir()
+    try:
+        yield path
+    finally:
+        rmtree(path)
+
+
+@pytest.fixture
+def db_session() -> Iterator[Session]:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 
     @event.listens_for(engine, "connect")
     def enable_foreign_keys(dbapi_connection, _connection_record) -> None:

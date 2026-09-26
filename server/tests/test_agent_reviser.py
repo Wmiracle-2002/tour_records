@@ -37,7 +37,7 @@ class FakeRevisionClient:
 
 
 def build_requirement() -> TravelRequirement:
-    return TravelRequirement(intent="trip_planning", destination="南京", duration_days=2)
+    return TravelRequirement(intent="trip_planning", city="南京", duration_days=2)
 
 
 def build_info() -> CollectedInfo:

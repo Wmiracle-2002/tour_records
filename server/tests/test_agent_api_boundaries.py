@@ -83,7 +83,7 @@ def test_agent_budget_timeout_maps_to_504(client) -> None:
     response = client.post("/api/v1/agent/chat", json={"message": "规划行程"})
 
     assert response.status_code == 504
-    assert response.json()["detail"] == "Agent request timed out"
+    assert response.json()["error"]["message"] == "Agent request timed out"
 
 
 def test_disconnect_watcher_sets_agent_cancellation() -> None:

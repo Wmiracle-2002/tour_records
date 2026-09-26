@@ -9,7 +9,9 @@ from app.storage import CosObjectStorage, StorageNotConfigured, create_storage
 
 
 def test_storage_is_disabled_without_credentials() -> None:
-    storage = create_storage(Settings())
+    storage = create_storage(
+        Settings(cos_bucket=None, cos_secret_id=None, cos_secret_key=None)
+    )
 
     with pytest.raises(StorageNotConfigured):
         storage.upload("records/1/photo.jpg", BytesIO(b"image"), "image/jpeg")

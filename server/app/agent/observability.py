@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from collections.abc import Iterator
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,8 @@ AgentEventName = Literal[
     "stage_completed",
     "requirement_ready",
     "tool_started",
+    "tool_argument_retry_started",
+    "tool_argument_retry_completed",
     "tool_completed",
     "information_updated",
     "itinerary_generated",
@@ -51,7 +53,7 @@ def request_context(request_id: str) -> Iterator[None]:
 
 
 class AgentEvent(BaseModel):
-    """允许记录的公开运行事件；不包含 prompt、Tool 参数或原始响应。"""
+    """允许记录的运行事件；包含 Tool 参数，不包含 prompt 或原始响应。"""
 
     event: AgentEventName
     request_id: str = Field(min_length=1)
@@ -62,6 +64,8 @@ class AgentEvent(BaseModel):
     intent: str | None = None
     node_name: str | None = None
     tool_name: str | None = None
+    tool_arguments: dict[str, Any] | None = None
+    executed_tool_arguments: dict[str, Any] | None = None
     tool_duration_ms: float | None = Field(default=None, ge=0)
     tool_success: bool | None = None
     information_status: dict[str, str] | None = None
@@ -74,6 +78,9 @@ class AgentEvent(BaseModel):
     total_duration_ms: float | None = Field(default=None, ge=0)
     error_code: str | None = None
     error_message: str | None = None
+    argument_retry_attempt: int | None = Field(default=None, ge=1)
+    invalid_argument_fields: list[str] | None = None
+    missing_argument_fields: list[str] | None = None
 
 
 class AgentObserver(Protocol):
@@ -128,6 +135,8 @@ def emit_event(
     intent: str | None = None,
     node_name: str | None = None,
     tool_name: str | None = None,
+    tool_arguments: dict[str, Any] | None = None,
+    executed_tool_arguments: dict[str, Any] | None = None,
     tool_duration_ms: float | None = None,
     tool_success: bool | None = None,
     information_status: dict[str, str] | None = None,
@@ -140,6 +149,9 @@ def emit_event(
     total_duration_ms: float | None = None,
     error_code: str | None = None,
     error_message: str | None = None,
+    argument_retry_attempt: int | None = None,
+    invalid_argument_fields: list[str] | None = None,
+    missing_argument_fields: list[str] | None = None,
 ) -> None:
     """发送事件；观察器故障不能影响 Agent 业务流程。"""
     if observer is None:
@@ -151,6 +163,8 @@ def emit_event(
         intent=intent,
         node_name=node_name,
         tool_name=tool_name,
+        tool_arguments=tool_arguments,
+        executed_tool_arguments=executed_tool_arguments,
         tool_duration_ms=tool_duration_ms,
         tool_success=tool_success,
         information_status=information_status,
@@ -163,6 +177,9 @@ def emit_event(
         total_duration_ms=total_duration_ms,
         error_code=error_code,
         error_message=error_message,
+        argument_retry_attempt=argument_retry_attempt,
+        invalid_argument_fields=invalid_argument_fields,
+        missing_argument_fields=missing_argument_fields,
     )
     try:
         observer.record(record)

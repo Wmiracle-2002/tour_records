@@ -8,7 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from time import monotonic
 from typing import Any, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.budget import AgentBudget
 from app.agent.information import (
@@ -46,7 +46,13 @@ from app.agent.normalizer import (
     normalize_weather,
 )
 from app.agent.state import TravelAgentState
-from app.agent.tools.layer import ToolLayer, ToolResult
+from app.agent.tools.layer import (
+    ToolArgumentError,
+    ToolLayer,
+    ToolNotFoundError,
+    ToolResult,
+)
+from app.agent.utils import avoids_previous_places
 
 
 # Keep the synchronous collector within the mobile request budget.  A planning
@@ -56,23 +62,27 @@ MAX_REACT_ROUNDS = 4
 
 
 class ToolDescriptor(BaseModel):
-    """提供给决策客户端的工具名称和简短说明。"""
+    """提供给决策客户端的工具输入契约。"""
 
     name: str
     description: str
+    parameters: dict[str, Any]
+    examples: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ToolCall(BaseModel):
     """一次结构化工具调用。"""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1)
     arguments: dict[str, Any] = Field(default_factory=dict)
-    information_need: InformationNeedName | None = None
-    critical: bool = False
 
 
 class ReActDecision(BaseModel):
     """决策客户端的单轮结果；没有 Tool Call 表示暂时停止调用。"""
+
+    model_config = ConfigDict(extra="forbid")
 
     tool_call: ToolCall | None = None
     reason: str | None = None
@@ -86,6 +96,7 @@ class ReActContext(BaseModel):
     collected_info: CollectedInfo
     available_tools: list[ToolDescriptor]
     react_round: int = Field(ge=0)
+    tool_argument_error: ToolArgumentError | None = None
 
 
 class ReActDecisionClient(Protocol):
@@ -97,48 +108,22 @@ class ReActDecisionClient(Protocol):
 
 Normalizer = Callable[[Any], Any]
 
-TOOL_INFORMATION_NEEDS: dict[str, InformationNeedName] = {
-    "get_travel_summary": "history",
-    "search_trip_history": "history",
-    "search_records": "history",
-    "get_trip_detail": "history",
-    "estimate_budget": "budget",
-    "keyword_search": "pois",
-    "around_search": "pois",
-    "poi_detail": "pois",
-    "weather": "weather",
-    "distance": "distances",
-    "driving_route": "routes",
-    "transit_route": "routes",
-    "walking_route": "routes",
-    "cycling_route": "routes",
-}
-
-_TOOL_ARGUMENT_ALIASES: dict[str, dict[str, str]] = {
-    "keyword_search": {"keyword": "keywords", "query": "keywords"},
-    "around_search": {"keyword": "keywords", "query": "keywords"},
-}
-
-
 def _normalize_tool_arguments(
     call: ToolCall,
     requirement: TravelRequirement,
 ) -> dict[str, Any]:
-    """Normalize common LLM argument aliases before calling a concrete Tool."""
+    """Fill only input values that are explicit in the analyzed requirement."""
     arguments = dict(call.arguments)
-    for alias, canonical in _TOOL_ARGUMENT_ALIASES.get(call.name, {}).items():
-        if canonical not in arguments and alias in arguments:
-            arguments[canonical] = arguments.pop(alias)
 
     if call.name in {"search_trip_history", "search_records"}:
-        if "city" not in arguments and requirement.destination:
-            arguments["city"] = requirement.destination
+        if "city" not in arguments and requirement.city:
+            arguments["city"] = requirement.city
         if "category" not in arguments and requirement.history_category:
             arguments["category"] = requirement.history_category
 
     if call.name == "weather":
-        if "city" not in arguments and requirement.destination:
-            arguments["city"] = requirement.destination
+        if "city" not in arguments and requirement.city:
+            arguments["city"] = requirement.city
         if requirement.start_date or requirement.end_date or requirement.date_expression:
             arguments["forecast"] = True
 
@@ -148,16 +133,32 @@ def _normalize_tool_arguments(
         "walking_route",
         "cycling_route",
     }:
-        if "origin" not in arguments and requirement.origin:
+        if requirement.city and "city" not in arguments:
+            arguments["city"] = requirement.city
+        if requirement.intent == "route_query" and "origin" not in arguments and requirement.origin:
             arguments["origin"] = requirement.origin
-        if "destination" not in arguments and requirement.destination:
+        if requirement.intent == "route_query" and "destination" not in arguments and requirement.destination:
             arguments["destination"] = requirement.destination
 
     if call.name == "distance":
-        if "origins" not in arguments and requirement.origin:
+        if requirement.intent == "route_query" and "origins" not in arguments and requirement.origin:
             arguments["origins"] = [requirement.origin]
-        if "destination" not in arguments and requirement.destination:
+        if requirement.intent == "route_query" and "destination" not in arguments and requirement.destination:
             arguments["destination"] = requirement.destination
+
+    if call.name == "keyword_search":
+        if requirement.city:
+            arguments["city"] = requirement.city
+        else:
+            arguments.pop("city", None)
+    if call.name == "estimate_budget":
+        if "city" not in arguments and requirement.city:
+            arguments["city"] = requirement.city
+    if call.name == "estimate_budget":
+        if "duration_days" not in arguments and requirement.duration_days:
+            arguments["duration_days"] = requirement.duration_days
+        if "travelers" not in arguments and requirement.travelers:
+            arguments["travelers"] = requirement.travelers
 
     return arguments
 
@@ -254,14 +255,31 @@ class ReActCollector:
             return working
 
         call = decision.tool_call
-        need = call.information_need or TOOL_INFORMATION_NEEDS.get(call.name)
-        if need is None:
+        try:
+            need = self._tool_layer.information_need(call.name)
+        except ToolNotFoundError:
+            self._emit(
+                "tool_completed",
+                working,
+                tool_name=call.name,
+                tool_duration_ms=0,
+                tool_success=False,
+                react_round=working["react_round"],
+                error_code="tool_not_found",
+                error_message="Tool not found",
+            )
             return working
+        need_requirement = getattr(working["information_status"], need)
+        critical = (
+            need_requirement.critical
+            if need_requirement is not None
+            else _need_is_critical(working["requirement"], need)
+        )
 
         working["information_status"] = ensure_information_need(
             working["information_status"],
             need,
-            critical=call.critical,
+            critical=critical,
         )
         current_requirement = getattr(working["information_status"], need)
         if current_requirement.status != "pending":
@@ -275,6 +293,7 @@ class ReActCollector:
             "tool_started",
             working,
             tool_name=call.name,
+            tool_arguments=call.arguments,
             react_round=working["react_round"],
         )
         with (
@@ -282,15 +301,22 @@ class ReActCollector:
             if self._budget
             else nullcontext()
         ):
-            raw_result = self._tool_layer.execute(
-                call.name,
-                **_normalize_tool_arguments(call, working["requirement"]),
+            call, raw_result = self._execute_with_argument_retry(
+                call,
+                context,
+                working["requirement"],
+                working,
             )
-            normalized_result = self._normalize(call, raw_result)
+            normalized_result = (
+                raw_result
+                if raw_result.error_code == "invalid_tool_arguments"
+                else self._normalize(call, raw_result)
+            )
         self._emit(
             "tool_completed",
             working,
             tool_name=call.name,
+            executed_tool_arguments=call.arguments,
             tool_duration_ms=(monotonic() - tool_started_at) * 1000,
             tool_success=normalized_result.status == "completed",
             react_round=working["react_round"],
@@ -347,6 +373,13 @@ class ReActCollector:
                     working["information_status"] = update_information_status(
                         working["information_status"], need, outcome="completed"
                     )
+        elif normalized_result.error_code == "invalid_tool_arguments":
+            failed_status = working["information_status"].model_copy(deep=True)
+            failed_requirement = getattr(failed_status, need)
+            failed_requirement.attempts += 1
+            failed_requirement.status = "failed"
+            failed_requirement.reason = "工具参数连续两次未通过校验"
+            working["information_status"] = failed_status
         elif normalized_result.status == "unavailable":
             working["information_status"] = update_information_status(
                 working["information_status"],
@@ -394,12 +427,97 @@ class ReActCollector:
             information_status=state["information_status"],
             collected_info=state["collected_info"],
             available_tools=[
-                ToolDescriptor(name=name, description=description)
-                for name, description in self._tool_layer.descriptions()
-                if _tool_can_be_requested(name, state["information_status"])
+                ToolDescriptor(
+                    name=definition.name,
+                    description=definition.description,
+                    parameters=definition.input_model.model_json_schema(),
+                    examples=list(definition.examples),
+                )
+                for definition in self._tool_layer.definitions()
+                if _tool_can_be_requested(
+                    definition.information_need,
+                    state["information_status"],
+                )
             ],
             react_round=state["react_round"],
         )
+
+    def _execute_with_argument_retry(
+        self,
+        call: ToolCall,
+        context: ReActContext,
+        requirement: TravelRequirement,
+        state: TravelAgentState,
+    ) -> tuple[ToolCall, ToolResult[Any]]:
+        arguments = _normalize_tool_arguments(call, requirement)
+        normalized_call = call.model_copy(update={"arguments": arguments})
+        result = self._tool_layer.execute(call.name, **arguments)
+        if result.error_code != "invalid_tool_arguments":
+            return normalized_call, result
+
+        definition = self._tool_layer.definition(call.name)
+        details = result.details or {}
+        error = ToolArgumentError(
+            tool_name=call.name,
+            invalid_fields=details.get("invalid_fields", []),
+            missing_fields=details.get("missing_fields", []),
+            expected_schema_summary=definition.input_model.model_json_schema(),
+            attempt=1,
+        )
+        retry_context = context.model_copy(update={"tool_argument_error": error})
+        retry_started_at = monotonic()
+        self._emit(
+            "tool_argument_retry_started",
+            state,
+            tool_name=call.name,
+            executed_tool_arguments=normalized_call.arguments,
+            invalid_argument_fields=error.invalid_fields,
+            missing_argument_fields=error.missing_fields,
+            argument_retry_attempt=1,
+        )
+        with (
+            self._budget.stage("react_argument_retry")
+            if self._budget
+            else nullcontext()
+        ):
+            retry_decision = self._decision_client.decide(retry_context)
+        retry_call = retry_decision.tool_call if retry_decision is not None else None
+        if retry_call is None or retry_call.name != call.name:
+            return normalized_call, ToolResult.failed(
+                "工具参数连续两次未通过校验",
+                error_code="invalid_tool_arguments",
+                details={**details, "attempts": 1},
+            )
+
+        retry_arguments = _normalize_tool_arguments(retry_call, requirement)
+        normalized_retry_call = retry_call.model_copy(
+            update={"arguments": retry_arguments}
+        )
+        retry_result = self._tool_layer.execute(call.name, **retry_arguments)
+        self._emit(
+            "tool_argument_retry_completed",
+            state,
+            tool_name=call.name,
+            tool_arguments=retry_call.arguments,
+            executed_tool_arguments=normalized_retry_call.arguments,
+            stage_name="react_argument_retry",
+            stage_duration_ms=(monotonic() - retry_started_at) * 1000,
+            stage_status=(
+                "failed"
+                if retry_result.error_code == "invalid_tool_arguments"
+                else "success"
+            ),
+            invalid_argument_fields=(retry_result.details or {}).get("invalid_fields", []),
+            missing_argument_fields=(retry_result.details or {}).get("missing_fields", []),
+            argument_retry_attempt=1,
+        )
+        if retry_result.error_code == "invalid_tool_arguments":
+            return normalized_retry_call, ToolResult.failed(
+                "工具参数连续两次未通过校验",
+                error_code="invalid_tool_arguments",
+                details={**(retry_result.details or {}), "attempts": 2},
+            )
+        return normalized_retry_call, retry_result
 
     def _normalize(self, call: ToolCall, result: ToolResult[Any]) -> ToolResult[Any]:
         normalizer = self._normalizers.get(call.name) or self._default_normalizer(call)
@@ -507,10 +625,25 @@ def _weather_for_requirement(
     return data, None
 
 
-def _tool_can_be_requested(name: str, status: InformationStatus) -> bool:
-    """Do not advertise Tools whose information need has already terminated."""
-    need = TOOL_INFORMATION_NEEDS.get(name)
-    if need is None:
-        return True
+def _tool_can_be_requested(need: str, status: InformationStatus) -> bool:
+    """Do not advertise tools whose registered information need has terminated."""
     requirement = getattr(status, need)
     return requirement is None or requirement.status == "pending"
+
+
+def _need_is_critical(requirement: TravelRequirement, need: str) -> bool:
+    if requirement.intent == "trip_planning":
+        if need in {"pois", "routes"}:
+            return True
+        if need == "budget":
+            return requirement.budget is not None
+        if need == "history":
+            return avoids_previous_places(requirement.constraints)
+        return False
+    return {
+        "history_query": "history",
+        "poi_recommendation": "pois",
+        "weather_query": "weather",
+        "route_query": "routes",
+        "budget_query": "budget",
+    }.get(requirement.intent) == need

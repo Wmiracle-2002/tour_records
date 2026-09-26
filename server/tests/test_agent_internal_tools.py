@@ -317,10 +317,10 @@ def test_search_records_supports_filters_and_user_scope(db_session: Session) -> 
         "search_records",
         city="南京",
         category="FOOD",
-        min_rating="3",
-        max_rating="3",
-        min_cost="30",
-        max_cost="50",
+        min_rating=3,
+        max_rating=3,
+        min_cost=30,
+        max_cost=50,
     )
 
     assert result.status == "completed"
@@ -377,8 +377,26 @@ def test_internal_db_tool_rejects_invalid_query_boundaries(db_session: Session) 
         end_date="2026-09-01",
     )
     invalid_trip_id = layer.execute("get_trip_detail", trip_id=0)
+    numeric_string_rating = layer.execute("search_records", min_rating="3")
 
     assert invalid_date_range.status == "failed"
-    assert invalid_date_range.error_code == "tool_execution_failed"
+    assert invalid_date_range.error_code == "invalid_tool_arguments"
     assert invalid_trip_id.status == "failed"
-    assert invalid_trip_id.error_code == "tool_execution_failed"
+    assert invalid_trip_id.error_code == "invalid_tool_arguments"
+    assert numeric_string_rating.error_code == "invalid_tool_arguments"
+
+
+def test_summary_and_history_reject_extra_or_coerced_arguments(
+    db_session: Session,
+) -> None:
+    user = add_user(db_session, "strict-arguments-user")
+    db_session.commit()
+    layer = tool_layer(db_session, user.id)
+
+    extra_summary_field = layer.execute("get_travel_summary", city="南京")
+    coerced_trip_id = layer.execute("get_trip_detail", trip_id="1")
+
+    assert extra_summary_field.error_code == "invalid_tool_arguments"
+    assert extra_summary_field.details["invalid_fields"] == ["city"]
+    assert coerced_trip_id.error_code == "invalid_tool_arguments"
+    assert coerced_trip_id.details["invalid_fields"] == ["trip_id"]

@@ -46,7 +46,7 @@ def _itinerary() -> Itinerary:
 
 def test_trip_response_renders_itinerary_and_available_supporting_facts() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(
             pois=[
                 POIInfo(poi_id="P1", name="中山陵", location="118.8,32.0"),
@@ -91,7 +91,7 @@ def test_trip_response_renders_itinerary_and_available_supporting_facts() -> Non
 
 def test_trip_response_explains_unknown_information_without_inventing_it() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(),
         InformationStatus(
             weather=InfoRequirement(
@@ -124,7 +124,7 @@ def test_trip_response_explains_unknown_information_without_inventing_it() -> No
 
 def test_trip_response_exposes_remaining_failures_after_revision_limit() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(),
         InformationStatus(),
         _itinerary(),
@@ -151,7 +151,7 @@ def test_trip_response_exposes_remaining_failures_after_revision_limit() -> None
 
 def test_trip_response_handles_missing_itinerary() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(),
         InformationStatus(),
         None,

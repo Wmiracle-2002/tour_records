@@ -294,9 +294,10 @@ REACT_DECISION_SYSTEM_PROMPT = """
 
 输入包含用户需求、当前信息状态、已经收集的结构化信息和可用 Tool。
 每轮最多返回一个 Tool Call；如果信息已经足够，返回 null Tool Call。
-只能选择 available_tools 中存在的 Tool，并使用它的参数格式。
+只能选择 available_tools 中存在的 Tool。每个 Tool 的 parameters 是执行时的硬 Schema，arguments 必须严格符合它；示例只帮助理解，不能替代 Schema。
+如果上下文包含 tool_argument_error，必须重试其中指定的同一个 Tool，只修正 invalid_fields 和 missing_fields，不能切换 Tool，也不能添加 Schema 外字段。
 询问去过哪些城市、景点或美食时，优先使用 search_trip_history 或 search_records；只有询问旅行次数、城市数、总花费或平均评分时才使用 get_travel_summary。
-根对象只能包含 tool_call 和 reason；tool_call 可以是 null，或包含 name、arguments、information_need、critical；arguments 必须是对象；information_need 只能是 history、pois、weather、routes、distances、budget 之一或 null；critical 必须是布尔值。不要使用 decision 字段包裹，不要增加其他外层字段。
+根对象只能包含 tool_call 和 reason；tool_call 可以是 null，或只包含 name、arguments；arguments 必须是对象。信息归属和重要程度由系统确定，不要输出 information_need 或 critical。不要使用 decision 字段包裹，不要增加其他字段。
 不要输出思维链或隐藏推理；reason 只允许是一句简短的操作说明。
 只返回符合 ReActDecision 的结构化 JSON。
 """.strip()

@@ -37,7 +37,7 @@ def test_backup_and_restore_round_trip(tmp_path: Path):
 
     restore_database(database_url, backup)
 
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("SELECT username FROM users").fetchone() == ("shared",)
 
 
@@ -45,15 +45,19 @@ def test_restore_rejects_database_without_application_schema(tmp_path: Path):
     database = tmp_path / "footmarks.db"
     database_url = create_footmarks_database(database)
     invalid_backup = tmp_path / "invalid.db"
-    with sqlite3.connect(invalid_backup) as connection:
+    with closing(sqlite3.connect(invalid_backup)) as connection:
         connection.execute("CREATE TABLE unrelated (id INTEGER PRIMARY KEY)")
         connection.commit()
 
     with pytest.raises(sqlite3.DatabaseError, match="missing application tables"):
         restore_database(database_url, invalid_backup)
 
-    with Session(create_engine(database_url)) as session:
-        assert session.scalar(select(User.username)) == "shared"
+    engine = create_engine(database_url)
+    try:
+        with Session(engine) as session:
+            assert session.scalar(select(User.username)) == "shared"
+    finally:
+        engine.dispose()
 
 
 def test_backup_requires_file_based_sqlite_database(tmp_path: Path):

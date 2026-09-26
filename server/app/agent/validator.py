@@ -15,7 +15,7 @@ from app.agent.models import (
     ValidationIssue,
     ValidationResult,
 )
-from app.agent.utils import avoids_previous_places, time_to_minutes
+from app.agent.utils import avoids_previous_places, is_food_category, time_to_minutes
 
 
 @dataclass(frozen=True)
@@ -42,6 +42,7 @@ class ItineraryValidator:
         collected_info: CollectedInfo,
     ) -> ValidationResult:
         issues: list[ValidationIssue] = []
+        issues.extend(self._coarse_integrity_issues(itinerary, collected_info))
         issues.extend(self._time_conflict_issues(itinerary))
         issues.extend(self._travel_time_issues(itinerary, collected_info))
         issues.extend(self._opening_hours_issues(itinerary, collected_info))
@@ -53,13 +54,48 @@ class ItineraryValidator:
             issues=issues,
         )
 
+    def _coarse_integrity_issues(
+        self, itinerary: Itinerary, collected_info: CollectedInfo,
+    ) -> list[ValidationIssue]:
+        known_pois = {poi.poi_id: poi for poi in collected_info.pois}
+        issues: list[ValidationIssue] = []
+        for day_number, day in enumerate(itinerary.days, start=1):
+            seen_pois: set[str] = set()
+            seen_periods: set[str] = set()
+            for item in day.items:
+                if item.period is None:
+                    continue
+                poi = known_pois.get(item.poi_id)
+                food_period = item.period in {"breakfast", "lunch", "dinner"}
+                if (
+                    item.poi_id in seen_pois
+                    or item.period in seen_periods
+                    or poi is None
+                    or poi.name != item.poi_name
+                    or not poi.category
+                    or is_food_category(poi.category) != food_period
+                    or item.activity_type != ("FOOD" if food_period else "ATTRACTION")
+                ):
+                    issues.append(_issue(
+                        "constraint", "fail", day_number, [item.poi_id],
+                        f"第{day_number}天 {item.poi_name} 的候选类别、时段或去重校验失败。",
+                        "仅使用已验证且不重复的景点或餐饮候选。",
+                    ))
+                seen_pois.add(item.poi_id)
+                seen_periods.add(item.period)
+        return issues
+
     def _time_conflict_issues(self, itinerary: Itinerary) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []
         for day_number, day in enumerate(itinerary.days, start=1):
             for index, left in enumerate(day.items):
+                if left.start_time is None:
+                    continue
                 left_start = time_to_minutes(left.start_time)
                 left_end = time_to_minutes(left.end_time)
                 for right in day.items[index + 1 :]:
+                    if right.start_time is None:
+                        continue
                     right_start = time_to_minutes(right.start_time)
                     right_end = time_to_minutes(right.end_time)
                     if left_start < right_end and right_start < left_end:
@@ -83,6 +119,8 @@ class ItineraryValidator:
         issues: list[ValidationIssue] = []
         for day_number, day in enumerate(itinerary.days, start=1):
             for previous, current in zip(day.items, day.items[1:]):
+                if previous.end_time is None or current.start_time is None:
+                    continue
                 if previous.poi_id == current.poi_id:
                     continue
                 duration = _route_duration(
@@ -127,6 +165,8 @@ class ItineraryValidator:
         issues: list[ValidationIssue] = []
         for day_number, day in enumerate(itinerary.days, start=1):
             for item in day.items:
+                if item.start_time is None:
+                    continue
                 poi = pois.get(item.poi_id)
                 if poi is None or poi.opening_hours is None:
                     issues.append(
@@ -245,7 +285,7 @@ class ItineraryValidator:
         for day_number, day in enumerate(itinerary.days, start=1):
             total_minutes = sum(
                 time_to_minutes(item.end_time) - time_to_minutes(item.start_time)
-                for item in day.items
+                for item in day.items if item.start_time is not None
             )
             if total_minutes > self._config.max_daily_minutes:
                 issues.append(

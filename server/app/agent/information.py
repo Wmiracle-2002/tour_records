@@ -47,7 +47,7 @@ def initialize_information_status(
     if requirement.intent == "budget_query":
         return _add_need(status, "budget", critical=True)
     if requirement.intent == "route_query":
-        return _add_need(status, "routes", critical=True)
+        return status
     if requirement.intent == "poi_recommendation":
         return _add_need(status, "pois", critical=True)
 

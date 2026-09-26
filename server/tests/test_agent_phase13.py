@@ -17,6 +17,7 @@ from app.agent.reviser import LocalItineraryReviser
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.budget import EstimateBudgetTool
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
+from agent_tool_test_utils import AgentTestInput, TEST_INFORMATION_NEEDS
 from app.agent.validator import ItineraryValidator
 
 
@@ -40,6 +41,8 @@ class ScenarioTool:
     def __init__(self, name: str, data: Any) -> None:
         self.name = name
         self.description = f"Phase 13 test tool: {name}"
+        self.input_model = AgentTestInput
+        self.information_need = TEST_INFORMATION_NEEDS[name]
         self._data = data
 
     def run(self, **_arguments: Any) -> ToolResult[Any]:
@@ -60,8 +63,6 @@ class ScenarioDecisionClient:
                     tool_call=ToolCall(
                         name=tool_name,
                         arguments=arguments,
-                        information_need=need,
-                        critical=requirement.critical if requirement is not None else True,
                     )
                 )
         return ReActDecision(reason="All scenario information is collected")
@@ -172,7 +173,7 @@ def _three_day_itinerary(*items: ItineraryItem) -> Itinerary:
 def test_phase13_case_1_weather_query() -> None:
     result = _run_graph(
         "南京明天天气怎么样？",
-        TravelRequirement(intent="weather_query", destination="南京"),
+        TravelRequirement(intent="weather_query", city="南京"),
         calls={
             "weather": (
                 "weather",
@@ -207,7 +208,7 @@ def test_phase13_case_1_weather_query() -> None:
 def test_phase13_case_2_history_query() -> None:
     result = _run_graph(
         "我之前去过杭州吗？",
-        TravelRequirement(intent="history_query", destination="杭州"),
+        TravelRequirement(intent="history_query", city="杭州"),
         calls={"history": ("search_trip_history", {})},
         tools=[
             _history_tool(
@@ -230,7 +231,7 @@ def test_phase13_case_3_poi_recommendation() -> None:
         "推荐几个南京适合看历史建筑的地方。",
         TravelRequirement(
             intent="poi_recommendation",
-            destination="南京",
+            city="南京",
             preferences=["历史建筑"],
         ),
         calls={
@@ -258,7 +259,7 @@ def test_phase13_case_4_budget_query() -> None:
         "两个人去南京玩三天大概需要多少钱？",
         TravelRequirement(
             intent="budget_query",
-            destination="南京",
+            city="南京",
             duration_days=3,
             travelers=2,
         ),
@@ -266,7 +267,7 @@ def test_phase13_case_4_budget_query() -> None:
             "budget": (
                 "estimate_budget",
                 {
-                    "destination": "南京",
+                    "city": "南京",
                     "duration_days": 3,
                     "travelers": 2,
                 },
@@ -282,7 +283,7 @@ def test_phase13_case_4_budget_query() -> None:
     assert "人民币" in result["final_response"]
 
 
-def test_phase13_case_5_route_query() -> None:
+def test_phase13_case_5_route_query_is_not_dispatched() -> None:
     result = _run_graph(
         "从中山陵去夫子庙怎么走？",
         TravelRequirement(intent="route_query", origin="中山陵", destination="夫子庙"),
@@ -295,12 +296,9 @@ def test_phase13_case_5_route_query() -> None:
         tools=[_route_tool()],
     )
 
-    route = result["collected_info"].routes[0]
-    assert result["information_status"].routes.status == "completed"
-    assert route.origin_id == "中山陵"
-    assert route.destination_id == "夫子庙"
-    assert route.duration_minutes == 30
-    assert "中山陵 到 夫子庙" in result["final_response"]
+    assert result["collected_info"].routes == []
+    assert result["information_status"].routes is None
+    assert "路线导航" in result["final_response"]
 
 
 def test_phase13_case_6_simple_three_day_itinerary() -> None:
@@ -336,7 +334,7 @@ def test_phase13_case_6_simple_three_day_itinerary() -> None:
         "帮我规划南京三日游。",
         TravelRequirement(
             intent="trip_planning",
-            destination="南京",
+            city="南京",
             start_date="2026-10-01",
             end_date="2026-10-03",
             duration_days=3,
@@ -379,7 +377,8 @@ def test_phase13_case_7_itinerary_respects_history_constraint() -> None:
     )
     requirement = TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
+        start_date="2026-10-01",
         duration_days=3,
         constraints=["不要安排以前去过的景点"],
     )
@@ -446,7 +445,7 @@ def test_phase13_case_8_complex_requirement_collects_budget_and_history() -> Non
     requirement = TravelRequirement(
         intent="trip_planning",
         origin="上海",
-        destination="南京",
+        city="南京",
         start_date="2026-10-01",
         end_date="2026-10-03",
         duration_days=3,
@@ -464,7 +463,7 @@ def test_phase13_case_8_complex_requirement_collects_budget_and_history() -> Non
             "budget": (
                 "estimate_budget",
                 {
-                    "destination": "南京",
+                    "city": "南京",
                     "duration_days": 3,
                     "travelers": 2,
                     "pois": ["总统府", "夫子庙", "南京博物院"],
@@ -513,7 +512,8 @@ def test_phase13_case_9_missing_opening_hours_is_unknown_in_final_response() -> 
         "帮我规划南京一日游，开放时间未知也不要猜。",
         TravelRequirement(
             intent="trip_planning",
-            destination="南京",
+            city="南京",
+            start_date="2026-10-01",
             duration_days=1,
         ),
         calls={"pois": ("keyword_search", {"keywords": "南京景点"})},
@@ -532,7 +532,7 @@ def test_phase13_case_9_missing_opening_hours_is_unknown_in_final_response() -> 
     assert "可靠的开放时间" in result["final_response"]
 
 
-def test_phase13_case_10_route_time_conflict_is_revised_and_revalidated() -> None:
+def test_phase13_case_10_planning_does_not_discover_navigation_after_pois_complete() -> None:
     initial_itinerary = Itinerary(
         days=[
             ItineraryDay(
@@ -577,7 +577,8 @@ def test_phase13_case_10_route_time_conflict_is_revised_and_revalidated() -> Non
         "帮我规划南京一日游。",
         TravelRequirement(
             intent="trip_planning",
-            destination="南京",
+            city="南京",
+            start_date="2026-10-01",
             duration_days=1,
         ),
         calls={
@@ -595,7 +596,8 @@ def test_phase13_case_10_route_time_conflict_is_revised_and_revalidated() -> Non
         revised_itinerary=revised_itinerary,
     )
 
-    assert result["validation_round"] == 1
-    assert result["itinerary"] == revised_itinerary
+    assert result["validation_round"] == 0
+    assert result["itinerary"] == initial_itinerary
+    assert result["collected_info"].routes == []
     assert result["validation"].valid is True
-    assert "校验说明：行程已通过可确定规则检查。" in result["final_response"]
+    assert "可靠路线时间" in result["final_response"]

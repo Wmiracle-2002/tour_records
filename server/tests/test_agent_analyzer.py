@@ -30,7 +30,7 @@ def test_analyzer_forwards_query_to_structured_output_client() -> None:
         TravelRequirement(
             intent="trip_planning",
             origin="上海",
-            destination="南京",
+            city="南京",
             duration_days=3,
             travelers=2,
             budget=3000,
@@ -43,7 +43,7 @@ def test_analyzer_forwards_query_to_structured_output_client() -> None:
         "十一从上海去南京玩三天，两个人预算3000。"
     )
 
-    assert result.destination == "南京"
+    assert result.city == "南京"
     assert result.preferences == ["历史文化", "当地美食"]
     assert result.constraints == ["避免以前去过的景点"]
     assert client.calls[0]["user_prompt"] == "十一从上海去南京玩三天，两个人预算3000。"
@@ -55,7 +55,7 @@ def test_analyzer_keeps_missing_fields_empty() -> None:
     client = FakeStructuredOutputClient(
         TravelRequirement(
             intent="trip_planning",
-            destination="南京",
+            city="南京",
             duration_days=3,
         )
     )
@@ -71,7 +71,7 @@ def test_analyzer_supplies_current_date_for_holiday_weather_queries() -> None:
     client = FakeStructuredOutputClient(
         TravelRequirement(
             intent="weather_query",
-            destination="南京",
+            city="南京",
             date_expression="中秋",
             start_date="2026-09-25",
         )
@@ -93,17 +93,17 @@ def test_analyzer_infers_history_city_when_provider_omits_destination() -> None:
 
     result = RequirementAnalyzer(client).analyze("我去过哈尔滨哪些地方？")
 
-    assert result.destination == "哈尔滨"
+    assert result.city == "哈尔滨"
 
 
 def test_analyzer_infers_history_city_when_provider_returns_blank_destination() -> None:
     client = FakeStructuredOutputClient(
-        TravelRequirement(intent="history_query", destination="")
+        TravelRequirement(intent="history_query", city="")
     )
 
     result = RequirementAnalyzer(client).analyze("我去过哈尔滨哪些地方？")
 
-    assert result.destination == "哈尔滨"
+    assert result.city == "哈尔滨"
 
 
 @pytest.mark.parametrize(

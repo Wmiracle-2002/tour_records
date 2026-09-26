@@ -28,11 +28,14 @@ from app.agent.observability import (
 )
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
+from app.agent.tools.amap import WeatherInput
 
 
 class WeatherTool:
     name = "weather"
     description = "查询天气"
+    input_model = WeatherInput
+    information_need = "weather"
 
     def run(self, **_arguments: Any) -> ToolResult[dict[str, Any]]:
         return ToolResult.completed(
@@ -52,6 +55,8 @@ class WeatherTool:
 class FailingWeatherTool:
     name = "weather"
     description = "weather"
+    input_model = WeatherInput
+    information_need = "weather"
 
     def run(self, **_arguments: Any) -> ToolResult[dict[str, Any]]:
         return ToolResult.failed("INVALID_USER_KEY", error_code="amap_api_error")
@@ -62,7 +67,7 @@ class OneDecisionClient:
         return ReActDecision(
             tool_call=ToolCall(
                 name="weather",
-                arguments={"city": "南京", "prompt": "不要记录这个参数"},
+                arguments={"city": "不可记录参数"},
             )
         )
 
@@ -147,9 +152,9 @@ def test_request_context_exposes_and_restores_request_id() -> None:
     assert current_request_id() is None
 
 
-def test_collector_records_tool_lifecycle_without_raw_payload() -> None:
+def test_collector_records_tool_arguments_without_raw_response_payload() -> None:
     observer = RecordingAgentObserver()
-    requirement = TravelRequirement(intent="weather_query", destination="南京")
+    requirement = TravelRequirement(intent="weather_query", city="南京")
     registry = ToolRegistry()
     registry.register(WeatherTool())
     state = {
@@ -187,15 +192,17 @@ def test_collector_records_tool_lifecycle_without_raw_payload() -> None:
     assert completed.tool_name == "weather"
     assert completed.tool_success is True
     assert completed.tool_duration_ms is not None
+    assert observer.events[2].tool_arguments == {"city": "不可记录参数"}
+    assert completed.executed_tool_arguments == {"city": "不可记录参数"}
     assert observer.events[4].information_status == {"weather": "completed"}
     serialized = " ".join(event.model_dump_json() for event in observer.events)
     assert "晴" not in serialized
-    assert "不要记录这个参数" not in serialized
+    assert "不可记录参数" in serialized
 
 
 def test_collector_records_tool_error_reason_without_raw_payload() -> None:
     observer = RecordingAgentObserver()
-    requirement = TravelRequirement(intent="weather_query", destination="鍗椾含")
+    requirement = TravelRequirement(intent="weather_query", city="鍗椾含")
     registry = ToolRegistry()
     registry.register(FailingWeatherTool())
     state = {
@@ -233,7 +240,7 @@ def test_graph_records_node_events_and_validation_status() -> None:
         analyzer=FakeAnalyzer(
             TravelRequirement(
                 intent="trip_planning",
-                destination="南京",
+                city="南京",
                 duration_days=1,
             )
         ),
@@ -279,20 +286,21 @@ def test_graph_records_node_events_and_validation_status() -> None:
     assert all(event.request_id == "req-graph-1" for event in observer.events)
 
 
-def test_structured_logging_observer_emits_json_without_prompt_or_raw_response(
+def test_structured_logging_observer_emits_tool_arguments_without_prompt_or_raw_response(
     caplog,
 ) -> None:
     logger = logging.getLogger("footmarks.agent.test")
     observer = StructuredLoggingObserver(logger)
     api_key = "secret-api-key"
     prompt = "secret prompt content"
-    tool_arguments = "secret tool arguments"
+    tool_arguments = {"origin": "中山陵", "destination": "夫子庙"}
     raw_response = "secret raw response"
     event = AgentEvent(
         event="final_response_ready",
         request_id="req-log-1",
         node_name="final_response",
         intent="weather_query",
+        tool_arguments=tool_arguments,
     )
 
     with caplog.at_level(logging.INFO, logger="footmarks.agent.test"):
@@ -302,9 +310,8 @@ def test_structured_logging_observer_emits_json_without_prompt_or_raw_response(
     assert payload["event"] == "final_response_ready"
     assert payload["request_id"] == "req-log-1"
     assert "user_prompt" not in payload
-    assert "tool_arguments" not in payload
+    assert payload["tool_arguments"] == tool_arguments
     assert "raw_response" not in payload
     assert all(
-        value not in caplog.text
-        for value in (api_key, prompt, tool_arguments, raw_response)
+        value not in caplog.text for value in (api_key, prompt, raw_response)
     )

@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.agent.budget import AgentBudget, current_cancellation
 from app.agent.analyzer import RequirementAnalyzer
-from app.agent.collector import TOOL_INFORMATION_NEEDS, ReActCollector
+from app.agent.collector import ReActCollector
+from app.agent.factual import FactualAnswerer
 from app.agent.generator import StructuredItineraryGenerator
 from app.agent.graph import build_agent_graph, make_initial_state
 from app.agent.llm import (
@@ -26,7 +27,7 @@ from app.agent.observability import (
 )
 from app.agent.reviser import LocalItineraryReviser
 from app.agent.response import FinalResponseGenerator
-from app.agent.tools.amap import AmapTransport, create_amap_tools_from_settings
+from app.agent.tools.amap import AmapTransport, AmapWebClient, create_amap_tools_from_settings
 from app.agent.tools.budget import create_budget_tools
 from app.agent.tools.internal import create_internal_db_tools
 from app.agent.tools.layer import ToolLayer, ToolRegistry
@@ -75,7 +76,7 @@ class AgentRuntime:
             self._settings,
             transport=self._amap_transport,
         ):
-            if tool.name in TOOL_INFORMATION_NEEDS:
+            if tool.name == "keyword_search":
                 registry.register(tool)
 
         analyzer = RequirementAnalyzer(self._llm_client, budget=budget)
@@ -84,6 +85,12 @@ class AgentRuntime:
             LLMReActDecisionClient(self._llm_client),
             observer=self._observer,
             budget=budget,
+        )
+        amap_client = AmapWebClient(
+            self._settings.amap_web_key,
+            base_url=self._settings.amap_base_url,
+            timeout_seconds=self._settings.amap_timeout_seconds,
+            transport=self._amap_transport,
         )
         graph = build_agent_graph(
             analyzer=analyzer,
@@ -95,6 +102,8 @@ class AgentRuntime:
             reviser=LocalItineraryReviser(self._llm_client, budget=budget),
             response_generator=FinalResponseGenerator(),
             observer=self._observer,
+            factual_answerer=FactualAnswerer(amap_client),
+            planning_poi_client=amap_client,
         )
 
         request_id = current_request_id() or str(uuid4())

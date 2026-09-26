@@ -31,7 +31,7 @@ _HISTORY_DESTINATION_PATTERN = re.compile(
 )
 
 
-def _infer_history_destination(user_query: str) -> str | None:
+def _infer_history_city(user_query: str) -> str | None:
     match = _HISTORY_DESTINATION_PATTERN.search(user_query)
     return match.group(1) if match else None
 
@@ -69,8 +69,8 @@ class RequirementAnalyzer:
                 output_model=TravelRequirement,
             )
         requirement = TravelRequirement.model_validate(output)
-        if requirement.intent == "history_query" and not requirement.destination:
-            destination = _infer_history_destination(query)
-            if destination:
-                requirement = requirement.model_copy(update={"destination": destination})
+        if requirement.intent == "history_query" and not requirement.city:
+            city = _infer_history_city(query)
+            if city:
+                requirement = requirement.model_copy(update={"city": city})
         return requirement

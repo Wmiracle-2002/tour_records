@@ -34,7 +34,7 @@ class FakeItineraryClient:
 def build_requirement() -> TravelRequirement:
     return TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         start_date="2026-10-01",
         duration_days=2,
         preferences=["历史文化"],
@@ -110,7 +110,7 @@ def test_generator_requests_structured_itinerary_and_preserves_poi_ids() -> None
 def test_generator_prompt_declares_exact_itinerary_shape() -> None:
     assert "根对象只能包含 days" in ITINERARY_GENERATOR_SYSTEM_PROMPT
     assert "不要使用 itinerary 字段包裹" in ITINERARY_GENERATOR_SYSTEM_PROMPT
-    assert "poi_id、poi_name、start_time、end_time、activity_type" in ITINERARY_GENERATOR_SYSTEM_PROMPT
+    assert "poi_id、poi_name、period、activity_type" in ITINERARY_GENERATOR_SYSTEM_PROMPT
     assert "days 必须恰好包含 duration_days 天" in ITINERARY_GENERATOR_SYSTEM_PROMPT
 
 
