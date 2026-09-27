@@ -4,6 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import com.miracle.footmarks.data.remote.AgentChatResponse
 import com.miracle.footmarks.data.remote.CloudSession
 import com.miracle.footmarks.data.remote.FootmarksApi
+import com.miracle.footmarks.data.remote.RemoteConversation
+import com.miracle.footmarks.data.remote.RemoteConversationMessage
+import com.miracle.footmarks.data.remote.RemotePreference
+import com.miracle.footmarks.data.remote.PreferenceRequest
 import com.miracle.footmarks.data.remote.LoginRequest
 import com.miracle.footmarks.data.remote.RecordRequest
 import com.miracle.footmarks.data.remote.RefreshRequest
@@ -68,6 +72,8 @@ class SmartPlanningViewModelTest {
             viewModel.uiState.value.messages
         )
         assertEquals(1, api.chatCalls)
+        assertEquals(1, api.createConversationCalls)
+        assertEquals("conversation-1", viewModel.uiState.value.currentConversationId)
     }
 
     @Test
@@ -244,6 +250,147 @@ class SmartPlanningViewModelTest {
         assertEquals("周末去苏州", restored.uiState.value.draft)
     }
 
+    @Test
+    fun restoresMostRecentConversationAndItsMessages() = runTest(dispatcher) {
+        val conversation = RemoteConversation("conversation-1", "南京三日游", "", "", 2)
+        val api = FakeFootmarksApi(
+            conversations = listOf(conversation),
+            messages = mapOf(
+                conversation.id to listOf(
+                    RemoteConversationMessage(21, "user", "南京三日游", "completed", ""),
+                    RemoteConversationMessage(22, "assistant", "收到", "completed", "")
+                )
+            )
+        )
+
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        assertEquals(conversation.id, viewModel.uiState.value.currentConversationId)
+        assertEquals(
+            listOf(
+                ChatMessage(21, ChatRole.USER, "南京三日游"),
+                ChatMessage(22, ChatRole.AGENT, "收到")
+            ),
+            viewModel.uiState.value.messages
+        )
+    }
+
+    @Test
+    fun createsNewConversationAndClearsPreviousMessages() = runTest(dispatcher) {
+        val existing = RemoteConversation("conversation-1", "旧对话", "", "", 1)
+        val api = FakeFootmarksApi(
+            conversations = listOf(existing),
+            messages = mapOf(existing.id to listOf(
+                RemoteConversationMessage(1, "user", "旧问题", "completed", "")
+            ))
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+        viewModel.updateDraft("保留输入")
+
+        viewModel.createNewConversation()
+        advanceUntilIdle()
+
+        assertEquals("conversation-2", viewModel.uiState.value.currentConversationId)
+        assertTrue(viewModel.uiState.value.messages.isEmpty())
+        assertEquals("保留输入", viewModel.uiState.value.draft)
+        assertEquals(2, viewModel.uiState.value.conversations.size)
+    }
+
+    @Test
+    fun repeatedNewConversationTapsDoNotCreateMultipleEmptyThreads() = runTest(dispatcher) {
+        val api = FakeFootmarksApi()
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.createNewConversation()
+        viewModel.createNewConversation()
+        viewModel.updateDraft("南京一日游")
+        viewModel.send()
+        advanceUntilIdle()
+        viewModel.createNewConversation()
+        advanceUntilIdle()
+
+        assertEquals(1, api.createConversationCalls)
+        assertEquals(1, viewModel.uiState.value.conversations.size)
+        assertEquals("conversation-1", viewModel.uiState.value.currentConversationId)
+        assertEquals(0, api.chatCalls)
+        assertEquals("南京一日游", viewModel.uiState.value.draft)
+    }
+
+    @Test
+    fun openingAnotherConversationReplacesCurrentMessages() = runTest(dispatcher) {
+        val first = RemoteConversation("thread-1", "第一段", "", "", 0)
+        val second = RemoteConversation("thread-2", "第二段", "", "", 1)
+        val api = FakeFootmarksApi(
+            conversations = listOf(first, second),
+            messages = mapOf(
+                first.id to listOf(
+                    RemoteConversationMessage(1, "user", "旧问题", "completed", "")
+                ),
+                second.id to listOf(
+                    RemoteConversationMessage(2, "user", "新问题", "completed", "")
+                )
+            )
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.openConversation(second.id)
+        advanceUntilIdle()
+
+        assertEquals(second.id, viewModel.uiState.value.currentConversationId)
+        assertEquals(listOf("新问题"), viewModel.uiState.value.messages.map { it.text })
+    }
+
+    @Test
+    fun loadingOlderMessagesPrependsThePreviousPageInOrder() = runTest(dispatcher) {
+        val conversation = RemoteConversation("thread-1", "长对话", "", "", 53)
+        val messages = (0L until 53L).map { id ->
+            RemoteConversationMessage(id, "user", "消息$id", "completed", "")
+        }
+        val viewModel = viewModel(
+            FakeFootmarksApi(conversations = listOf(conversation), messages = mapOf(conversation.id to messages))
+        )
+        advanceUntilIdle()
+
+        assertEquals(50, viewModel.uiState.value.messages.size)
+        assertTrue(viewModel.uiState.value.hasOlderMessages)
+
+        viewModel.loadOlderMessages()
+        advanceUntilIdle()
+
+        assertEquals(53, viewModel.uiState.value.messages.size)
+        assertEquals("消息0", viewModel.uiState.value.messages.first().text)
+        assertEquals("消息52", viewModel.uiState.value.messages.last().text)
+        assertFalse(viewModel.uiState.value.hasOlderMessages)
+    }
+
+    @Test
+    fun deletingCurrentConversationOpensAnotherThread() = runTest(dispatcher) {
+        val first = RemoteConversation("thread-1", "第一段", "", "", 0)
+        val second = RemoteConversation("thread-2", "第二段", "", "", 1)
+        val api = FakeFootmarksApi(
+            conversations = listOf(first, second),
+            messages = mapOf(
+                first.id to emptyList(),
+                second.id to listOf(
+                    RemoteConversationMessage(2, "user", "保留的对话", "completed", "")
+                )
+            )
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.deleteConversation(first.id)
+        advanceUntilIdle()
+
+        assertEquals(second.id, viewModel.uiState.value.currentConversationId)
+        assertEquals(listOf(second), viewModel.uiState.value.conversations)
+        assertEquals(listOf("保留的对话"), viewModel.uiState.value.messages.map { it.text })
+    }
+
     private fun viewModel(api: FakeFootmarksApi) = SmartPlanningViewModel(
         CloudSession(api, MemoryTokenStore(Tokens("access", "refresh"))),
         SavedStateHandle()
@@ -257,9 +404,17 @@ private class MemoryTokenStore(
 private class FakeFootmarksApi(
     private val result: AgentChatResponse = AgentChatResponse("req-1", "规划完成"),
     private val failure: Exception? = null,
-    private val gate: CompletableDeferred<Unit>? = null
+    private val gate: CompletableDeferred<Unit>? = null,
+    private val conversations: List<RemoteConversation> = emptyList(),
+    private val messages: Map<String, List<RemoteConversationMessage>> = emptyMap()
 ) : FootmarksApi {
     var chatCalls = 0
+    var createConversationCalls = 0
+    private val storedConversations = conversations.toMutableList()
+    private val storedMessages = messages.mapValues { it.value.toMutableList() }.toMutableMap()
+    private val storedPreferences = mutableListOf<RemotePreference>()
+    private var nextRemoteMessageId =
+        storedMessages.values.flatten().maxOfOrNull { it.id + 1 } ?: 0L
 
     override suspend fun login(request: LoginRequest): Tokens = unsupported()
 
@@ -269,8 +424,70 @@ private class FakeFootmarksApi(
     ): AgentChatResponse {
         chatCalls += 1
         gate?.await()
+        request.conversationId?.let { conversationId ->
+            val items = storedMessages.getOrPut(conversationId) { mutableListOf() }
+            items += RemoteConversationMessage(
+                nextRemoteMessageId++, "user", request.message, "completed", ""
+            )
+        }
         failure?.let { throw it }
-        return result
+        request.conversationId?.let { conversationId ->
+            storedMessages.getValue(conversationId) += RemoteConversationMessage(
+                nextRemoteMessageId++, "assistant", result.answer, "completed", ""
+            )
+            storedConversations.replaceAll { conversation ->
+                if (conversation.id == conversationId) conversation.copy(
+                    messageCount = storedMessages.getValue(conversationId).size
+                ) else conversation
+            }
+        }
+        return result.copy(conversationId = request.conversationId)
+    }
+
+    override suspend fun createConversation(authorization: String): RemoteConversation {
+        createConversationCalls += 1
+        val conversation = RemoteConversation(
+            "conversation-${storedConversations.size + 1}", "新对话", "", "", 0
+        )
+        storedConversations.add(0, conversation)
+        return conversation
+    }
+
+    override suspend fun getConversations(authorization: String): List<RemoteConversation> =
+        storedConversations.toList()
+
+    override suspend fun getConversationMessages(
+        authorization: String,
+        conversationId: String,
+        limit: Int,
+        beforeId: Long?
+    ): List<RemoteConversationMessage> = storedMessages[conversationId]
+        .orEmpty()
+        .filter { beforeId == null || it.id < beforeId }
+        .takeLast(limit)
+
+    override suspend fun deleteConversation(authorization: String, conversationId: String) {
+        storedConversations.removeAll { it.id == conversationId }
+        storedMessages.remove(conversationId)
+    }
+
+    override suspend fun getPreferences(authorization: String): List<RemotePreference> =
+        storedPreferences.toList()
+
+    override suspend fun upsertPreference(
+        authorization: String,
+        category: String,
+        request: PreferenceRequest
+    ): RemotePreference {
+        val old = storedPreferences.firstOrNull { it.category == category }
+        val value = RemotePreference(old?.id ?: (storedPreferences.size + 1L), category, request.content, "", "")
+        storedPreferences.removeAll { it.category == category }
+        storedPreferences.add(value)
+        return value
+    }
+
+    override suspend fun deletePreference(authorization: String, category: String) {
+        storedPreferences.removeAll { it.category == category }
     }
 
     override suspend fun getTrips(authorization: String): List<RemoteTrip> = unsupported()

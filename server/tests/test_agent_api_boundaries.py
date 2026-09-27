@@ -66,7 +66,8 @@ def test_agent_api_does_not_return_internal_state_or_validation_models(client) -
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {"request_id", "answer"}
+    assert set(body) == {"request_id", "answer", "conversation_id"}
+    assert body["conversation_id"] is None
     for field in (
         "information_status",
         "collected_info",

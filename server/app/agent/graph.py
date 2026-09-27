@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from time import monotonic
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
@@ -32,6 +32,7 @@ from app.agent.response import FinalResponseGenerator
 from app.agent.state import TravelAgentState
 from app.agent.validator import ItineraryValidator
 from app.agent.analyzer import RequirementAnalyzer
+from app.agent.memory import ToolRunSnapshot
 from app.agent.tools.budget import EstimateBudgetTool
 from app.agent.tools.amap import AmapApiError, AmapWebClient
 from app.agent.tools.layer import ToolUnavailableError
@@ -51,9 +52,12 @@ def make_initial_state(
     *,
     request_id: str | None = None,
     user_id: str | int | None = None,
+    conversation_context: str | None = None,
+    session_memory_state: dict[str, Any] | None = None,
+    long_term_preferences: list[dict[str, str]] | None = None,
 ) -> TravelAgentState:
     """Create the complete state accepted by the compiled graph."""
-    return {
+    state: TravelAgentState = {
         "messages": [{"role": "user", "content": user_query}],
         "request_id": request_id or str(uuid4()),
         "user_id": user_id,
@@ -68,6 +72,13 @@ def make_initial_state(
         "validation_round": 0,
         "final_response": None,
     }
+    if conversation_context:
+        state["conversation_context"] = conversation_context
+    if session_memory_state is not None:
+        state["session_memory_state"] = session_memory_state
+    if long_term_preferences:
+        state["long_term_preferences"] = long_term_preferences
+    return state
 
 
 def build_agent_graph(
@@ -82,6 +93,7 @@ def build_agent_graph(
     observer: AgentObserver | None = None,
     factual_answerer: FactualAnswerer | None = None,
     planning_poi_client: AmapWebClient | None = None,
+    tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
 ):
     """Build and compile the V1 graph from already-tested node dependencies."""
     if max_validation_rounds < 0:
@@ -91,7 +103,9 @@ def build_agent_graph(
     builder.add_node("requirement_analyzer", _analyzer_node(analyzer, observer))
     builder.add_node(
         "initialize_information",
-        lambda state: _initialize_information_node(state, planning_poi_client),
+        lambda state: _initialize_information_node(
+            state, planning_poi_client, tool_run_recorder
+        ),
     )
     builder.add_node("react_collector", _collector_node(collector))
     if factual_answerer is not None:
@@ -205,7 +219,18 @@ def _analyzer_node(
             stage_name="requirement_analyzer",
         )
         try:
-            requirement = analyzer.analyze(_user_query(state["messages"]))
+            analyzer_context: dict[str, Any] = {}
+            if state.get("conversation_context"):
+                analyzer_context["conversation_context"] = state["conversation_context"]
+            if state.get("session_memory_state") is not None:
+                analyzer_context["session_state"] = state["session_memory_state"]
+            if state.get("long_term_preferences"):
+                analyzer_context["long_term_preferences"] = state[
+                    "long_term_preferences"
+                ]
+            requirement = analyzer.analyze(
+                _user_query(state["messages"]), **analyzer_context
+            )
         except Exception:
             _emit_graph_event(
                 observer,
@@ -245,17 +270,37 @@ def _analyzer_node(
 def _initialize_information_node(
     state: TravelAgentState,
     planning_poi_client: AmapWebClient | None = None,
+    tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
 ) -> dict[str, Any]:
     requirement = state["requirement"]
     status = initialize_information_status(requirement)
     collected = CollectedInfo()
     if requirement.intent == "trip_planning" and requirement.duration_days is not None:
-        collected.budget = EstimateBudgetTool().run(
+        budget_result = EstimateBudgetTool().run(
             city=requirement.city,
             duration_days=requirement.duration_days,
             travelers=requirement.travelers or 1,
-        ).data
+        )
+        collected.budget = budget_result.data
         status.budget = InfoRequirement(status="completed", critical=False)
+        if tool_run_recorder is not None:
+            estimate = budget_result.data
+            tool_run_recorder(ToolRunSnapshot(
+                tool_name="estimate_budget",
+                executed_arguments={
+                    "city": requirement.city,
+                    "duration_days": requirement.duration_days,
+                    "travelers": requirement.travelers or 1,
+                },
+                status=budget_result.status,
+                summary_text=(
+                    f"estimated_min={estimate.estimated_min};"
+                    f"estimated_max={estimate.estimated_max}"
+                    if estimate is not None else (budget_result.message or "无估算结果")
+                ),
+                result_json=budget_result.model_dump(mode="json", exclude_none=True),
+                error_code=budget_result.error_code,
+            ))
     if requirement.intent == "trip_planning" and planning_poi_client is not None:
         if not requirement.city:
             status.pois = InfoRequirement(

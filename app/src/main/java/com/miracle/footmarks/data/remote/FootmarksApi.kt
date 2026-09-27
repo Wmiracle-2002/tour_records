@@ -9,10 +9,12 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.DELETE
 import retrofit2.http.Multipart
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Query
 import okhttp3.MultipartBody
 import java.util.concurrent.TimeUnit
 
@@ -45,11 +47,42 @@ data class RemoteTripSummary(
 
 data class LoginRequest(val username: String, val password: String)
 
-data class AgentChatRequest(val message: String)
+data class AgentChatRequest(
+    val message: String,
+    @SerializedName("conversation_id") val conversationId: String? = null,
+    @SerializedName("client_message_id") val clientMessageId: String? = null
+)
 
 data class AgentChatResponse(
     @SerializedName("request_id") val requestId: String,
-    val answer: String
+    val answer: String,
+    @SerializedName("conversation_id") val conversationId: String? = null
+)
+
+data class RemoteConversation(
+    val id: String,
+    val title: String,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("updated_at") val updatedAt: String,
+    @SerializedName("message_count") val messageCount: Int
+)
+
+data class RemoteConversationMessage(
+    val id: Long,
+    val role: String,
+    val content: String,
+    val status: String,
+    @SerializedName("created_at") val createdAt: String
+)
+
+data class PreferenceRequest(val content: String)
+
+data class RemotePreference(
+    val id: Long,
+    val category: String,
+    val content: String,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("updated_at") val updatedAt: String
 )
 
 data class Tokens(
@@ -98,6 +131,48 @@ interface FootmarksApi {
         @Header("Authorization") authorization: String,
         @Body request: AgentChatRequest
     ): AgentChatResponse
+
+    @POST("api/v1/agent/conversations")
+    suspend fun createConversation(
+        @Header("Authorization") authorization: String
+    ): RemoteConversation
+
+    @GET("api/v1/agent/conversations")
+    suspend fun getConversations(
+        @Header("Authorization") authorization: String
+    ): List<RemoteConversation>
+
+    @GET("api/v1/agent/conversations/{conversationId}/messages")
+    suspend fun getConversationMessages(
+        @Header("Authorization") authorization: String,
+        @Path("conversationId") conversationId: String,
+        @Query("limit") limit: Int,
+        @Query("before_id") beforeId: Long?
+    ): List<RemoteConversationMessage>
+
+    @DELETE("api/v1/agent/conversations/{conversationId}")
+    suspend fun deleteConversation(
+        @Header("Authorization") authorization: String,
+        @Path("conversationId") conversationId: String
+    )
+
+    @GET("api/v1/agent/preferences")
+    suspend fun getPreferences(
+        @Header("Authorization") authorization: String
+    ): List<RemotePreference>
+
+    @PUT("api/v1/agent/preferences/{category}")
+    suspend fun upsertPreference(
+        @Header("Authorization") authorization: String,
+        @Path("category") category: String,
+        @Body request: PreferenceRequest
+    ): RemotePreference
+
+    @DELETE("api/v1/agent/preferences/{category}")
+    suspend fun deletePreference(
+        @Header("Authorization") authorization: String,
+        @Path("category") category: String
+    )
 
     @GET("api/v1/trips")
     suspend fun getTrips(@Header("Authorization") authorization: String): List<RemoteTrip>

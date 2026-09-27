@@ -7,18 +7,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.miracle.footmarks.ui.screen.smartplanning.ChatMessage
 import com.miracle.footmarks.ui.screen.smartplanning.ChatRole
 import com.miracle.footmarks.ui.screen.smartplanning.SmartPlanningContent
 import com.miracle.footmarks.ui.screen.smartplanning.SmartPlanningUiState
+import com.miracle.footmarks.data.remote.RemoteConversation
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertTrue
 
 class SmartPlanningScreenTest {
 
@@ -29,8 +32,8 @@ class SmartPlanningScreenTest {
     fun sendDisplaysUserAndAgentMessages() {
         setInteractiveContent()
 
-        composeRule.onNodeWithText("输入你的旅行想法").performTextInput("北京三日游")
-        composeRule.onNodeWithText("发送").performClick()
+        composeRule.onNodeWithText("说说你想去哪里").performTextInput("北京三日游")
+        composeRule.onNodeWithContentDescription("发送").performClick()
 
         composeRule.onNodeWithText("北京三日游").assertExists()
         composeRule.onNodeWithText("这是规划结果").assertExists()
@@ -40,8 +43,8 @@ class SmartPlanningScreenTest {
     fun sendIsDisabledWhileRequestIsRunning() {
         setInteractiveContent(SmartPlanningUiState(draft = "北京三日游", isSending = true))
 
-        composeRule.onNodeWithText("发送").assertIsNotEnabled()
-        composeRule.onNodeWithText("正在规划…").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("发送").assertIsNotEnabled()
+        composeRule.onNodeWithText("正在整理你的旅行灵感…").assertIsDisplayed()
     }
 
     @Test
@@ -72,7 +75,7 @@ class SmartPlanningScreenTest {
 
         composeRule.onNodeWithText("历史回答").assertIsDisplayed()
         composeRule.onNodeWithText("智能规划响应超时（504），请稍后重试").assertIsDisplayed()
-        composeRule.onNodeWithText("发送").performClick()
+        composeRule.onNodeWithContentDescription("发送").performClick()
         composeRule.onNodeWithText("重试成功").assertIsDisplayed()
     }
 
@@ -89,11 +92,103 @@ class SmartPlanningScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("输入你的旅行想法").performTextInput("周末去苏州")
+        composeRule.onNodeWithText("说说你想去哪里").performTextInput("周末去苏州")
         restorationTester.emulateSavedInstanceStateRestore()
 
-        composeRule.onNodeWithText("输入你的旅行想法")
-            .assertTextContains("周末去苏州")
+        composeRule.onNodeWithText("周末去苏州").assertIsDisplayed()
+    }
+
+    @Test
+    fun noConversationShowsTheNewConversationSurface() {
+        setInteractiveContent()
+
+        composeRule.onNodeWithText("开始一段新对话").assertIsDisplayed()
+        composeRule.onNodeWithText("当前是新对话").assertIsNotEnabled()
+        composeRule.onNodeWithText("说说你想去哪里").assertIsDisplayed()
+    }
+
+    @Test
+    fun newEmptyConversationShowsTheSameSurfaceAndCannotBeCreatedTwice() {
+        val existing = RemoteConversation("thread-old", "旧对话", "", "", 1)
+        val conversation = RemoteConversation("thread-1", "新对话", "", "", 0)
+        composeRule.setContent {
+            var state by remember {
+                mutableStateOf(SmartPlanningUiState(
+                    conversations = listOf(existing),
+                    currentConversationId = existing.id,
+                    messages = listOf(ChatMessage(1, ChatRole.USER, "旧问题"))
+                ))
+            }
+            SmartPlanningContent(
+                uiState = state,
+                onDraftChange = {},
+                onSend = {},
+                onDismissError = {},
+                onCreateConversation = {
+                    state = state.copy(
+                        conversations = listOf(conversation, existing),
+                        currentConversationId = conversation.id,
+                        messages = emptyList()
+                    )
+                }
+            )
+        }
+
+        composeRule.onNodeWithText("开始一段新对话").assertDoesNotExist()
+        composeRule.onNodeWithText("新对话").performClick()
+        composeRule.onNodeWithText("开始一段新对话").assertIsDisplayed()
+        composeRule.onNodeWithText("当前是新对话").assertIsNotEnabled()
+    }
+
+    @Test
+    fun creatingConversationDisablesNewAndSendActions() {
+        setInteractiveContent(
+            SmartPlanningUiState(draft = "南京一日游", isCreatingConversation = true)
+        )
+
+        composeRule.onNodeWithText("创建中…").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("发送").assertIsNotEnabled()
+    }
+
+    @Test
+    fun olderMessagesCanBeRequestedFromTheConversation() {
+        var loadRequested = false
+        composeRule.setContent {
+            var hasOlderMessages by remember { mutableStateOf(true) }
+            SmartPlanningContent(
+                uiState = SmartPlanningUiState(hasOlderMessages = hasOlderMessages),
+                onDraftChange = {},
+                onSend = {},
+                onDismissError = {},
+                onLoadOlderMessages = {
+                    loadRequested = true
+                    hasOlderMessages = false
+                }
+            )
+        }
+
+        composeRule.onNodeWithText("加载更早消息").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertTrue(loadRequested) }
+    }
+
+    @Test
+    fun conversationSheetListsThreadsAndConfirmsDeletion() {
+        val conversation = RemoteConversation("thread-1", "南京三日游", "", "", 4)
+        composeRule.setContent {
+            SmartPlanningContent(
+                uiState = SmartPlanningUiState(conversations = listOf(conversation)),
+                onDraftChange = {},
+                onSend = {},
+                onDismissError = {}
+            )
+        }
+
+        composeRule.onNodeWithText("对话列表").performClick()
+        composeRule.onNodeWithText("南京三日游").assertIsDisplayed()
+        composeRule.onNodeWithText("4 条消息").assertIsDisplayed()
+        composeRule.onAllNodesWithText("删除")[0].performClick()
+        composeRule.onNodeWithText("删除对话？").assertIsDisplayed()
+        composeRule.onAllNodesWithText("删除").get(1).performClick()
     }
 
     private fun setInteractiveContent(initial: SmartPlanningUiState = SmartPlanningUiState()) {

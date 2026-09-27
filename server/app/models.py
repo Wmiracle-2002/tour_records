@@ -2,7 +2,19 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    JSON,
+    Float,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +39,162 @@ class User(Base):
     trips: Mapped[list["Trip"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category", name="uq_user_preference_category"),
+        CheckConstraint(
+            "category IN ('food_restriction', 'attraction_interest', 'travel_pace', 'budget_tendency')",
+            name="ck_user_preference_category",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    category: Mapped[str] = mapped_column(String(40))
+    content: Mapped[str] = mapped_column(String(240))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ChatConversation(Base):
+    __tablename__ = "chat_conversations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(120), default="新对话")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True
+    )
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id", "client_message_id", name="uq_chat_message_client_id"
+        ),
+        CheckConstraint("role IN ('user', 'assistant')", name="ck_chat_message_role"),
+        CheckConstraint(
+            "status IN ('pending', 'completed', 'failed')", name="ck_chat_message_status"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    client_message_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="completed")
+    in_reply_to_message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class AgentConversationMemory(Base):
+    __tablename__ = "agent_conversation_memory"
+
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"), primary_key=True
+    )
+    state_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    summary_cursor_message_id: Mapped[int | None] = mapped_column(nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AgentConversationSummary(Base):
+    __tablename__ = "agent_conversation_summaries"
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id",
+            "first_message_id",
+            "last_message_id",
+            "chunk_index",
+            name="uq_agent_summary_source_chunk",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"), index=True
+    )
+    first_message_id: Mapped[int] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="CASCADE")
+    )
+    last_message_id: Mapped[int] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="CASCADE")
+    )
+    chunk_index: Mapped[int] = mapped_column(default=0)
+    summary_text: Mapped[str] = mapped_column(Text)
+    token_estimate: Mapped[int] = mapped_column(default=0)
+    version: Mapped[int] = mapped_column(default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class AgentToolRun(Base):
+    __tablename__ = "agent_tool_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('completed', 'failed', 'unavailable')",
+            name="ck_agent_tool_run_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"), index=True
+    )
+    source_message_id: Mapped[int] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="CASCADE"), index=True
+    )
+    tool_name: Mapped[str] = mapped_column(String(100), index=True)
+    arguments_json: Mapped[dict] = mapped_column(JSON)
+    called_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    status: Mapped[str] = mapped_column(String(16))
+    summary_text: Mapped[str] = mapped_column(Text, default="")
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    duration_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tool_result: Mapped["AgentToolResult | None"] = relationship(
+        back_populates="tool_run", uselist=False
+    )
+
+
+class AgentToolResult(Base):
+    __tablename__ = "agent_tool_results"
+
+    tool_run_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_tool_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    result_json: Mapped[dict | list] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    tool_run: Mapped[AgentToolRun] = relationship(back_populates="tool_result")
 
 
 class Trip(Base):

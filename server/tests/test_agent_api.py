@@ -25,7 +25,7 @@ class FakeRuntime:
         self.error = error
         self.calls: list[tuple[str, int, Any]] = []
 
-    def run(self, message: str, user_id: int, db: Any) -> AgentRunResult:
+    def run(self, message: str, user_id: int, db: Any, **_kwargs: Any) -> AgentRunResult:
         self.calls.append((message, user_id, db))
         if self.error is not None:
             raise self.error
@@ -63,8 +63,12 @@ def test_agent_chat_returns_request_id_and_final_answer(client: TestClient) -> N
     response = client.post("/api/v1/agent/chat", json={"message": "帮我规划南京一日游"})
 
     assert response.status_code == 200
-    assert set(response.json()) == {"request_id", "answer"}
-    assert response.json() == {"request_id": "req-api-1", "answer": "测试回答"}
+    assert set(response.json()) == {"request_id", "answer", "conversation_id"}
+    assert response.json() == {
+        "request_id": "req-api-1",
+        "answer": "测试回答",
+        "conversation_id": None,
+    }
 
 
 def test_agent_chat_start_and_completion_logs_share_request_id(

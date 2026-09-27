@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from math import asin, cos, radians, sin, sqrt
+from time import monotonic
 from typing import Callable
 
+from app.agent.memory import ToolRunSnapshot
 from app.agent.models import TravelRequirement
 from app.agent.tools.amap import AmapApiError, AmapWebClient
 from app.agent.tools.budget import EstimateBudgetTool
@@ -45,9 +47,11 @@ class FactualAnswerer:
         amap: AmapWebClient,
         *,
         today_provider: Callable[[], date] = china_today,
+        tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
     ) -> None:
         self._amap = amap
         self._today_provider = today_provider
+        self._tool_run_recorder = tool_run_recorder
 
     def answer(self, requirement: TravelRequirement) -> str:
         try:
@@ -90,11 +94,31 @@ class FactualAnswerer:
         if requirement.duration_days is None:
             return "请说明旅行天数，才能估算预算。"
         travelers = requirement.travelers or 1
-        estimate = EstimateBudgetTool().run(
+        started_at = monotonic()
+        estimate_result = EstimateBudgetTool().run(
             city=requirement.city,
             duration_days=requirement.duration_days,
             travelers=travelers,
-        ).data
+        )
+        estimate = estimate_result.data
+        if self._tool_run_recorder is not None:
+            self._tool_run_recorder(ToolRunSnapshot(
+                tool_name="estimate_budget",
+                executed_arguments={
+                    "city": requirement.city,
+                    "duration_days": requirement.duration_days,
+                    "travelers": travelers,
+                },
+                status=estimate_result.status,
+                summary_text=(
+                    f"estimated_min={estimate.estimated_min};"
+                    f"estimated_max={estimate.estimated_max}"
+                    if estimate is not None else (estimate_result.message or "无估算结果")
+                ),
+                result_json=estimate_result.model_dump(mode="json", exclude_none=True),
+                error_code=estimate_result.error_code,
+                duration_ms=(monotonic() - started_at) * 1000,
+            ))
         if estimate is None:
             return "预算估算暂不可用。"
         answer = (

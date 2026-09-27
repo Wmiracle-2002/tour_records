@@ -52,6 +52,7 @@ from app.agent.tools.layer import (
     ToolNotFoundError,
     ToolResult,
 )
+from app.agent.memory import ToolRunSnapshot
 from app.agent.utils import avoids_previous_places
 
 
@@ -107,6 +108,55 @@ class ReActDecisionClient(Protocol):
 
 
 Normalizer = Callable[[Any], Any]
+
+
+def _tool_run_snapshot(
+    tool_name: str,
+    arguments: dict[str, Any],
+    result: ToolResult[Any],
+    duration_ms: float,
+) -> ToolRunSnapshot:
+    normalized = result.model_dump(mode="json", exclude_none=True)
+    data = normalized.get("data")
+    values: list[str] = []
+    allowed_keys = {
+        "city", "location", "date", "name", "description", "category",
+        "visited_cities", "visited_names", "trip_count", "city_count",
+        "estimated_min", "estimated_max", "distance_meters", "duration_minutes",
+        "weather", "temperature_min", "temperature_max", "count",
+    }
+
+    def collect(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in allowed_keys and isinstance(item, (str, int, float)):
+                    values.append(f"{key}={str(item)[:100]}")
+                elif key in allowed_keys and isinstance(item, list):
+                    values.extend(f"{key}={str(part)[:100]}" for part in item[:3])
+                elif isinstance(item, (dict, list)):
+                    collect(item)
+        elif isinstance(value, list):
+            for item in value[:5]:
+                collect(item)
+
+    collect(data)
+    summary = "；".join(dict.fromkeys(values))[:2000]
+    if not summary:
+        summary = (
+            f"返回 {len(data)} 项。"
+            if isinstance(data, list)
+            else (result.message or "工具没有返回结构化结果。")
+        )
+    return ToolRunSnapshot(
+        tool_name=tool_name,
+        executed_arguments=arguments,
+        status=result.status,
+        summary_text=summary,
+        result_json=normalized,
+        error_code=result.error_code,
+        duration_ms=duration_ms,
+    )
+
 
 def _normalize_tool_arguments(
     call: ToolCall,
@@ -175,6 +225,7 @@ class ReActCollector:
         normalizers: Mapping[str, Normalizer] | None = None,
         observer: AgentObserver | None = None,
         budget: AgentBudget | None = None,
+        tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
     ) -> None:
         if max_rounds < 1:
             raise ValueError("max_rounds must be positive")
@@ -184,6 +235,7 @@ class ReActCollector:
         self._normalizers = dict(normalizers or {})
         self._observer = observer
         self._budget = budget
+        self._tool_run_recorder = tool_run_recorder
 
     @property
     def max_rounds(self) -> int:
@@ -258,6 +310,15 @@ class ReActCollector:
         try:
             need = self._tool_layer.information_need(call.name)
         except ToolNotFoundError:
+            self._record_tool_run(
+                ToolRunSnapshot(
+                    tool_name=call.name,
+                    executed_arguments=call.arguments,
+                    status="failed",
+                    summary_text="工具不存在。",
+                    error_code="tool_not_found",
+                )
+            )
             self._emit(
                 "tool_completed",
                 working,
@@ -312,12 +373,13 @@ class ReActCollector:
                 if raw_result.error_code == "invalid_tool_arguments"
                 else self._normalize(call, raw_result)
             )
+        tool_duration_ms = (monotonic() - tool_started_at) * 1000
         self._emit(
             "tool_completed",
             working,
             tool_name=call.name,
             executed_tool_arguments=call.arguments,
-            tool_duration_ms=(monotonic() - tool_started_at) * 1000,
+            tool_duration_ms=tool_duration_ms,
             tool_success=normalized_result.status == "completed",
             react_round=working["react_round"],
             error_code=normalized_result.error_code,
@@ -403,7 +465,14 @@ class ReActCollector:
             ),
             react_round=working["react_round"],
         )
+        self._record_tool_run(
+            _tool_run_snapshot(call.name, call.arguments, normalized_result, tool_duration_ms)
+        )
         return working
+
+    def _record_tool_run(self, snapshot: ToolRunSnapshot) -> None:
+        if self._tool_run_recorder is not None:
+            self._tool_run_recorder(snapshot)
 
     def _emit(
         self,

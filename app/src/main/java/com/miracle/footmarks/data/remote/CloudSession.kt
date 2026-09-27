@@ -39,8 +39,39 @@ class CloudSession @Inject constructor(
         store.tokens = api.login(LoginRequest(username, password))
     }
 
-    suspend fun askAgent(message: String): AgentChatResponse =
-        authorized { api.chat(it, AgentChatRequest(message)) }
+    suspend fun askAgent(
+        message: String,
+        conversationId: String? = null,
+        clientMessageId: String? = null
+    ): AgentChatResponse = authorized {
+        api.chat(it, AgentChatRequest(message, conversationId, clientMessageId))
+    }
+
+    suspend fun createConversation(): RemoteConversation =
+        authorized { api.createConversation(it) }
+
+    suspend fun getConversations(): List<RemoteConversation> =
+        authorized { api.getConversations(it) }
+
+    suspend fun getConversationMessages(
+        conversationId: String,
+        limit: Int = 200,
+        beforeId: Long? = null
+    ): List<RemoteConversationMessage> = authorized {
+        api.getConversationMessages(it, conversationId, limit, beforeId)
+    }
+
+    suspend fun deleteConversation(conversationId: String) =
+        authorized { api.deleteConversation(it, conversationId) }
+
+    suspend fun getPreferences(): List<RemotePreference> =
+        authorized { api.getPreferences(it) }
+
+    suspend fun upsertPreference(category: String, content: String): RemotePreference =
+        authorized { api.upsertPreference(it, category, PreferenceRequest(content)) }
+
+    suspend fun deletePreference(category: String) =
+        authorized { api.deletePreference(it, category) }
 
     suspend fun getTrips(): List<RemoteTrip> = authorized { api.getTrips(it) }
 

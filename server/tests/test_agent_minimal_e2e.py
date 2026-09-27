@@ -179,7 +179,11 @@ def test_authenticated_chat_scenarios_keep_request_trace_and_verified_facts(
         llm_client=llm, observer=observer, amap_transport=provider(calls),
     )
     trace_id = f"e-step-{requirement.intent}"
-    with caplog.at_level(logging.INFO):
+    with (
+        caplog.at_level(logging.INFO),
+        caplog.at_level(logging.INFO, logger="app.api.agent"),
+        caplog.at_level(logging.INFO, logger="footmarks.agent"),
+    ):
         started = perf_counter()
         response = client.post(
             "/api/v1/agent/chat", json={"message": message},
@@ -208,7 +212,12 @@ def test_authenticated_chat_scenarios_keep_request_trace_and_verified_facts(
     assert all(event.stage_duration_ms is None or event.stage_duration_ms >= 0 for event in observer.events)
     assert elapsed_ms < 10000
     api_logs = [record.message for record in caplog.records if record.name == "app.api.agent"]
-    assert any(f"request_id={trace_id}" in line for line in api_logs)
+    assert any(f"request_id={trace_id}" in line for line in api_logs), {
+        "level": logging.getLogger("app.api.agent").level,
+        "disabled": logging.getLogger("app.api.agent").disabled,
+        "propagate": logging.getLogger("app.api.agent").propagate,
+        "loggers": [(record.name, record.message) for record in caplog.records],
+    }
     amap_logs = [json.loads(record.message) for record in caplog.records if record.name == "footmarks.agent.amap"]
     assert all(event["request_id"] == trace_id for event in amap_logs)
     assert all("fake-key" not in record.message for record in caplog.records)

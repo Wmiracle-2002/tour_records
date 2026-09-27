@@ -20,6 +20,9 @@ class TravelAgentState(TypedDict):
     request_id: NotRequired[str]
     user_id: NotRequired[str | int | None]
     run_started_at: NotRequired[float]
+    conversation_context: NotRequired[str]
+    session_memory_state: NotRequired[dict[str, Any]]
+    long_term_preferences: NotRequired[list[dict[str, str]]]
     requirement: TravelRequirement
     information_status: InformationStatus
     collected_info: CollectedInfo

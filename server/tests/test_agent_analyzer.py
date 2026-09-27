@@ -67,6 +67,75 @@ def test_analyzer_keeps_missing_fields_empty() -> None:
     assert result.travelers is None
 
 
+def test_analyzer_inherits_city_for_follow_up_and_passes_memory_context() -> None:
+    client = FakeStructuredOutputClient(
+        TravelRequirement(intent="poi_recommendation", poi_kind="food")
+    )
+
+    result = RequirementAnalyzer(client).analyze(
+        "美食呢？",
+        conversation_context="用户刚才在讨论南京景点。",
+        session_state={"city": "南京", "topic": "南京景点"},
+    )
+
+    assert result.city == "南京"
+    assert "用户刚才在讨论南京景点。" in client.calls[0]["user_prompt"]
+    assert "当前用户消息" in client.calls[0]["user_prompt"]
+
+
+def test_explicit_current_city_overrides_conversation_memory() -> None:
+    client = FakeStructuredOutputClient(
+        TravelRequirement(intent="weather_query", city="上海")
+    )
+
+    result = RequirementAnalyzer(client).analyze(
+        "那上海呢？",
+        session_state={"city": "南京"},
+    )
+
+    assert result.city == "上海"
+
+
+def test_analyzer_adds_explicit_long_term_preferences_to_requirement() -> None:
+    client = FakeStructuredOutputClient(
+        TravelRequirement(intent="trip_planning", city="南京")
+    )
+
+    result = RequirementAnalyzer(client).analyze(
+        "规划南京周末游",
+        long_term_preferences=[
+            {"category": "food_restriction", "content": "不吃辣"},
+            {"category": "attraction_interest", "content": "喜欢博物馆"},
+            {"category": "travel_pace", "content": "喜欢慢节奏"},
+            {"category": "budget_tendency", "content": "偏好经济型"},
+        ],
+    )
+
+    assert result.constraints == ["不吃辣"]
+    assert result.preferences == ["喜欢博物馆", "喜欢慢节奏", "偏好经济型"]
+    assert "用户明确保存的长期旅行偏好" in client.calls[0]["user_prompt"]
+    assert "不吃辣" in client.calls[0]["user_prompt"]
+    assert "当前请求优先" in client.calls[0]["system_prompt"]
+
+
+def test_current_trip_request_overrides_saved_preference_in_its_category() -> None:
+    client = FakeStructuredOutputClient(
+        TravelRequirement(
+            intent="poi_recommendation", city="南京", poi_kind="food",
+            constraints=["本次可以吃辣"],
+        )
+    )
+
+    result = RequirementAnalyzer(client).analyze(
+        "这次想吃辣，推荐南京美食",
+        long_term_preferences=[
+            {"category": "food_restriction", "content": "不吃辣"}
+        ],
+    )
+
+    assert result.constraints == ["本次可以吃辣"]
+
+
 def test_analyzer_supplies_current_date_for_holiday_weather_queries() -> None:
     client = FakeStructuredOutputClient(
         TravelRequirement(

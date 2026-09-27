@@ -8,6 +8,84 @@ import org.junit.Test
 
 class FootmarksApiTest {
     @Test
+    fun readsCreatesUpdatesAndDeletesTravelPreferences() = runBlocking {
+        MockWebServer().use { server ->
+            val preference = """{"id":4,"category":"food_restriction","content":"不吃辣","created_at":"now","updated_at":"now"}"""
+            server.enqueue(MockResponse().setBody("[$preference]")
+                .addHeader("Content-Type", "application/json"))
+            server.enqueue(MockResponse().setBody(preference)
+                .addHeader("Content-Type", "application/json"))
+            server.enqueue(MockResponse().setResponseCode(204))
+            server.start()
+            val api = FootmarksApi.create(server.url("/").toString())
+
+            assertEquals("不吃辣", api.getPreferences("Bearer token").single().content)
+            api.upsertPreference(
+                "Bearer token", "food_restriction", PreferenceRequest("不吃辣")
+            )
+            api.deletePreference("Bearer token", "food_restriction")
+
+            assertEquals("/api/v1/agent/preferences", server.takeRequest().path)
+            val update = server.takeRequest()
+            assertEquals("PUT", update.method)
+            assertEquals("/api/v1/agent/preferences/food_restriction", update.path)
+            assertEquals("{\"content\":\"不吃辣\"}", update.body.readUtf8())
+            val delete = server.takeRequest()
+            assertEquals("DELETE", delete.method)
+            assertEquals("/api/v1/agent/preferences/food_restriction", delete.path)
+            assertEquals("Bearer token", delete.getHeader("Authorization"))
+        }
+    }
+
+    @Test
+    fun conversationAndChatEndpointsMatchServerContract() = runBlocking {
+        MockWebServer().use { server ->
+            val conversation = """{"id":"thread-1","title":"南京三日游","created_at":"now","updated_at":"now","message_count":2}"""
+            server.enqueue(MockResponse().setResponseCode(201).setBody(conversation)
+                .addHeader("Content-Type", "application/json"))
+            server.enqueue(MockResponse().setBody("[$conversation]")
+                .addHeader("Content-Type", "application/json"))
+            server.enqueue(MockResponse().setBody(
+                """[{"id":1,"role":"user","content":"南京三日游","status":"completed","created_at":"now"}]"""
+            ).addHeader("Content-Type", "application/json"))
+            server.enqueue(MockResponse().setResponseCode(204))
+            server.enqueue(MockResponse().setBody(
+                """{"request_id":"req-1","answer":"规划完成","conversation_id":"thread-1"}"""
+            ).addHeader("Content-Type", "application/json"))
+            server.start()
+            val api = FootmarksApi.create(server.url("/").toString())
+
+            assertEquals("thread-1", api.createConversation("Bearer token").id)
+            assertEquals("thread-1", api.getConversations("Bearer token").single().id)
+            assertEquals(
+                "南京三日游",
+                api.getConversationMessages("Bearer token", "thread-1", 50, null)
+                    .single().content
+            )
+            api.deleteConversation("Bearer token", "thread-1")
+            val response = api.chat(
+                "Bearer token",
+                AgentChatRequest("南京三日游", "thread-1", "client-1")
+            )
+
+            assertEquals("/api/v1/agent/conversations", server.takeRequest().path)
+            assertEquals("/api/v1/agent/conversations", server.takeRequest().path)
+            assertEquals(
+                "/api/v1/agent/conversations/thread-1/messages?limit=50",
+                server.takeRequest().path
+            )
+            assertEquals("DELETE", server.takeRequest().method)
+            val chatRequest = server.takeRequest()
+            assertEquals("/api/v1/agent/chat", chatRequest.path)
+            assertEquals(
+                "{\"message\":\"南京三日游\",\"conversation_id\":\"thread-1\",\"client_message_id\":\"client-1\"}",
+                chatRequest.body.readUtf8()
+            )
+            assertEquals("thread-1", response.conversationId)
+        }
+    }
+
+    @Test
     fun defaultClientMatchesAgentRequestBudget() {
         val client = FootmarksApi.defaultClient()
 

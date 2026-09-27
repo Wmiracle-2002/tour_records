@@ -122,6 +122,41 @@ def test_collector_executes_weather_tool_normalizes_and_stops() -> None:
     assert client.contexts[0].collected_info == CollectedInfo()
 
 
+def test_collector_records_normalized_tool_run_after_execution() -> None:
+    tool = FakeTool(
+        "weather",
+        [
+            ToolResult.completed(
+                {
+                    "status": "1",
+                    "lives": [
+                        {
+                            "city": "南京市",
+                            "weather": "晴",
+                            "reporttime": "2026-09-18 10:00:00",
+                        }
+                    ],
+                }
+            )
+        ],
+    )
+    snapshots = []
+    client = FakeDecisionClient(
+        [ReActDecision(tool_call=ToolCall(name="weather", arguments={"city": "南京"}))]
+    )
+
+    ReActCollector(
+        build_layer(tool), client, tool_run_recorder=snapshots.append
+    ).collect(build_state(TravelRequirement(intent="weather_query", city="南京")))
+
+    assert len(snapshots) == 1
+    assert snapshots[0].tool_name == "weather"
+    assert snapshots[0].executed_arguments == {"city": "南京"}
+    assert snapshots[0].status == "completed"
+    assert snapshots[0].result_json["status"] == "completed"
+    assert "晴" in snapshots[0].summary_text
+
+
 def test_unknown_tool_name_is_rejected_without_crashing_or_execution() -> None:
     tool = FakeTool("weather", [ToolResult.completed({"status": "1"})])
     client = FakeDecisionClient(
