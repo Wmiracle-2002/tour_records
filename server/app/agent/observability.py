@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
-from contextvars import ContextVar
 from datetime import datetime, timezone
-from collections.abc import Iterator
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
 from app.agent.models import InformationStatus
+from app.core.request_context import current_request_id, request_context
 
 
 AgentEventName = Literal[
@@ -30,26 +28,6 @@ AgentEventName = Literal[
     "validation_completed",
     "final_response_ready",
 ]
-
-
-_request_id_context: ContextVar[str | None] = ContextVar(
-    "agent_request_id", default=None
-)
-
-
-def current_request_id() -> str | None:
-    """Return the request ID associated with the current Agent execution."""
-    return _request_id_context.get()
-
-
-@contextmanager
-def request_context(request_id: str) -> Iterator[None]:
-    """Propagate one request ID through synchronous Agent and LLM calls."""
-    token = _request_id_context.set(request_id)
-    try:
-        yield
-    finally:
-        _request_id_context.reset(token)
 
 
 class AgentEvent(BaseModel):

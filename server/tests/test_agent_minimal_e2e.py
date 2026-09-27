@@ -211,11 +211,11 @@ def test_authenticated_chat_scenarios_keep_request_trace_and_verified_facts(
     assert any(event.event == "final_response_ready" for event in observer.events)
     assert all(event.stage_duration_ms is None or event.stage_duration_ms >= 0 for event in observer.events)
     assert elapsed_ms < 10000
-    api_logs = [record.message for record in caplog.records if record.name == "app.api.agent"]
-    assert any(f"request_id={trace_id}" in line for line in api_logs), {
-        "level": logging.getLogger("app.api.agent").level,
-        "disabled": logging.getLogger("app.api.agent").disabled,
-        "propagate": logging.getLogger("app.api.agent").propagate,
+    http_logs = [json.loads(record.message) for record in caplog.records if record.name == "footmarks.http"]
+    assert any(event.get("request_id") == trace_id and event.get("event") == "http_request_completed" for event in http_logs), {
+        "level": logging.getLogger("footmarks.http").level,
+        "disabled": logging.getLogger("footmarks.http").disabled,
+        "propagate": logging.getLogger("footmarks.http").propagate,
         "loggers": [(record.name, record.message) for record in caplog.records],
     }
     amap_logs = [json.loads(record.message) for record in caplog.records if record.name == "footmarks.agent.amap"]

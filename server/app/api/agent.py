@@ -26,7 +26,6 @@ from app.agent.llm import (
     LLMTimeoutError,
     LLMUpstreamError,
 )
-from app.agent.observability import request_context
 from app.agent.preferences import (
     PreferenceCategory,
     PreferenceOut,
@@ -296,15 +295,12 @@ async def _watch_client_disconnect(
 async def chat(
     payload: AgentChatRequest,
     request: Request,
-    response: Response,
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> AgentChatResponse:
     """Run one authenticated, synchronous Agent request."""
     started_at = monotonic()
-    request_id = request.headers.get("X-Request-ID") or str(uuid4())
-    response.headers["X-Request-ID"] = request_id
-    logger.info("Agent request started request_id=%s user_id=%s", request_id, user.id)
+    request_id = request.state.request_id
     conversation = None
     user_message = None
     if payload.conversation_id is not None:
@@ -394,7 +390,7 @@ async def chat(
         _watch_client_disconnect(request, cancellation, request_id)
     )
     try:
-        with request_context(request_id), cancellation_context(cancellation):
+        with cancellation_context(cancellation):
             runtime_options = (
                 {
                     "conversation_id": conversation.id,
@@ -471,11 +467,6 @@ async def chat(
         )
         conversation.updated_at = datetime.now(timezone.utc)
         db.commit()
-    logger.info(
-        "Agent request completed request_id=%s duration_ms=%.0f",
-        request_id,
-        (monotonic() - started_at) * 1000,
-    )
     return AgentChatResponse(
         **result.model_dump(),
         conversation_id=conversation.id if conversation is not None else None,

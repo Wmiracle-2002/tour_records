@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-import re
+import json
 from typing import Any
 
 import pytest
@@ -16,6 +16,7 @@ from app.agent.runtime import AgentRunResult
 from app.agent.runtime import AgentRuntime
 from app.agent.collector import ReActDecision
 from app.agent.models import TravelRequirement
+from app.agent.observability import current_request_id
 from app.core.config import Settings
 
 
@@ -71,31 +72,24 @@ def test_agent_chat_returns_request_id_and_final_answer(client: TestClient) -> N
     }
 
 
-def test_agent_chat_start_and_completion_logs_share_request_id(
+def test_http_start_and_completion_logs_share_request_id(
     client: TestClient,
     caplog,
 ) -> None:
     use_runtime(client, FakeRuntime())
 
-    with caplog.at_level(logging.INFO, logger="app.api.agent"):
+    with caplog.at_level(logging.INFO, logger="footmarks.http"):
         response = client.post("/api/v1/agent/chat", json={"message": "测试请求"})
 
     assert response.status_code == 200
-    start = next(
-        record.message
+    events = [json.loads(record.message) for record in caplog.records if record.name == "footmarks.http"]
+    start = next(event for event in events if event["event"] == "http_request_started")
+    completed = next(event for event in events if event["event"] == "http_request_completed")
+    assert start["request_id"] == completed["request_id"] == response.headers["X-Request-ID"]
+    assert not any(
+        "Agent request started" in record.message or "Agent request completed" in record.message
         for record in caplog.records
-        if "Agent request started" in record.message
     )
-    completed = next(
-        record.message
-        for record in caplog.records
-        if "Agent request completed" in record.message
-    )
-    start_id = re.search(r"request_id=([^ ]+)", start)
-    completed_id = re.search(r"request_id=([^ ]+)", completed)
-    assert start_id is not None
-    assert completed_id is not None
-    assert start_id.group(1) == completed_id.group(1)
 
 
 def test_agent_chat_reuses_proxy_request_id_and_returns_header(
@@ -105,7 +99,7 @@ def test_agent_chat_reuses_proxy_request_id_and_returns_header(
     use_runtime(client, FakeRuntime())
     proxy_request_id = "proxy-request-123"
 
-    with caplog.at_level(logging.INFO, logger="app.api.agent"):
+    with caplog.at_level(logging.INFO, logger="footmarks.http"):
         response = client.post(
             "/api/v1/agent/chat",
             json={"message": "测试请求"},
@@ -115,9 +109,25 @@ def test_agent_chat_reuses_proxy_request_id_and_returns_header(
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == proxy_request_id
     assert any(
-        f"request_id={proxy_request_id}" in record.message
-        for record in caplog.records
+        json.loads(record.message).get("request_id") == proxy_request_id
+        for record in caplog.records if record.name == "footmarks.http"
     )
+
+
+def test_agent_runtime_uses_validated_http_request_id(client: TestClient) -> None:
+    class EchoRuntime:
+        def run(self, *_args, **_kwargs) -> AgentRunResult:
+            return AgentRunResult(request_id=current_request_id() or "missing", answer="收到")
+
+    client.app.state.agent_runtime = EchoRuntime()
+    response = client.post(
+        "/api/v1/agent/chat",
+        json={"message": "测试请求"},
+        headers={"X-Request-ID": "invalid trace id"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["request_id"] == response.headers["X-Request-ID"]
 
 
 def test_agent_chat_uses_authenticated_user_id(client: TestClient) -> None:

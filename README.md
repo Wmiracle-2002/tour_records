@@ -197,7 +197,7 @@ Agent 剩余稳定性项目的本轮验证见 [Agent稳定性测试报告.md](Ag
 - 可安装本轮 Debug APK `app/build/outputs/apk/debug/app-debug.apk` 在手机验收；该包指向 `https://www.cq-footmark.online/`。
 - 回归命令：在 `server` 目录执行 `..\\.venv\\Scripts\\python.exe -m pytest -p no:cacheprovider tests -q`；本轮 433 项通过。Android JVM 32 项、API 34 模拟器相关 UI 10 项、Android 测试源码编译也通过。
 
-智能规划没有会话与新建空会话使用同一张绿色引导卡“开始一段新对话”；没有会话时可直接输入并发送，首次发送会自动创建会话。空会话的“当前是新对话”按钮不可重复点击；创建请求期间显示“创建中…”且发送暂不可用。服务端基于 FastAPI `@application.middleware("http")` 的请求追踪和耗时观测方案、职责边界及验收标准见 [Middleware开发计划.md](Middleware开发计划.md)；此段记录的是开发前方案。
+智能规划没有会话与新建空会话使用同一张绿色引导卡“开始一段新对话”；没有会话时可直接输入并发送，首次发送会自动创建会话。空会话的“当前是新对话”按钮不可重复点击；创建请求期间显示“创建中…”且发送暂不可用。FastAPI `@application.middleware("http")` 请求追踪和耗时观测已实现并部署，设计、测试与线上验收见 [Middleware开发计划.md](Middleware开发计划.md)。服务端全量回归 447/447 通过；公网健康和未登录 Agent 请求均带 `X-Request-ID`，已登录真实聊天的完整日志链路待手机复测。
 
 ## 下一步
 

@@ -1,6 +1,6 @@
 # FastAPI Middleware 开发计划
 
-状态：方案，尚未实施。本方案指 **FastAPI 的 HTTP Middleware**：在 `create_app()` 内用 `@application.middleware("http")` 注册函数，通过 `Request`、`call_next`、`Response` 处理每个请求。目标是让每一次 HTTP 请求都能用同一个 ID 串起 Nginx、FastAPI 和 Agent 日志，并能分辨 FastAPI 处理耗时与 Agent 各阶段耗时。Nginx 配置只是后续联调项目，不是 middleware 的实现位置。
+状态：2026-09-28 已实现并部署；已完成自动回归、公网健康请求和未登录 Agent 请求验证，已登录的真实 Agent 聊天待手机验收。本方案指 **FastAPI 的 HTTP Middleware**：在 `create_app()` 内用 `@application.middleware("http")` 注册函数，通过 `Request`、`call_next`、`Response` 处理每个请求。目标是让每一次 HTTP 请求都能用同一个 ID 串起 Nginx、FastAPI 和 Agent 日志，并能分辨 FastAPI 处理耗时与 Agent 各阶段耗时。Nginx 配置只是后续联调项目，不是 middleware 的实现位置。
 
 ## 现状与问题
 
@@ -84,3 +84,11 @@ Agent 路由读取全局 ID，删掉局部生成 ID 和重复 HTTP 总耗时日�
 - 504 是 API 自己的总预算触发、LLM 阶段超时，还是 Nginx 等待上游超时？结合三层耗时和最后一个 Agent 事件定位。
 - 一次重试是否生成了新的 HTTP ID？是；若命中消息去重，响应体可引用原始执行 ID。
 - 批量并发、长时间规划、异常和断开连接时，是否出现缺失完成日志、错误状态或 ID 串线？这些都列为发布前阻断项。
+
+## 实施与验收记录（2026-09-28）
+
+- 在 `server/app/main.py` 注册 FastAPI HTTP middleware：校验或生成请求 ID，写入 `request.state` 与通用 `ContextVar`，记录开始和完成 JSON 日志，并统一设置响应头。404/422 保持原错误结构；422 单独记录字段路径；未捕获异常返回固定 500 结构与本次 ID。
+- Agent 路由复用 middleware 的 ID，去掉自行生成 ID 和重复的请求开始/完成日志；Agent 阶段、LLM、高德工具日志和聊天消息去重协议保持原有职责。空会话和并发请求的 ID 不串线。
+- `server/nginx/footmarks.conf` 的访问日志改为不含查询串的 method/path，并增加请求总耗时、上游耗时与上游状态。部署时仅替换日志格式；线上原有的 50 MB 上传限制及代理超时均保留。
+- 新增 HTTP 边界测试先观察到 10 项预期失败，再实现至通过；Agent 非法请求 ID 用例同样先失败后通过。服务端全量测试 447/447 通过，1 条来自 Starlette 测试依赖的弃用警告。
+- 服务器原件已备份到 `/opt/footmarks/backups/middleware-20260928-WI6gEw`，保留原 `.env` 和数据库；`nginx -t`、API 容器重建通过。公网健康接口 200、未登录 Agent 接口 401 均返回 `X-Request-ID`；公网健康请求 `be537b1804a2571a2ab2d7838514a23f` 在 Nginx 与 API 日志一致，Nginx 同时记录 `request_time` 和 `upstream_response_time`。已登录聊天的真实 LLM/Tool 链路仍待手机消息核对。
