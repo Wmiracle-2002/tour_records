@@ -52,6 +52,23 @@ def answerer(transport: FakeTransport) -> FactualAnswerer:
     )
 
 
+def test_poi_recommendation_for_fuzhou_changle_district() -> None:
+    transport = FakeTransport({
+        "景点": [{
+            "id": "changle-scenic", "name": "长乐风景区", "type": "风景名胜",
+            "cityname": "福州市", "adname": "长乐区", "adcode": "350112",
+            "location": "119.500000,25.950000",
+        }]
+    })
+
+    result = answerer(transport).answer(TravelRequirement(
+        intent="poi_recommendation", city="福州长乐", poi_kind="attraction"
+    ))
+
+    assert result == "福州长乐景点推荐：长乐风景区。"
+    assert transport.calls[0][1]["city"] == "350112"
+
+
 def test_distance_question_uses_two_verified_pois_and_straight_distance() -> None:
     transport = FakeTransport({
         "中山陵": [poi("p1", "中山陵", "118.858000,32.058000")],

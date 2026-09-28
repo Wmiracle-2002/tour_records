@@ -26,6 +26,9 @@ from app.agent.llm import (
 from app.agent.observability import (
     AgentObserver,
     StructuredLoggingObserver,
+    StreamingAgentObserver,
+    current_preview_sink,
+    current_stream_event_sink,
     current_request_id,
     request_context,
 )
@@ -212,6 +215,11 @@ class AgentRuntime:
                 logger.exception("Could not persist Agent tool run")
 
         registry = ToolRegistry()
+        observer = (
+            StreamingAgentObserver(self._observer)
+            if current_stream_event_sink() is not None
+            else self._observer
+        )
         for tool in create_internal_db_tools(db, user_id):
             registry.register(tool)
         for tool in create_budget_tools():
@@ -227,7 +235,7 @@ class AgentRuntime:
         collector = ReActCollector(
             ToolLayer(registry),
             LLMReActDecisionClient(self._llm_client),
-            observer=self._observer,
+            observer=observer,
             budget=budget,
             tool_run_recorder=record_tool_run,
         )
@@ -241,12 +249,13 @@ class AgentRuntime:
             analyzer=analyzer,
             collector=collector,
             itinerary_generator=StructuredItineraryGenerator(
-                self._llm_client, budget=budget
+                self._llm_client, budget=budget,
+                on_preview=current_preview_sink(),
             ),
             validator=ItineraryValidator(),
             reviser=LocalItineraryReviser(self._llm_client, budget=budget),
             response_generator=FinalResponseGenerator(),
-            observer=self._observer,
+            observer=observer,
             factual_answerer=FactualAnswerer(
                 amap_client, tool_run_recorder=record_tool_run
             ),

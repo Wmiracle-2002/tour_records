@@ -7,6 +7,8 @@ import com.miracle.footmarks.data.remote.CloudSession
 import com.miracle.footmarks.data.remote.RemoteConversation
 import com.miracle.footmarks.data.remote.RemoteConversationMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +41,8 @@ data class SmartPlanningUiState(
     val isLoadingOlderMessages: Boolean = false,
     val draft: String = "",
     val isSending: Boolean = false,
+    val streamingStage: String? = null,
+    val streamingText: String = "",
     val isCreatingConversation: Boolean = false,
     val error: String? = null
 ) {
@@ -57,7 +61,8 @@ class SmartPlanningViewModel @Inject constructor(
     )
     val uiState: StateFlow<SmartPlanningUiState> = _uiState.asStateFlow()
 
-    private var nextMessageId = 0L
+    private var nextMessageId = -2L
+    private var revealJob: Job? = null
 
     init {
         if (cloudSession.isCloudMode) refreshConversations()
@@ -75,11 +80,14 @@ class SmartPlanningViewModel @Inject constructor(
         val message = state.draft.trim()
         if (message.isEmpty()) return
 
+        revealJob?.cancel()
         savedStateHandle[DRAFT_KEY] = ""
         _uiState.value = state.copy(
             messages = state.messages + ChatMessage(nextId(), ChatRole.USER, message),
             draft = "",
             isSending = true,
+            streamingStage = "正在连接智能规划…",
+            streamingText = "",
             error = null
         )
         viewModelScope.launch {
@@ -97,17 +105,55 @@ class SmartPlanningViewModel @Inject constructor(
                         )
                         createdId
                     }
-                cloudSession.askAgent(
+                val clientMessageId = if (
+                    savedStateHandle.get<String>(PENDING_MESSAGE_KEY) == message &&
+                    savedStateHandle.get<String>(PENDING_CONVERSATION_KEY) == conversationId
+                ) {
+                    savedStateHandle.get<String>(PENDING_CLIENT_ID_KEY) ?: UUID.randomUUID().toString()
+                } else {
+                    UUID.randomUUID().toString()
+                }
+                savedStateHandle[PENDING_MESSAGE_KEY] = message
+                savedStateHandle[PENDING_CONVERSATION_KEY] = conversationId
+                savedStateHandle[PENDING_CLIENT_ID_KEY] = clientMessageId
+                var previewActive = false
+                var receivedText = ""
+                cloudSession.streamAgent(
                     message,
                     conversationId,
-                    UUID.randomUUID().toString()
-                )
+                    clientMessageId
+                ) { event ->
+                    val current = _uiState.value
+                    if (current.currentConversationId == conversationId) {
+                        when (event.name) {
+                            "stage" -> _uiState.value = current.copy(streamingStage = event.message)
+                            "preview" -> {
+                                previewActive = true
+                                receivedText = event.text ?: ""
+                                revealText(conversationId, receivedText)
+                            }
+                            "content" -> {
+                                receivedText = (if (previewActive) "" else receivedText) +
+                                    (event.text ?: "")
+                                previewActive = false
+                                revealText(conversationId, receivedText)
+                            }
+                        }
+                    }
+                }
+                revealJob?.join()
+                savedStateHandle.remove<String>(PENDING_MESSAGE_KEY)
+                savedStateHandle.remove<String>(PENDING_CONVERSATION_KEY)
+                savedStateHandle.remove<String>(PENDING_CLIENT_ID_KEY)
                 if (_uiState.value.currentConversationId == conversationId) {
                     loadMessages(conversationId)
                 }
                 refreshConversations(selectConversation = false)
-                _uiState.value = _uiState.value.copy(isSending = false)
+                _uiState.value = _uiState.value.copy(
+                    isSending = false, streamingStage = null, streamingText = ""
+                )
             } catch (error: Exception) {
+                revealJob?.cancel()
                 val current = _uiState.value
                 val restoredDraft = current.draft.ifBlank { message }
                 savedStateHandle[DRAFT_KEY] = restoredDraft
@@ -117,6 +163,8 @@ class SmartPlanningViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     draft = restoredDraft,
                     isSending = false,
+                    streamingStage = null,
+                    streamingText = "",
                     error = userMessage(error)
                 )
             }
@@ -189,6 +237,7 @@ class SmartPlanningViewModel @Inject constructor(
 
     fun openConversation(conversationId: String) {
         if (_uiState.value.currentConversationId == conversationId) return
+        revealJob?.cancel()
         savedStateHandle[CONVERSATION_KEY] = conversationId
         _uiState.value = _uiState.value.copy(
             currentConversationId = conversationId,
@@ -196,6 +245,8 @@ class SmartPlanningViewModel @Inject constructor(
             hasOlderMessages = false,
             isLoadingMessages = false,
             isLoadingOlderMessages = false,
+            streamingStage = null,
+            streamingText = "",
             error = null
         )
         viewModelScope.launch {
@@ -288,11 +339,33 @@ class SmartPlanningViewModel @Inject constructor(
         status = message.status
     )
 
+    private fun revealText(conversationId: String, target: String) {
+        revealJob?.cancel()
+        val visible = _uiState.value.streamingText
+        var index = if (target.startsWith(visible)) visible.length else 0
+        if (index == 0 && visible.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(streamingText = "")
+        }
+        revealJob = viewModelScope.launch {
+            val charsPerFrame = maxOf(1, target.codePointCount(0, target.length) / 120)
+            while (index < target.length) {
+                delay(20)
+                if (_uiState.value.currentConversationId != conversationId ||
+                    !_uiState.value.isSending
+                ) return@launch
+                index = target.offsetByCodePoints(
+                    index, minOf(charsPerFrame, target.codePointCount(index, target.length))
+                )
+                _uiState.value = _uiState.value.copy(streamingText = target.substring(0, index))
+            }
+        }
+    }
+
     fun dismissError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    private fun nextId(): Long = nextMessageId++
+    private fun nextId(): Long = nextMessageId--
 
     private fun userMessage(error: Throwable): String = when (error) {
         is IllegalArgumentException -> error.message ?: "请先在个人中心登录"
@@ -312,6 +385,9 @@ class SmartPlanningViewModel @Inject constructor(
     private companion object {
         const val DRAFT_KEY = "smart_planning_draft"
         const val CONVERSATION_KEY = "smart_planning_conversation_id"
+        const val PENDING_MESSAGE_KEY = "smart_planning_pending_message"
+        const val PENDING_CONVERSATION_KEY = "smart_planning_pending_conversation_id"
+        const val PENDING_CLIENT_ID_KEY = "smart_planning_pending_client_id"
         const val MESSAGE_PAGE_SIZE = 50
     }
 }

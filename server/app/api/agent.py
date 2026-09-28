@@ -1,6 +1,7 @@
 """Authenticated HTTP entry point for the Travel Agent."""
 
 import asyncio
+import json
 import logging
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -8,6 +9,7 @@ from time import monotonic
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +35,8 @@ from app.agent.preferences import (
     apply_preference_command,
 )
 from app.agent.runtime import AgentRunResult
+from app.agent.observability import AgentEvent, preview_sink, stream_event_sink
+from app.core.request_context import request_context
 from app.api.auth import current_user
 from app.database import get_db
 from app.models import ChatConversation, ChatMessage, User, UserPreference
@@ -364,6 +368,8 @@ async def chat(
                 raise HTTPException(
                     status_code=409, detail="Message is already being processed"
                 )
+    if getattr(request.state, "defer_chat_completion", False) and user_message is not None:
+        request.state.stream_user_message_id = user_message.id
     preference_answer = apply_preference_command(db, user.id, payload.message)
     if preference_answer is not None:
         if user_message is not None:
@@ -385,7 +391,7 @@ async def chat(
             answer=preference_answer,
             conversation_id=conversation.id if conversation is not None else None,
         )
-    cancellation = AgentCancellation()
+    cancellation = getattr(request.state, "stream_cancellation", None) or AgentCancellation()
     disconnect_watcher = asyncio.create_task(
         _watch_client_disconnect(request, cancellation, request_id)
     )
@@ -453,6 +459,12 @@ async def chat(
         _mark_chat_failed(db, user_message)
         logger.warning("Agent returned an invalid response request_id=%s", request_id)
         raise HTTPException(status_code=502, detail="Agent returned an invalid response")
+    if getattr(request.state, "defer_chat_completion", False):
+        request.state.stream_user_message_id = user_message.id if user_message is not None else None
+        return AgentChatResponse(
+            **result.model_dump(),
+            conversation_id=conversation.id if conversation is not None else None,
+        )
     if user_message is not None:
         user_message.status = "completed"
         user_message.request_id = result.request_id
@@ -470,4 +482,157 @@ async def chat(
     return AgentChatResponse(
         **result.model_dump(),
         conversation_id=conversation.id if conversation is not None else None,
+    )
+
+
+def _stream_frame(name: str, **data: object) -> str:
+    return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False, separators=(',', ':'))}\n\n"
+
+
+_STAGE_LABELS = {
+    "requirement_analyzer": "正在整理需求",
+    "react_collector": "正在查找旅行信息",
+    "factual_answer": "正在整理查询结果",
+    "itinerary_generator": "正在规划行程",
+    "validator": "正在校验行程",
+    "reviser": "正在调整行程",
+    "final_response": "正在整理回答",
+}
+
+_STREAM_ERROR_MESSAGES = {
+    409: "这条消息仍在处理中，请稍后查看对话",
+    499: "请求已取消，请重新发送",
+    502: "智能规划上游调用失败，请稍后重试",
+    503: "智能规划服务尚未配置",
+    504: "智能规划响应超时，请稍后重试",
+}
+
+
+@router.post("/chat/stream")
+async def stream_chat(
+    payload: AgentChatRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> StreamingResponse:
+    """Send public progress and validated final content for one normal chat run."""
+    request_id = request.state.request_id
+    cancellation = AgentCancellation()
+    request.state.stream_cancellation = cancellation
+    request.state.defer_chat_completion = True
+
+    async def stream():
+        stream_started_at = monotonic()
+        queue: asyncio.Queue[tuple[str, dict[str, object]]] = asyncio.Queue(maxsize=32)
+        loop = asyncio.get_running_loop()
+
+        def on_agent_event(event: AgentEvent) -> None:
+            if event.event != "stage_started":
+                return
+            label = _STAGE_LABELS.get(event.node_name or "")
+            if label is None or label == "正在整理需求":
+                return
+
+            def enqueue() -> None:
+                if not queue.full():
+                    queue.put_nowait(("stage", {"request_id": request_id, "message": label}))
+
+            loop.call_soon_threadsafe(enqueue)
+
+        def on_preview(value: str) -> None:
+            def enqueue() -> None:
+                if not queue.full():
+                    queue.put_nowait((
+                        "preview", {"request_id": request_id, "text": value}
+                    ))
+
+            loop.call_soon_threadsafe(enqueue)
+
+        async def run_chat() -> None:
+            with request_context(request_id), stream_event_sink(on_agent_event), preview_sink(on_preview):
+                try:
+                    result = await chat(payload, request, db, user)
+                    await queue.put(("result", {"result": result}))
+                except HTTPException as error:
+                    await queue.put(("error", {
+                        "request_id": request_id,
+                        "code": error.status_code,
+                        "message": _STREAM_ERROR_MESSAGES.get(
+                            error.status_code, "智能规划请求失败，请稍后重试"
+                        ),
+                    }))
+                except Exception:
+                    logger.exception("Agent stream failed request_id=%s", request_id)
+                    await queue.put(("error", {
+                        "request_id": request_id,
+                        "code": 500,
+                        "message": "智能规划服务暂不可用",
+                    }))
+
+        worker = asyncio.create_task(run_chat())
+        completed = False
+        try:
+            yield _stream_frame("started", request_id=request_id)
+            yield _stream_frame("stage", request_id=request_id, message="正在整理需求")
+            while True:
+                try:
+                    name, data = await asyncio.wait_for(queue.get(), timeout=15)
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+                    continue
+                if name == "result":
+                    result = data["result"]
+                    assert isinstance(result, AgentChatResponse)
+                    for part in result.answer.splitlines(keepends=True):
+                        if part:
+                            yield _stream_frame("content", request_id=request_id, text=part)
+                    message_id = getattr(request.state, "stream_user_message_id", None)
+                    if message_id is not None:
+                        user_message = db.get(ChatMessage, message_id)
+                        if user_message is not None:
+                            user_message.status = "completed"
+                            user_message.request_id = request_id
+                            db.add(ChatMessage(
+                                conversation_id=result.conversation_id,
+                                role="assistant",
+                                content=result.answer,
+                                status="completed",
+                                in_reply_to_message_id=message_id,
+                            ))
+                            try:
+                                db.commit()
+                            except Exception:
+                                db.rollback()
+                                logger.exception("Agent stream save failed request_id=%s", request_id)
+                                yield _stream_frame(
+                                    "error", request_id=request_id, code=500,
+                                    message="回答保存失败，请稍后重试",
+                                )
+                                break
+                    completed = True
+                    yield _stream_frame(
+                        "completed", request_id=request_id,
+                        answer=result.answer, conversation_id=result.conversation_id,
+                    )
+                    break
+                yield _stream_frame(name, **data)
+                if name == "error":
+                    break
+        finally:
+            cancellation.cancel()
+            if not completed:
+                message_id = getattr(request.state, "stream_user_message_id", None)
+                if message_id is not None:
+                    _mark_chat_failed(db, db.get(ChatMessage, message_id))
+            if not worker.done():
+                worker.cancel()
+            logger.info(
+                "Agent stream closed request_id=%s completed=%s duration_ms=%.0f",
+                request_id, completed, (monotonic() - stream_started_at) * 1000,
+            )
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

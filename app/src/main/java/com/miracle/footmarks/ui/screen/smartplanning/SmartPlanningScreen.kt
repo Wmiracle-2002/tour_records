@@ -90,8 +90,13 @@ fun SmartPlanningContent(
     val isNewConversationSurface = uiState.currentConversationId == null ||
         uiState.isCurrentConversationEmpty
 
-    LaunchedEffect(uiState.messages.size, uiState.isSending) {
-        val lastItemIndex = if (uiState.isSending) uiState.messages.size + 1 else uiState.messages.size
+    LaunchedEffect(
+        uiState.messages.size, uiState.hasOlderMessages,
+        uiState.isSending, uiState.streamingText.length
+    ) {
+        val lastItemIndex = uiState.messages.size +
+            (if (uiState.hasOlderMessages) 1 else 0) +
+            (if (uiState.isSending) 1 else 0)
         if (lastItemIndex > 0) listState.scrollToItem(lastItemIndex)
     }
 
@@ -188,15 +193,16 @@ fun SmartPlanningContent(
                 }
                 if (uiState.isSending) {
                     item {
-                        Surface(
-                            color = AccentMintContainer,
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(
-                                text = "正在整理你的旅行灵感…",
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                            )
+                        if (uiState.streamingText.isNotEmpty()) {
+                            ChatBubble(ChatMessage(-1, ChatRole.AGENT, uiState.streamingText, "pending"))
+                        } else {
+                            Surface(color = AccentMintContainer, shape = RoundedCornerShape(16.dp)) {
+                                Text(
+                                    text = uiState.streamingStage ?: "正在整理你的旅行灵感…",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                )
+                            }
                         }
                     }
                 }

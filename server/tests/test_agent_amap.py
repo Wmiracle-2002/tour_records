@@ -160,6 +160,7 @@ def test_verified_poi_search_builds_fixed_city_limited_request() -> None:
         {"city": "南京|苏州", "kind": "food"},
         {"city": "118.8,32.0", "kind": "food"},
         {"city": "火星市", "kind": "food"},
+        {"city": "厦门长乐", "kind": "attraction"},
         {"city": "南京", "kind": "place"},
         {"city": "南京", "kind": "place", "place_name": " "},
         {"city": "南京", "kind": "route"},
@@ -248,6 +249,47 @@ def test_verified_poi_search_matches_county_city_by_adname() -> None:
         city="昆山", kind="attraction"
     )
     assert result["pois"][0]["id"] == "p1"
+
+
+@pytest.mark.parametrize("city", ["福州长乐", "福州市长乐区", "长乐"])
+def test_verified_poi_search_accepts_parent_city_and_district_name(city: str) -> None:
+    transport = FakeTransport({
+        "status": "1", "infocode": "10000", "pois": [{
+            "id": "changle-scenic", "name": "长乐风景区", "type": "风景名胜",
+            "cityname": "福州市", "adname": "长乐区", "adcode": "350112",
+            "location": "119.500000,25.950000",
+        }, {
+            "id": "other-district", "name": "其他风景区", "type": "风景名胜",
+            "cityname": "福州市", "adname": "鼓楼区", "adcode": "350102",
+            "location": "119.300000,26.080000",
+        }],
+    })
+    client = AmapWebClient(api_key="test-key", transport=transport)
+
+    result = client.search_verified_pois(city=city, kind="attraction")
+
+    assert transport.calls[0][1]["city"] == "350112"
+    assert [poi["id"] for poi in result["pois"]] == ["changle-scenic"]
+
+
+def test_verified_district_search_accepts_base_poi_without_adcode() -> None:
+    transport = FakeTransport({
+        "status": "1", "infocode": "10000", "pois": [{
+            "id": "changle-scenic", "name": "长乐风景区", "type": "风景名胜",
+            "cityname": "福州市", "adname": "长乐区",
+            "location": "119.500000,25.950000",
+        }, {
+            "id": "other-district", "name": "其他风景区", "type": "风景名胜",
+            "cityname": "福州市", "adname": "鼓楼区",
+            "location": "119.300000,26.080000",
+        }],
+    })
+
+    result = AmapWebClient(api_key="test-key", transport=transport).search_verified_pois(
+        city="福州市长乐区", kind="attraction"
+    )
+
+    assert [poi["id"] for poi in result["pois"]] == ["changle-scenic"]
 
 
 def test_verified_poi_place_search_keeps_only_exact_name_candidates() -> None:

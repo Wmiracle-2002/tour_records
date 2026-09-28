@@ -15,6 +15,9 @@ import retrofit2.http.Multipart
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
+import retrofit2.Response
+import okhttp3.ResponseBody
 import okhttp3.MultipartBody
 import java.util.concurrent.TimeUnit
 
@@ -131,6 +134,13 @@ interface FootmarksApi {
         @Header("Authorization") authorization: String,
         @Body request: AgentChatRequest
     ): AgentChatResponse
+
+    @Streaming
+    @POST("api/v1/agent/chat/stream")
+    suspend fun streamChat(
+        @Header("Authorization") authorization: String,
+        @Body request: AgentChatRequest
+    ): Response<ResponseBody>
 
     @POST("api/v1/agent/conversations")
     suspend fun createConversation(

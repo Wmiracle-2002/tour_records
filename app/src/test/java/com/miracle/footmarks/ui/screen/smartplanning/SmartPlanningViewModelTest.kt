@@ -22,6 +22,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -158,6 +159,45 @@ class SmartPlanningViewModelTest {
     }
 
     @Test
+    fun retryAfterLostStreamUsesSameClientMessageId() = runTest(dispatcher) {
+        val api = FakeFootmarksApi(failure = java.io.IOException("connection lost"))
+        val viewModel = viewModel(api)
+
+        viewModel.updateDraft("南京怎么玩")
+        viewModel.send()
+        advanceUntilIdle()
+        api.failure = null
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertEquals(2, api.sentClientMessageIds.size)
+        assertEquals(api.sentClientMessageIds.first(), api.sentClientMessageIds.last())
+    }
+
+    @Test
+    fun failedRequestFollowedBySendKeepsMessageIdsUnique() = runTest(dispatcher) {
+        val conversation = RemoteConversation("thread-1", "历史对话", "", "", 1)
+        val api = FakeFootmarksApi(
+            failure = java.io.IOException("connection lost"),
+            conversations = listOf(conversation),
+            messages = mapOf(conversation.id to listOf(
+                RemoteConversationMessage(1, "user", "旧问题", "completed", "")
+            ))
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.updateDraft("福州长乐有哪些风景")
+        viewModel.send()
+        advanceUntilIdle()
+        viewModel.updateDraft("再问一个问题")
+        viewModel.send()
+
+        val ids = viewModel.uiState.value.messages.map { it.id }
+        assertEquals(ids.size, ids.toSet().size)
+    }
+
+    @Test
     fun sendClearsDraftWhileRequestIsInFlight() = runTest(dispatcher) {
         val gate = CompletableDeferred<Unit>()
         val viewModel = viewModel(FakeFootmarksApi(gate = gate))
@@ -168,9 +208,37 @@ class SmartPlanningViewModelTest {
 
         assertEquals("", viewModel.uiState.value.draft)
         assertTrue(viewModel.uiState.value.isSending)
+        assertEquals("正在连接智能规划…", viewModel.uiState.value.streamingStage)
 
         gate.complete(Unit)
         advanceUntilIdle()
+    }
+
+    @Test
+    fun streamedContentAppearsGraduallyBeforeFinalMessage() = runTest(dispatcher) {
+        val answer = "南京天气晴朗，适合出游。"
+        val body = "event: content\ndata: {\"request_id\":\"req-1\",\"text\":\"$answer\"}\n\n" +
+            "event: completed\ndata: {\"request_id\":\"req-1\",\"answer\":\"$answer\",\"conversation_id\":\"conversation-1\"}\n\n"
+        val viewModel = viewModel(FakeFootmarksApi(
+            result = AgentChatResponse("req-1", answer), streamBody = body
+        ))
+
+        viewModel.updateDraft("南京天气怎么样")
+        viewModel.send()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isSending)
+        assertEquals("", viewModel.uiState.value.streamingText)
+
+        advanceTimeBy(80)
+        runCurrent()
+        val partial = viewModel.uiState.value.streamingText
+        assertTrue(partial.isNotEmpty())
+        assertTrue(answer.startsWith(partial))
+        assertTrue(partial.length < answer.length)
+
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isSending)
+        assertEquals(answer, viewModel.uiState.value.messages.last().text)
     }
 
     @Test
@@ -392,7 +460,9 @@ class SmartPlanningViewModelTest {
     }
 
     private fun viewModel(api: FakeFootmarksApi) = SmartPlanningViewModel(
-        CloudSession(api, MemoryTokenStore(Tokens("access", "refresh"))),
+        CloudSession(api, MemoryTokenStore(Tokens("access", "refresh"))).apply {
+            streamDispatcher = dispatcher
+        },
         SavedStateHandle()
     )
 }
@@ -403,12 +473,14 @@ private class MemoryTokenStore(
 
 private class FakeFootmarksApi(
     private val result: AgentChatResponse = AgentChatResponse("req-1", "规划完成"),
-    private val failure: Exception? = null,
+    var failure: Exception? = null,
     private val gate: CompletableDeferred<Unit>? = null,
+    private val streamBody: String? = null,
     private val conversations: List<RemoteConversation> = emptyList(),
     private val messages: Map<String, List<RemoteConversationMessage>> = emptyMap()
 ) : FootmarksApi {
     var chatCalls = 0
+    val sentClientMessageIds = mutableListOf<String?>()
     var createConversationCalls = 0
     private val storedConversations = conversations.toMutableList()
     private val storedMessages = messages.mapValues { it.value.toMutableList() }.toMutableMap()
@@ -418,11 +490,24 @@ private class FakeFootmarksApi(
 
     override suspend fun login(request: LoginRequest): Tokens = unsupported()
 
+    override suspend fun streamChat(
+        authorization: String,
+        request: com.miracle.footmarks.data.remote.AgentChatRequest
+    ): retrofit2.Response<okhttp3.ResponseBody> {
+        val answer = chat(authorization, request)
+        val body = "event: completed\ndata: " +
+            com.google.gson.Gson().toJson(answer) + "\n\n"
+        return retrofit2.Response.success(
+            (streamBody ?: body).toResponseBody("text/event-stream".toMediaType())
+        )
+    }
+
     override suspend fun chat(
         authorization: String,
         request: com.miracle.footmarks.data.remote.AgentChatRequest
     ): AgentChatResponse {
         chatCalls += 1
+        sentClientMessageIds += request.clientMessageId
         gate?.await()
         request.conversationId?.let { conversationId ->
             val items = storedMessages.getOrPut(conversationId) { mutableListOf() }

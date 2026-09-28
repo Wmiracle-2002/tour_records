@@ -6,6 +6,7 @@ from app.agent.models import (
     CollectedInfo,
     InformationStatus,
     Itinerary,
+    ItineraryDay,
     TravelRequirement,
     ValidationIssue,
     ValidationResult,
@@ -61,6 +62,30 @@ def _status_notice(
     return None
 
 
+def format_itinerary_day(day: ItineraryDay, day_number: int) -> list[str]:
+    heading = f"第{day_number}天"
+    if day.date:
+        heading += f"（{day.date}）"
+    lines = [f"{heading}："]
+    if day.day_number is not None:
+        by_period = {item.period: item for item in day.items if item.period}
+        for period, label in _PERIOD_LABELS.items():
+            item = by_period.get(period)
+            lines.append(f"- {label}：{item.poi_name if item else '暂无可靠推荐'}")
+        return lines
+    if not day.items:
+        return lines + ["- 暂无安排。"]
+    for item in day.items:
+        line = (
+            f"- {item.start_time}-{item.end_time}：{item.poi_name}"
+            f"（{item.activity_type}）"
+        )
+        if item.estimated_cost is not None:
+            line += f"，预计花费 {_number_text(item.estimated_cost)} 元"
+        lines.append(line)
+    return lines
+
+
 class FinalResponseGenerator:
     """把 State 中已有事实转换为不补充外部事实的用户回答。"""
 
@@ -107,27 +132,7 @@ class FinalResponseGenerator:
 
         lines = ["行程安排："]
         for day_number, day in enumerate(itinerary.days, start=1):
-            heading = f"第{day_number}天"
-            if day.date:
-                heading += f"（{day.date}）"
-            lines.append(f"{heading}：")
-            if day.day_number is not None:
-                by_period = {item.period: item for item in day.items if item.period}
-                for period, label in _PERIOD_LABELS.items():
-                    item = by_period.get(period)
-                    lines.append(f"- {label}：{item.poi_name if item else '暂无可靠推荐'}")
-                continue
-            if not day.items:
-                lines.append("- 暂无安排。")
-                continue
-            for item in day.items:
-                line = (
-                    f"- {item.start_time}-{item.end_time}：{item.poi_name}"
-                    f"（{item.activity_type}）"
-                )
-                if item.estimated_cost is not None:
-                    line += f"，预计花费 {_number_text(item.estimated_cost)} 元"
-                lines.append(line)
+            lines.extend(format_itinerary_day(day, day_number))
 
         coarse = any(day.day_number is not None for day in itinerary.days)
         route_lines = [] if coarse else self._trip_route_lines(itinerary, collected_info)

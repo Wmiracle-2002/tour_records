@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Literal, Protocol
+from typing import Any, Callable, Iterator, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -93,6 +95,53 @@ class StructuredLoggingObserver:
 
     def record(self, event: AgentEvent) -> None:
         self._logger.info(event.model_dump_json(exclude_none=True))
+
+
+_STREAM_EVENT_SINK: ContextVar[Callable[[AgentEvent], None] | None] = ContextVar(
+    "agent_stream_event_sink", default=None
+)
+_PREVIEW_SINK: ContextVar[Callable[[str], None] | None] = ContextVar(
+    "agent_preview_sink", default=None
+)
+
+
+@contextmanager
+def stream_event_sink(sink: Callable[[AgentEvent], None]) -> Iterator[None]:
+    token = _STREAM_EVENT_SINK.set(sink)
+    try:
+        yield
+    finally:
+        _STREAM_EVENT_SINK.reset(token)
+
+
+@contextmanager
+def preview_sink(sink: Callable[[str], None]) -> Iterator[None]:
+    token = _PREVIEW_SINK.set(sink)
+    try:
+        yield
+    finally:
+        _PREVIEW_SINK.reset(token)
+
+
+def current_preview_sink() -> Callable[[str], None] | None:
+    return _PREVIEW_SINK.get()
+
+
+class StreamingAgentObserver:
+    """Preserve structured logs while forwarding only the current request's events."""
+
+    def __init__(self, observer: AgentObserver) -> None:
+        self._observer = observer
+        self._sink = _STREAM_EVENT_SINK.get()
+
+    def record(self, event: AgentEvent) -> None:
+        self._observer.record(event)
+        if self._sink is not None:
+            self._sink(event)
+
+
+def current_stream_event_sink() -> Callable[[AgentEvent], None] | None:
+    return _STREAM_EVENT_SINK.get()
 
 
 def information_status_snapshot(status: InformationStatus) -> dict[str, str]:

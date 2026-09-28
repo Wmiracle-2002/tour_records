@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from time import monotonic
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -208,6 +208,92 @@ class OpenAICompatibleTransport:
 
         raise LLMUpstreamError("LLM provider request failed")
 
+    def complete_json_stream(
+        self, *, system_prompt: str, user_prompt: str,
+        output_model: type[T], on_delta: Callable[[str], None],
+    ) -> dict[str, Any]:
+        self._ensure_configured()
+        request_payload = {
+            "model": self._model,
+            "temperature": 0,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": output_model.__name__, "strict": True,
+                    "schema": output_model.model_json_schema(),
+                },
+            },
+        }
+        if self._model.startswith("qwen3.7-"):
+            request_payload["enable_thinking"] = False
+        timeout = current_llm_timeout_seconds() or self._timeout_seconds
+        parts: list[str] = []
+        content_size = 0
+        completed = False
+        started_at = monotonic()
+        try:
+            with self._client.stream(
+                "POST", f"{self._base_url}/chat/completions",
+                headers={
+                    "Accept": "text/event-stream",
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=request_payload, timeout=timeout,
+            ) as response:
+                if response.status_code != 200:
+                    raise LLMUpstreamError(
+                        f"LLM provider returned HTTP {response.status_code}"
+                    )
+                for line in response.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    payload = line.removeprefix("data: ")
+                    if payload == "[DONE]":
+                        completed = True
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                        if chunk.get("choices") == []:
+                            continue
+                        delta = chunk["choices"][0]["delta"].get("content")
+                    except (ValueError, KeyError, IndexError, TypeError) as error:
+                        raise LLMInvalidResponseError("LLM stream chunk is invalid") from error
+                    if delta is None:
+                        continue
+                    if not isinstance(delta, str):
+                        raise LLMInvalidResponseError("LLM stream content is invalid")
+                    parts.append(delta)
+                    content_size += len(delta)
+                    if content_size > 2_000_000:
+                        raise LLMInvalidResponseError("LLM stream is too large")
+                    on_delta(delta)
+        except httpx.TimeoutException as error:
+            raise LLMTimeoutError(
+                f"LLM provider request timed out for {output_model.__name__}"
+            ) from error
+        except httpx.RequestError as error:
+            raise LLMUpstreamError("LLM provider request failed") from error
+        if not completed:
+            raise LLMInvalidResponseError("LLM stream ended before completion")
+        try:
+            decoded = json.loads("".join(parts))
+        except ValueError as error:
+            raise LLMInvalidResponseError("LLM stream did not contain valid JSON") from error
+        if not isinstance(decoded, dict):
+            raise LLMInvalidResponseError("LLM structured response must be a JSON object")
+        logger.info(
+            "LLM completed request_id=%s stage=%s stream=true elapsed_ms=%.0f",
+            current_request_id() or "unknown", output_model.__name__,
+            (monotonic() - started_at) * 1000,
+        )
+        return decoded
+
     def close(self) -> None:
         self._client.close()
 
@@ -242,6 +328,21 @@ class StructuredLLMClient:
 
     def __init__(self, transport: OpenAICompatibleTransport) -> None:
         self._transport = transport
+
+    def complete_structured_stream(
+        self, *, system_prompt: str, user_prompt: str,
+        output_model: type[T], on_delta: Callable[[str], None],
+    ) -> T:
+        payload = self._transport.complete_json_stream(
+            system_prompt=system_prompt, user_prompt=user_prompt,
+            output_model=output_model, on_delta=on_delta,
+        )
+        try:
+            return output_model.model_validate(payload)
+        except ValidationError as error:
+            raise LLMInvalidResponseError(
+                "LLM structured response failed schema validation"
+            ) from error
 
     def complete_structured(
         self,

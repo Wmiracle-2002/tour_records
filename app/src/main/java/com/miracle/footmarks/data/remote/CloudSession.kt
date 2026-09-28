@@ -1,14 +1,38 @@
 package com.miracle.footmarks.data.remote
 
 import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.MultipartBody
 import retrofit2.HttpException
+import java.io.IOException
 import javax.inject.Inject
 
 interface TokenStore {
     var tokens: Tokens?
 }
+
+data class AgentStreamEvent(
+    val name: String,
+    @SerializedName("request_id") val requestId: String,
+    val message: String? = null,
+    val text: String? = null,
+    val answer: String? = null,
+    @SerializedName("conversation_id") val conversationId: String? = null
+)
+
+private data class StreamPayload(
+    @SerializedName("request_id") val requestId: String = "",
+    val message: String? = null,
+    val text: String? = null,
+    val answer: String? = null,
+    @SerializedName("conversation_id") val conversationId: String? = null
+)
 
 class PreferencesTokenStore @Inject constructor(
     @ApplicationContext context: Context
@@ -34,6 +58,7 @@ class CloudSession @Inject constructor(
     private val store: TokenStore
 ) {
     val isCloudMode: Boolean get() = store.tokens != null
+    internal var streamDispatcher: CoroutineDispatcher = Dispatchers.IO
 
     suspend fun login(username: String, password: String) {
         store.tokens = api.login(LoginRequest(username, password))
@@ -45,6 +70,61 @@ class CloudSession @Inject constructor(
         clientMessageId: String? = null
     ): AgentChatResponse = authorized {
         api.chat(it, AgentChatRequest(message, conversationId, clientMessageId))
+    }
+
+    suspend fun streamAgent(
+        message: String,
+        conversationId: String,
+        clientMessageId: String,
+        onEvent: (AgentStreamEvent) -> Unit
+    ): AgentChatResponse = authorized { authorization ->
+        val response = api.streamChat(
+            authorization, AgentChatRequest(message, conversationId, clientMessageId)
+        )
+        if (!response.isSuccessful) throw HttpException(response)
+        val body = response.body() ?: throw IOException("流式响应为空")
+        var completed: AgentChatResponse? = null
+        val callerContext = currentCoroutineContext()
+        val gson = Gson()
+        withContext(streamDispatcher) {
+            body.use { content ->
+                content.charStream().buffered().use { reader ->
+                    var name: String? = null
+                    var data: String? = null
+                    while (true) {
+                        val line = reader.readLine() ?: break
+                        if (line.isEmpty()) {
+                            if (name != null && data != null) {
+                                val payload = gson.fromJson(data, StreamPayload::class.java)
+                                val event = AgentStreamEvent(
+                                    name, payload.requestId, payload.message, payload.text,
+                                    payload.answer, payload.conversationId
+                                )
+                                withContext(callerContext) { onEvent(event) }
+                                when (name) {
+                                    "completed" -> {
+                                        completed = AgentChatResponse(
+                                            payload.requestId,
+                                            payload.answer ?: throw IOException("缺少最终回答"),
+                                            payload.conversationId
+                                        )
+                                        break
+                                    }
+                                    "error" -> throw IOException(payload.message ?: "智能规划请求失败")
+                                }
+                            }
+                            name = null
+                            data = null
+                        } else if (line.startsWith("event: ")) {
+                            name = line.removePrefix("event: ")
+                        } else if (line.startsWith("data: ")) {
+                            data = line.removePrefix("data: ")
+                        }
+                    }
+                }
+            }
+        }
+        completed ?: throw IOException("流式响应中断，请稍后重试")
     }
 
     suspend fun createConversation(): RemoteConversation =

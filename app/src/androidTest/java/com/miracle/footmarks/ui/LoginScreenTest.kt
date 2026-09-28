@@ -25,7 +25,7 @@ class LoginScreenTest {
             )
         }
 
-        rule.onNodeWithText("登录共享账号").assertIsDisplayed()
+        rule.onNodeWithText("登录后可以同步旅行记录和照片。").assertIsDisplayed()
         rule.onNodeWithText("用户名").performTextClearance()
         rule.onNodeWithText("用户名").performTextInput("shared")
         rule.onNodeWithText("密码").performTextInput("password")

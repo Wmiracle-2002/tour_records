@@ -99,6 +99,50 @@ class SmartPlanningScreenTest {
     }
 
     @Test
+    fun streamingStageChangesToPartialAnswer() {
+        var state by mutableStateOf(
+            SmartPlanningUiState(isSending = true, streamingStage = "正在规划行程")
+        )
+        composeRule.setContent {
+            SmartPlanningContent(state, onDraftChange = {}, onSend = {}, onDismissError = {})
+        }
+
+        composeRule.onNodeWithText("正在规划行程").assertIsDisplayed()
+        composeRule.runOnUiThread {
+            state = state.copy(streamingText = "第1天：中山陵\n")
+        }
+        composeRule.onNodeWithText("第1天：中山陵\n").assertIsDisplayed()
+    }
+
+    @Test
+    fun streamingStageStaysVisibleAfterOlderMessages() {
+        val messages = (1..15).map { index ->
+            ChatMessage(
+                index.toLong(), ChatRole.USER,
+                if (index == 15) "历史问题 $index\n".repeat(60) else "历史问题 $index"
+            )
+        }
+        var state by mutableStateOf(SmartPlanningUiState(
+            messages = messages,
+            hasOlderMessages = true,
+            isSending = true,
+            streamingStage = "正在查找地点"
+        ))
+        composeRule.setContent {
+            SmartPlanningContent(
+                state,
+                onDraftChange = {}, onSend = {}, onDismissError = {}
+            )
+        }
+
+        composeRule.onNodeWithText("正在查找地点").assertIsDisplayed()
+        composeRule.runOnUiThread {
+            state = state.copy(streamingText = "第1天：中山陵")
+        }
+        composeRule.onNodeWithText("第1天：中山陵").assertIsDisplayed()
+    }
+
+    @Test
     fun noConversationShowsTheNewConversationSurface() {
         setInteractiveContent()
 

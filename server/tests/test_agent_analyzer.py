@@ -183,6 +183,22 @@ def test_analyzer_corrects_food_recommendation_even_if_model_says_attraction() -
     assert result.poi_kind == "food"
 
 
+@pytest.mark.parametrize(("query", "expected_city"), [
+    ("福州长乐有哪些好看的风景推荐？", "福州长乐"),
+    ("福州市长乐区有哪些好看的风景推荐？", "福州市长乐区"),
+])
+def test_analyzer_preserves_explicit_district_for_poi_recommendation(
+    query: str, expected_city: str,
+) -> None:
+    client = FakeStructuredOutputClient({
+        "intent": "poi_recommendation", "city": "福州", "poi_kind": "attraction",
+    })
+
+    result = RequirementAnalyzer(client).analyze(query)
+
+    assert result.city == expected_city
+
+
 def test_analyzer_corrects_distance_question_mislabeled_as_route() -> None:
     client = FakeStructuredOutputClient({
         "intent": "route_query", "city": "南京",

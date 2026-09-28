@@ -81,6 +81,72 @@ def test_structured_client_sends_json_schema_and_validates_result() -> None:
     assert result == Answer(answer="hello")
 
 
+def test_structured_client_streams_json_fragments_before_completion() -> None:
+    received: list[str] = []
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        chunks = (
+            'data: {"choices":[{"delta":{"content":"{\\"answer\\":\\"he"}}]}\n\n'
+            'data: {"choices":[{"delta":{"content":"llo\\"}"}}]}\n\n'
+            'data: {"choices":[],"usage":{"total_tokens":12}}\n\n'
+            'data: [DONE]\n\n'
+        )
+        return httpx.Response(200, text=chunks, headers={"Content-Type": "text/event-stream"})
+
+    transport = OpenAICompatibleTransport(
+        settings(), http_transport=httpx.MockTransport(handler),
+    )
+    result = StructuredLLMClient(transport).complete_structured_stream(
+        system_prompt="Return JSON", user_prompt="Say hello",
+        output_model=Answer, on_delta=received.append,
+    )
+
+    assert json.loads(requests[0].content)["stream"] is True
+    assert received == ['{"answer":"he', 'llo"}']
+    assert result == Answer(answer="hello")
+
+
+def test_structured_stream_rejects_missing_done_marker() -> None:
+    transport = OpenAICompatibleTransport(
+        settings(),
+        http_transport=httpx.MockTransport(lambda _request: httpx.Response(
+            200,
+            text='data: {"choices":[{"delta":{"content":"{\\"answer\\":\\"hello\\"}"}}]}\n\n',
+            headers={"Content-Type": "text/event-stream"},
+        )),
+    )
+
+    with pytest.raises(LLMInvalidResponseError, match="before completion"):
+        StructuredLLMClient(transport).complete_structured_stream(
+            system_prompt="Return JSON", user_prompt="Say hello",
+            output_model=Answer, on_delta=lambda _delta: None,
+        )
+
+
+def test_qwen37_structured_stream_disables_thinking_for_early_content() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, text=(
+            'data: {"choices":[{"delta":{"content":"{\\"answer\\":\\"ok\\"}"}}]}\n\n'
+            'data: [DONE]\n\n'
+        ))
+
+    transport = OpenAICompatibleTransport(
+        settings(llm_model="qwen3.7-flash-2026-07-15"),
+        http_transport=httpx.MockTransport(handler),
+    )
+    StructuredLLMClient(transport).complete_structured_stream(
+        system_prompt="Return JSON", user_prompt="hello", output_model=Answer,
+        on_delta=lambda _part: None,
+    )
+
+    assert json.loads(requests[0].content)["enable_thinking"] is False
+
+
 def test_llm_completion_log_contains_request_id(caplog) -> None:
     with caplog.at_level(logging.INFO, logger="footmarks.agent.llm"):
         with request_context("req-llm-1"):

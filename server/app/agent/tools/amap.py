@@ -143,19 +143,36 @@ class VerifiedPoiSearchInput(ToolInputModel):
 
 
 @lru_cache(maxsize=1)
-def _known_city_names() -> dict[str, set[str]]:
+def _known_city_names() -> tuple[
+    dict[str, set[str]], dict[str, set[str]], dict[str, tuple[str, str]]
+]:
     source = Path(__file__).resolve().parents[1] / "administrative_divisions_2023.json"
     divisions = json.loads(source.read_text(encoding="utf-8"))
     names: dict[str, set[str]] = {}
+    districts: dict[str, set[str]] = {}
+    district_labels: dict[str, tuple[str, str]] = {}
 
-    def visit(nodes: list[dict[str, Any]]) -> None:
+    def visit(nodes: list[dict[str, Any]], parent: dict[str, Any] | None = None) -> None:
         for node in nodes:
             name = node["name"].removesuffix("市")
             names.setdefault(name, set()).add(node["code"])
-            visit(node.get("children", []))
+            if parent is not None and len(parent["code"]) == 4 and len(node["code"]) == 6:
+                parent_name = parent["name"]
+                district_labels[node["code"]] = (parent_name, node["name"])
+                short_name = node["name"].removesuffix("区").removesuffix("县").removesuffix("市")
+                for alias in {
+                    parent_name + node["name"],
+                    parent_name + short_name,
+                    parent_name.removesuffix("市") + node["name"],
+                    parent_name.removesuffix("市") + short_name,
+                }:
+                    districts.setdefault(alias, set()).add(node["code"])
+                if node["name"].endswith(("区", "县")):
+                    districts.setdefault(short_name, set()).add(node["code"])
+            visit(node.get("children", []), node)
 
     visit(divisions)
-    return names
+    return names, districts, district_labels
 
 
 def _verified_search_arguments(
@@ -185,7 +202,13 @@ def _validated_city(city: str) -> str:
     ):
         raise ValueError("city must be one administrative name or six-digit adcode")
     if not normalized_city.isascii():
-        matches = _known_city_names().get(normalized_city.removesuffix("市"), set())
+        names, districts, _ = _known_city_names()
+        matches = districts.get(normalized_city)
+        if matches is not None:
+            if len(matches) != 1:
+                raise ValueError("city is unknown or ambiguous in the city catalog")
+            return next(iter(matches))
+        matches = names.get(normalized_city.removesuffix("市"), set())
         if len(matches) != 1:
             raise ValueError("city is unknown or ambiguous in the city catalog")
     return normalized_city
@@ -209,7 +232,12 @@ def _city_matches(poi: dict[str, Any], city: str) -> bool:
         return False
     if re.fullmatch(r"\d{6}", city):
         if adcode is None:
-            return False
+            labels = _known_city_names()[2].get(city)
+            return bool(
+                labels
+                and poi.get("cityname") == labels[0]
+                and poi.get("adname") == labels[1]
+            )
         if city.endswith("0000"):
             return adcode[:2] == city[:2]
         if city.endswith("00"):

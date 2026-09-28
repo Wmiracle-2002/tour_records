@@ -211,7 +211,7 @@ class CloudCoordinatorTest {
                     assertEquals("/api/v1/records/17/images", request.path)
                     assertTrue(request.body.readUtf8().contains("ORIGINAL_$index"))
                 }
-                assertEquals("26,27,28,29,30,31,32,33,34", db.recordDao().getByServerId(17)?.remotePhotoIds)
+                assertEquals("27,28,29,30,31,32,33,34,35", db.recordDao().getByServerId(17)?.remotePhotoIds)
             }
         } finally {
             files.forEach(File::delete)
@@ -280,10 +280,7 @@ class CloudCoordinatorTest {
                     record,
                     city,
                     LocalDate.parse("2026-09-02"),
-                    listOf(
-                        Uri.parse("https://images.test/records/17/old.jpg"),
-                        Uri.fromFile(newPhoto)
-                    )
+                    listOf(Uri.fromFile(newPhoto))
                 )
 
                 val update = server.takeRequest()

@@ -2,17 +2,50 @@
 
 from __future__ import annotations
 
+import json
 import re
 from contextlib import nullcontext
 from datetime import datetime, timedelta
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from app.agent.budget import AgentBudget
 from app.agent.models import CollectedInfo, Itinerary, ItineraryDay, ItineraryItem, TravelRequirement
+from app.agent.response import format_itinerary_day
 from app.agent.utils import avoids_previous_places, is_food_category, time_to_minutes
+from app.agent.validator import ItineraryValidator
 
 
 MAX_ITINERARY_GENERATION_ATTEMPTS = 2
+
+
+class _DayPreviewParser:
+    def __init__(self, on_day: Callable[[ItineraryDay], None]) -> None:
+        self._on_day = on_day
+        self._buffer = ""
+        self._position: int | None = None
+
+    def feed(self, fragment: str) -> None:
+        self._buffer += fragment
+        if self._position is None:
+            match = re.search(r'"days"\s*:\s*\[', self._buffer)
+            if match is None:
+                return
+            self._position = match.end()
+        while self._position is not None:
+            position = self._position
+            while position < len(self._buffer) and self._buffer[position] in " \t\r\n,":
+                position += 1
+            if position >= len(self._buffer) or self._buffer[position] == "]":
+                self._position = position
+                return
+            try:
+                value, end = json.JSONDecoder().raw_decode(self._buffer, position)
+                day = ItineraryDay.model_validate(value)
+            except (json.JSONDecodeError, ValueError):
+                self._position = position
+                return
+            self._position = end
+            self._on_day(day)
 
 
 def fallback_itinerary(
@@ -99,9 +132,11 @@ class StructuredItineraryGenerator:
         self,
         client: StructuredItineraryClient,
         budget: AgentBudget | None = None,
+        on_preview: Callable[[str], None] | None = None,
     ) -> None:
         self._client = client
         self._budget = budget
+        self._on_preview = on_preview
 
     def generate(
         self,
@@ -110,9 +145,13 @@ class StructuredItineraryGenerator:
     ) -> Itinerary:
         base_prompt = self._build_user_prompt(requirement, collected_info)
         last_error: ValueError | None = None
+        preview_visible = False
         for attempt in range(MAX_ITINERARY_GENERATION_ATTEMPTS):
             user_prompt = base_prompt
             if attempt > 0 and last_error is not None:
+                if self._on_preview is not None and preview_visible:
+                    self._on_preview("")
+                    preview_visible = False
                 user_prompt += (
                     "\n\nThe previous itinerary failed validation: "
                     f"{last_error}. Regenerate the complete Itinerary JSON and "
@@ -123,11 +162,51 @@ class StructuredItineraryGenerator:
                 if self._budget
                 else nullcontext()
             ):
-                output = self._client.complete_structured(
-                    system_prompt=ITINERARY_GENERATOR_SYSTEM_PROMPT,
-                    user_prompt=user_prompt,
-                    output_model=Itinerary,
-                )
+                if self._on_preview is not None and hasattr(
+                    self._client, "complete_structured_stream"
+                ):
+                    preview_days: list[ItineraryDay] = []
+                    partial_requirement = requirement.model_copy(update={
+                        "duration_days": None, "end_date": None,
+                    })
+
+                    def accept_day(day: ItineraryDay) -> None:
+                        nonlocal preview_visible
+                        candidate = Itinerary(days=[*preview_days, day])
+                        try:
+                            self._validate_itinerary(
+                                candidate, partial_requirement, collected_info
+                            )
+                            validation = ItineraryValidator().validate(
+                                partial_requirement, candidate, collected_info
+                            )
+                        except ValueError:
+                            return
+                        if any(
+                            issue.status == "fail" and issue.type != "budget"
+                            for issue in validation.issues
+                        ):
+                            return
+                        preview_days.append(day)
+                        lines = ["行程安排（生成中，最终以完整校验为准）："]
+                        for index, verified_day in enumerate(preview_days, start=1):
+                            lines.extend(format_itinerary_day(verified_day, index))
+                        self._on_preview("\n".join(lines))
+                        preview_visible = True
+
+                    parser = _DayPreviewParser(accept_day)
+                    output = self._client.complete_structured_stream(
+                        system_prompt=ITINERARY_GENERATOR_SYSTEM_PROMPT,
+                        user_prompt=user_prompt,
+                        output_model=Itinerary,
+                        on_delta=parser.feed,
+                    )
+                else:
+                    output = self._client.complete_structured(
+                        system_prompt=ITINERARY_GENERATOR_SYSTEM_PROMPT,
+                        user_prompt=user_prompt,
+                        output_model=Itinerary,
+                    )
             try:
                 itinerary = Itinerary.model_validate(output)
                 self._validate_itinerary(itinerary, requirement, collected_info)

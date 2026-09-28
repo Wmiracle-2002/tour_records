@@ -9,6 +9,7 @@ from typing import Any, Callable, Protocol
 from app.agent.budget import AgentBudget
 from app.agent.models import TravelRequirement
 from app.agent.memory import ConversationSessionState, is_referential_follow_up
+from app.agent.tools.amap import _known_city_names
 from app.agent.prompts.requirement_analyzer import (
     REQUIREMENT_ANALYZER_SYSTEM_PROMPT,
 )
@@ -54,6 +55,21 @@ def _explicit_poi_kind(query: str) -> str | None:
     if attraction:
         return "attraction"
     return None
+
+
+def _explicit_poi_district(query: str, city: str | None) -> str | None:
+    if not city:
+        return None
+    parent = city.removesuffix("市")
+    districts = _known_city_names()[1]
+    matches = [
+        (alias, next(iter(codes)))
+        for alias, codes in districts.items()
+        if alias.startswith(parent) and alias != parent and alias in query and len(codes) == 1
+    ]
+    if len({code for _, code in matches}) != 1:
+        return None
+    return max(matches, key=lambda match: len(match[0]))[0]
 
 
 def _infer_history_city(user_query: str) -> str | None:
@@ -147,6 +163,9 @@ class RequirementAnalyzer:
             kind = _explicit_poi_kind(query)
             if kind is not None:
                 requirement = requirement.model_copy(update={"poi_kind": kind})
+            district = _explicit_poi_district(query, requirement.city)
+            if district is not None:
+                requirement = requirement.model_copy(update={"city": district})
         if requirement.intent == "weather_query":
             current_word = _current_weather_word(query)
             if current_word is not None:

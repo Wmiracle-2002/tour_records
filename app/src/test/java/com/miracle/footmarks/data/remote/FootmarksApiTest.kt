@@ -1,9 +1,13 @@
 package com.miracle.footmarks.data.remote
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class FootmarksApiTest {
@@ -235,6 +239,82 @@ class FootmarksApiTest {
             assertEquals("Bearer new-access", retriedRequest.getHeader("Authorization"))
             assertEquals("req-2", response.requestId)
             assertEquals("new-refresh", store.tokens?.refreshToken)
+        }
+    }
+
+    @Test
+    fun agentStreamDeliversStagesAndContentBeforeCompletion() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse().addHeader("Content-Type", "text/event-stream")
+                    .setBody(
+                        "event: started\ndata: {\"request_id\":\"req-3\"}\n\n" +
+                            "event: stage\ndata: {\"request_id\":\"req-3\",\"message\":\"正在规划行程\"}\n\n" +
+                            "event: preview\ndata: {\"request_id\":\"req-3\",\"text\":\"第1天：中山陵\"}\n\n" +
+                            "event: content\ndata: {\"request_id\":\"req-3\",\"text\":\"第一天\\n\"}\n\n" +
+                            "event: completed\ndata: {\"request_id\":\"req-3\",\"answer\":\"第一天\\n\",\"conversation_id\":\"chat-1\"}\n\n"
+                    )
+            )
+            server.start()
+            val store = MemoryTokenStore().apply { tokens = Tokens("access", "refresh") }
+            val session = CloudSession(FootmarksApi.create(server.url("/").toString()), store)
+            val received = mutableListOf<AgentStreamEvent>()
+
+            val answer = session.streamAgent("南京一日游", "chat-1", "message-1") { received += it }
+
+            assertEquals("/api/v1/agent/chat/stream", server.takeRequest().path)
+            assertEquals(listOf("started", "stage", "preview", "content", "completed"), received.map { it.name })
+            assertEquals("正在规划行程", received[1].message)
+            assertEquals("第1天：中山陵", received[2].text)
+            assertEquals("第一天\n", received[3].text)
+            assertEquals("第一天\n", answer.answer)
+        }
+    }
+
+    @Test
+    fun agentStreamShowsStageWhileHttpResponseIsStillOpen() = runBlocking {
+        MockWebServer().use { server ->
+            val prefix = "event: started\ndata: {\"request_id\":\"req-5\"}\n\n" +
+                "event: stage\ndata: {\"request_id\":\"req-5\",\"message\":\"正在查找地点\"}\n\n"
+            val suffix = "event: completed\ndata: {\"request_id\":\"req-5\",\"answer\":\"找到地点\",\"conversation_id\":\"chat-1\"}\n\n"
+            server.enqueue(
+                MockResponse().addHeader("Content-Type", "text/event-stream")
+                    .setBody(prefix + suffix)
+                    .throttleBody(prefix.toByteArray().size.toLong(), 2, java.util.concurrent.TimeUnit.SECONDS)
+            )
+            server.start()
+            val store = MemoryTokenStore().apply { tokens = Tokens("access", "refresh") }
+            val session = CloudSession(FootmarksApi.create(server.url("/").toString()), store)
+            val stageArrived = CompletableDeferred<Unit>()
+            val request = async {
+                session.streamAgent("福州长乐风景推荐", "chat-1", "message-1") {
+                    if (it.name == "stage") stageArrived.complete(Unit)
+                }
+            }
+
+            withTimeout(1500) { stageArrived.await() }
+            assertFalse(request.isCompleted)
+            assertEquals("找到地点", request.await().answer)
+        }
+    }
+
+    @Test
+    fun agentStreamRejectsTruncatedAnswer() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse().addHeader("Content-Type", "text/event-stream")
+                    .setBody("event: content\ndata: {\"request_id\":\"req-4\",\"text\":\"半截回答\"}\n\n")
+            )
+            server.start()
+            val store = MemoryTokenStore().apply { tokens = Tokens("access", "refresh") }
+            val session = CloudSession(FootmarksApi.create(server.url("/").toString()), store)
+
+            try {
+                session.streamAgent("测试", "chat-1", "message-1") { }
+                org.junit.Assert.fail("Missing completed event should fail")
+            } catch (error: java.io.IOException) {
+                org.junit.Assert.assertTrue(error.message?.contains("中断") == true)
+            }
         }
     }
 
