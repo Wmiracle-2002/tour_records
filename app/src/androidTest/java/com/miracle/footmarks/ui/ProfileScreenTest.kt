@@ -23,7 +23,7 @@ class ProfileScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("本地旅行者").assertIsDisplayed()
+        composeRule.onNodeWithText("旅行者账号").assertIsDisplayed()
         composeRule.onNodeWithText("3").assertIsDisplayed()
         composeRule.onNodeWithText("5").assertIsDisplayed()
         composeRule.onNodeWithText("¥ 1234.50").assertIsDisplayed()

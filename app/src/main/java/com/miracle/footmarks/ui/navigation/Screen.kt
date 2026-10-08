@@ -4,7 +4,12 @@ sealed class Screen(val route: String) {
     object Records : Screen("records")
     object SmartPlanning : Screen("smart_planning")
     object Profile : Screen("profile")
+    object AccountManagement : Screen("account_management")
     object Login : Screen("login")
+    object Knowledge : Screen("knowledge?entryId={entryId}") {
+        fun createRoute(entryId: Long? = null) =
+            entryId?.let { "knowledge?entryId=$it" } ?: "knowledge"
+    }
     object AddRecord : Screen("add_record?tripId={tripId}") {
         fun createRoute(tripId: Long? = null) = tripId?.let { "add_record?tripId=$it" } ?: "add_record"
     }

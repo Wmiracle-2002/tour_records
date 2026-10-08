@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -23,11 +24,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.miracle.footmarks.R
+import com.miracle.footmarks.data.remote.CloudSession
 import com.miracle.footmarks.ui.screen.addrecord.AddRecordScreen
 import com.miracle.footmarks.ui.screen.editrecord.EditRecordScreen
 import com.miracle.footmarks.ui.screen.profile.ProfileScreen
+import com.miracle.footmarks.ui.screen.profile.AccountManagementScreen
 import com.miracle.footmarks.ui.screen.profile.LoginScreen
 import com.miracle.footmarks.ui.screen.profile.ProfileViewModel
+import com.miracle.footmarks.ui.screen.knowledge.KnowledgeScreen
 import com.miracle.footmarks.ui.screen.recorddetail.RecordDetailScreen
 import com.miracle.footmarks.ui.screen.records.RecordsScreen
 import com.miracle.footmarks.ui.screen.smartplanning.SmartPlanningScreen
@@ -48,6 +52,7 @@ val bottomNavItems = listOf(
 @Composable
 fun MainBottomBar(
     navController: NavHostController,
+    session: CloudSession? = null,
     modifier: Modifier = Modifier
 ) {
     NavigationBar(
@@ -57,8 +62,9 @@ fun MainBottomBar(
     ) {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
+        val isAdmin = session?.accountRole == "admin"
 
-        bottomNavItems.forEach { item ->
+        (if (isAdmin) bottomNavItems.takeLast(1) else bottomNavItems).forEach { item ->
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = null) },
                 label = { Text(stringResource(item.label)) },
@@ -87,11 +93,13 @@ fun MainBottomBar(
 @Composable
 fun MainNavHost(
     navController: NavHostController,
+    isAdmin: Boolean = false,
+    session: CloudSession? = null,
     modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Records.route,
+        startDestination = if (isAdmin) Screen.Profile.route else Screen.Records.route,
         modifier = modifier
     ) {
         composable(Screen.Records.route) {
@@ -103,32 +111,75 @@ fun MainNavHost(
                     navController.navigate(Screen.RecordDetail.createRoute(recordId))
                 },
                 onAddClick = {
-                    navController.navigate(Screen.AddRecord.createRoute())
+                    navController.navigate(
+                        if (session?.isCloudMode == true) Screen.AddRecord.createRoute()
+                        else Screen.Profile.route
+                    )
                 },
                 onAddToTrip = { tripId ->
-                    navController.navigate(Screen.AddRecord.createRoute(tripId))
+                    navController.navigate(
+                        if (session?.isCloudMode == true) Screen.AddRecord.createRoute(tripId)
+                        else Screen.Profile.route
+                    )
                 }
             )
         }
 
         composable(Screen.SmartPlanning.route) {
-            SmartPlanningScreen()
+            SmartPlanningScreen(onOpenKnowledge = { id ->
+                navController.navigate(Screen.Knowledge.createRoute(id))
+            })
         }
 
         composable(Screen.Profile.route) {
             ProfileScreen(
-                onOpenLogin = { navController.navigate(Screen.Login.route) }
+                onOpenLogin = { navController.navigate(Screen.Login.route) },
+                onOpenAccount = { navController.navigate(Screen.AccountManagement.route) },
+                onOpenKnowledge = { navController.navigate(Screen.Knowledge.createRoute()) }
             )
         }
 
-        composable(Screen.Login.route) {
-            val profileEntry = navController.getBackStackEntry(Screen.Profile.route)
+        composable(Screen.AccountManagement.route) { entry ->
+            val profileEntry = remember(entry) { navController.getBackStackEntry(Screen.Profile.route) }
+            val profileViewModel: ProfileViewModel = hiltViewModel(profileEntry)
+            AccountManagementScreen(
+                onBack = { navController.popBackStack() },
+                onOpenLogin = { navController.navigate(Screen.Login.route) },
+                viewModel = profileViewModel
+            )
+        }
+
+        composable(
+            Screen.Knowledge.route,
+            arguments = listOf(navArgument("entryId") {
+                type = NavType.LongType
+                defaultValue = -1L
+            })
+        ) { entry ->
+            KnowledgeScreen(
+                onBack = { navController.popBackStack() },
+                initialEntryId = entry.arguments?.getLong("entryId") ?: -1L
+            )
+        }
+
+        composable(Screen.Login.route) { entry ->
+            val profileEntry = remember(entry) { navController.getBackStackEntry(Screen.Profile.route) }
             val profileViewModel: ProfileViewModel = hiltViewModel(profileEntry)
             val cloudState by profileViewModel.cloudState.collectAsState()
             LoginScreen(
                 state = cloudState,
                 onLogin = profileViewModel::login,
-                onLoggedIn = { navController.popBackStack() },
+                onRegister = profileViewModel::register,
+                onOptions = profileViewModel::setLoginOptions,
+                rememberedUsername = profileViewModel.rememberedUsername,
+                onLoggedIn = {
+                    if (cloudState.role == "admin") {
+                        navController.navigate(Screen.Profile.route) {
+                            popUpTo(Screen.Records.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } else navController.popBackStack()
+                },
                 onBack = { navController.popBackStack() }
             )
         }

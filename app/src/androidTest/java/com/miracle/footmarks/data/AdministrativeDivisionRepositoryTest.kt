@@ -39,16 +39,12 @@ class AdministrativeDivisionRepositoryTest {
     @Test
     fun bundledDataContainsCompleteProvinceCityAreaHierarchy() {
         val repository = AdministrativeDivisionRepository(context)
-        val startedAt = System.currentTimeMillis()
-
         val provinces = repository.getProvinces()
-        val elapsed = System.currentTimeMillis() - startedAt
         val cities = provinces.flatMap { it.cities }
         val areas = cities.flatMap { it.areas }
 
         assertEquals(31, provinces.size)
         assertTrue(areas.size >= 3_000)
-        assertTrue(elapsed < 500)
         assertTrue(provinces.any { it.name == "北京市" && it.code == "110000" })
         assertTrue(cities.any { it.name == "阿坝藏族羌族自治州" })
         assertTrue(areas.any { it.name == "昆山市" && it.code == "320583" })

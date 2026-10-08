@@ -2,12 +2,15 @@ package com.miracle.footmarks.ui.screen.profile
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,6 +35,9 @@ import androidx.compose.ui.unit.dp
 fun LoginScreen(
     state: CloudAccountState,
     onLogin: (String, String) -> Unit,
+    onRegister: (String, String) -> Unit = onLogin,
+    onOptions: (Boolean, Boolean) -> Unit = { _, _ -> },
+    rememberedUsername: String? = null,
     onLoggedIn: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -44,7 +50,7 @@ fun LoginScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("登录共享账号") },
+                title = { Text("账号登录") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -56,6 +62,9 @@ fun LoginScreen(
         LoginContent(
             state = state,
             onLogin = onLogin,
+            onRegister = onRegister,
+            onOptions = onOptions,
+            rememberedUsername = rememberedUsername,
             modifier = Modifier.padding(paddingValues)
         )
     }
@@ -65,10 +74,16 @@ fun LoginScreen(
 fun LoginContent(
     state: CloudAccountState,
     onLogin: (String, String) -> Unit,
+    onRegister: (String, String) -> Unit = onLogin,
+    onOptions: (Boolean, Boolean) -> Unit = { _, _ -> },
+    rememberedUsername: String? = null,
     modifier: Modifier = Modifier
 ) {
-    var username by remember { mutableStateOf("shared") }
+    var username by remember { mutableStateOf(rememberedUsername.orEmpty()) }
     var password by remember { mutableStateOf("") }
+    var registering by remember { mutableStateOf(false) }
+    var keepSignedIn by remember { mutableStateOf(true) }
+    var rememberUsername by remember { mutableStateOf(rememberedUsername != null) }
 
     Column(
         modifier = modifier
@@ -77,7 +92,7 @@ fun LoginContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = "登录后可以同步旅行记录和照片。",
+            text = if (registering) "注册后即可开始记录旅行。" else "登录后可以同步旅行记录和照片。",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -96,15 +111,27 @@ fun LoginContent(
             singleLine = true,
             visualTransformation = PasswordVisualTransformation()
         )
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Checkbox(checked = keepSignedIn, onCheckedChange = { keepSignedIn = it })
+            Text("保持登录")
+        }
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Checkbox(checked = rememberUsername, onCheckedChange = { rememberUsername = it })
+            Text("记住账号（不保存密码）")
+        }
         Button(
             onClick = {
-                onLogin(username, password)
+                onOptions(keepSignedIn, rememberUsername)
+                if (registering) onRegister(username, password) else onLogin(username, password)
                 password = ""
             },
             enabled = !state.isWorking && username.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("登录并同步")
+            Text(if (registering) "注册账号" else "登录并同步")
+        }
+        TextButton(onClick = { registering = !registering }, enabled = !state.isWorking) {
+            Text(if (registering) "已有账号？去登录" else "没有账号？去注册")
         }
         if (state.isWorking) CircularProgressIndicator()
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

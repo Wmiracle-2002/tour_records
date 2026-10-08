@@ -37,6 +37,8 @@ from app.agent.memory import (
     ConversationSummaryOutput,
     ToolRunSnapshot,
 )
+from app.agent.knowledge import resolve_city_code, search_knowledge
+from app.agent.models import KnowledgeInfo
 from app.agent.reviser import LocalItineraryReviser
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.amap import AmapTransport, AmapWebClient, create_amap_tools_from_settings
@@ -261,6 +263,9 @@ class AgentRuntime:
             ),
             planning_poi_client=amap_client,
             tool_run_recorder=record_tool_run,
+            knowledge_searcher=lambda city, preferences: self._search_knowledge(
+                db, user_id, city, preferences
+            ),
         )
 
         request_id = current_request_id() or str(uuid4())
@@ -290,6 +295,18 @@ class AgentRuntime:
                 result["requirement"],
             )
         return AgentRunResult(request_id=initial["request_id"], answer=answer)
+
+    @staticmethod
+    def _search_knowledge(
+        db: Session, user_id: int, city: str, preferences: list[str],
+    ) -> list[KnowledgeInfo]:
+        city_code = resolve_city_code(city)
+        if city_code is None:
+            return []
+        rows = search_knowledge(db, user_id, city_code, keywords=preferences)
+        if not rows and preferences:
+            rows = search_knowledge(db, user_id, city_code)
+        return [KnowledgeInfo.model_validate(row.__dict__) for row in rows]
 
     def _summarize_memory(self, source: str, budget: AgentBudget) -> str:
         with budget.stage("conversation_memory_summary"):

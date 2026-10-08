@@ -14,6 +14,9 @@ from app.agent.budget import current_llm_timeout_seconds
 from app.agent.collector import ReActContext, ReActDecision
 from app.agent.observability import current_request_id
 from app.core.config import Settings, get_settings
+from app.agent.quota import TokenQuota, current_quota_user
+from app.database import create_database_engine
+from sqlalchemy.orm import sessionmaker
 
 
 logger = logging.getLogger("footmarks.agent.llm")
@@ -57,6 +60,15 @@ class OpenAICompatibleTransport:
         self._model = current_settings.llm_model
         self._timeout_seconds = current_settings.llm_timeout_seconds
         self._max_retries = current_settings.llm_max_retries
+        self._max_output_tokens = current_settings.llm_max_output_tokens
+        self._quota_engine = (
+            create_database_engine(current_settings.database_url)
+            if current_settings.token_quota_enabled else None
+        )
+        self._quota = (
+            TokenQuota(sessionmaker(bind=self._quota_engine), current_settings.default_monthly_token_limit)
+            if self._quota_engine is not None else None
+        )
         self._client = httpx.Client(
             timeout=self._timeout_seconds,
             transport=http_transport,
@@ -87,6 +99,8 @@ class OpenAICompatibleTransport:
             },
         }
 
+        if self._quota is not None:
+            request_payload["max_tokens"] = self._max_output_tokens
         total_attempts = self._max_retries + 1
         output_name = output_model.__name__
         request_id = current_request_id() or "unknown"
@@ -97,7 +111,7 @@ class OpenAICompatibleTransport:
                 current_llm_timeout_seconds() or self._timeout_seconds
             )
             try:
-                response = self._client.post(
+                response = self._post_with_quota(
                     f"{self._base_url}/chat/completions",
                     headers={
                         "Accept": "application/json",
@@ -106,6 +120,8 @@ class OpenAICompatibleTransport:
                     },
                     json=request_payload,
                     timeout=timeout_seconds,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
                 )
             except httpx.TimeoutException as error:
                 elapsed_ms = (monotonic() - started_at) * 1000
@@ -231,7 +247,12 @@ class OpenAICompatibleTransport:
         }
         if self._model.startswith("qwen3.7-"):
             request_payload["enable_thinking"] = False
+        if self._quota is not None:
+            request_payload["max_tokens"] = self._max_output_tokens
+            request_payload["stream_options"] = {"include_usage": True}
         timeout = current_llm_timeout_seconds() or self._timeout_seconds
+        quota_call = self._reserve(system_prompt, user_prompt)
+        usage: tuple[int, int] | None = None
         parts: list[str] = []
         content_size = 0
         completed = False
@@ -260,6 +281,7 @@ class OpenAICompatibleTransport:
                     try:
                         chunk = json.loads(payload)
                         if chunk.get("choices") == []:
+                            usage = self._usage_values(chunk.get("usage")) or usage
                             continue
                         delta = chunk["choices"][0]["delta"].get("content")
                     except (ValueError, KeyError, IndexError, TypeError) as error:
@@ -273,12 +295,19 @@ class OpenAICompatibleTransport:
                     if content_size > 2_000_000:
                         raise LLMInvalidResponseError("LLM stream is too large")
                     on_delta(delta)
+        except (httpx.ConnectError, httpx.ConnectTimeout) as error:
+            if quota_call is not None and self._quota is not None:
+                self._quota.release(quota_call)
+                quota_call = None
+            raise LLMUpstreamError("LLM provider connection failed") from error
         except httpx.TimeoutException as error:
             raise LLMTimeoutError(
                 f"LLM provider request timed out for {output_model.__name__}"
             ) from error
         except httpx.RequestError as error:
             raise LLMUpstreamError("LLM provider request failed") from error
+        finally:
+            self._settle(quota_call, usage)
         if not completed:
             raise LLMInvalidResponseError("LLM stream ended before completion")
         try:
@@ -296,6 +325,51 @@ class OpenAICompatibleTransport:
 
     def close(self) -> None:
         self._client.close()
+        if self._quota_engine is not None:
+            self._quota_engine.dispose()
+
+    def _reserve(self, system_prompt: str, user_prompt: str) -> str | None:
+        user_id = current_quota_user()
+        if self._quota is None or user_id is None:
+            return None
+        conservative_input = len(system_prompt.encode("utf-8")) + len(user_prompt.encode("utf-8"))
+        return self._quota.reserve(user_id, conservative_input + self._max_output_tokens)
+
+    def _settle(self, call_id: str | None, usage: tuple[int, int] | None) -> None:
+        if call_id is not None and self._quota is not None:
+            self._quota.settle(
+                call_id,
+                input_tokens=usage[0] if usage is not None else None,
+                output_tokens=usage[1] if usage is not None else None,
+            )
+
+    @staticmethod
+    def _usage_values(value: object) -> tuple[int, int] | None:
+        if not isinstance(value, dict):
+            return None
+        prompt = value.get("prompt_tokens")
+        completion = value.get("completion_tokens")
+        if type(prompt) is int and type(completion) is int and prompt >= 0 and completion >= 0:
+            return prompt, completion
+        return None
+
+    def _post_with_quota(self, url: str, *, system_prompt: str, user_prompt: str, **kwargs) -> httpx.Response:
+        call_id = self._reserve(system_prompt, user_prompt)
+        usage = None
+        try:
+            response = self._client.post(url, **kwargs)
+            try:
+                usage = self._usage_values(response.json().get("usage"))
+            except (ValueError, AttributeError):
+                pass
+            return response
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            if call_id is not None and self._quota is not None:
+                self._quota.release(call_id)
+                call_id = None
+            raise
+        finally:
+            self._settle(call_id, usage)
 
     @property
     def max_retries(self) -> int:

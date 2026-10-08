@@ -144,6 +144,18 @@ class FinalResponseGenerator:
         self._append_trip_budget(lines, collected_info, information_status)
         self._append_trip_history_notice(lines, collected_info, information_status)
         self._append_validation_notes(lines, itinerary, validation)
+        selected_names = {
+            item.poi_name for day in itinerary.days for item in day.items
+            if len(item.poi_name) >= 2
+        }
+        cited = [
+            note for note in collected_info.knowledge
+            if any(name in (note.title + note.excerpt) for name in selected_names)
+        ]
+        if cited:
+            lines.append("参考收藏：" + "、".join(
+                f"[收藏#{note.id}] {note.title}" for note in cited
+            ))
         if coarse:
             lines.append("开放时间和实际费用请在出行前核实。")
         return "\n".join(lines)

@@ -12,6 +12,7 @@ import com.miracle.footmarks.data.local.entity.TripEntity
 import com.miracle.footmarks.data.remote.RemoteRecord
 import com.miracle.footmarks.data.remote.RemoteImage
 import com.miracle.footmarks.data.remote.RemoteTrip
+import com.miracle.footmarks.data.remote.TripSyncPage
 import com.miracle.footmarks.data.repository.CloudCache
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -21,6 +22,32 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CloudCacheTest {
+    @Test
+    fun syncPagesStayWithinActiveAccountAndPersistCursor() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FootmarksDatabase::class.java).build()
+        try {
+            val cache = CloudCache(db)
+            val first = RemoteTrip(9, "320000", "320100", "南京市", "2026-10-01", "2026-10-03", emptyList())
+            val second = RemoteTrip(10, "310000", "310100", "上海市", "2026-10-01", "2026-10-03", emptyList())
+            cache.activateAccount(1)
+            cache.applySyncPage(1, TripSyncPage(listOf(first), emptyList(), "d:1", false))
+            assertEquals("d:1", cache.cursor(1))
+            cache.activateAccount(2)
+            assertEquals(null, cache.getTripByServerId(9))
+            cache.applySyncPage(2, TripSyncPage(listOf(second), emptyList(), "d:2", false))
+            assertEquals(null, cache.getTripByServerId(9))
+            cache.activateAccount(1)
+            assertEquals(9L, cache.getTripByServerId(9)?.serverId)
+            assertEquals(null, cache.getTripByServerId(10))
+            cache.applySyncPage(1, TripSyncPage(emptyList(), listOf(9), "d:3", false))
+            assertEquals(null, cache.getTripByServerId(9))
+            assertEquals("d:3", cache.cursor(1))
+        } finally {
+            db.close()
+        }
+    }
+
     @Test
     fun refreshUpdatesRemoteRowsAndPreservesExistingLocalTrip() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -96,6 +123,27 @@ class CloudCacheTest {
             val record = db.recordDao().getByServerId(17)!!
             assertEquals("27", record.remotePhotoIds)
             assertEquals("https://images.test/records/17/photo.jpg", record.remotePhotoUrls)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun signedImageUrlRefreshStaysInActiveAccount() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, FootmarksDatabase::class.java).build()
+        try {
+            val cache = CloudCache(db)
+            cache.activateAccount(7)
+            cache.applySyncPage(7, com.miracle.footmarks.data.remote.TripSyncPage(
+                listOf(RemoteTrip(9, "110000", "110100", "北京", "2026-09-01", "2026-09-03",
+                    listOf(RemoteRecord(17, 9, "FOOD", "烤鸭", "2026-09-02", null, null, null, emptyList())))),
+                emptyList(), "d:1", false,
+            ))
+            val newImage = RemoteImage(27, 17, "records/17/a.jpg", "a.jpg", "image/jpeg", 10, "https://new-url")
+            assertEquals(null, cache.updateImageUrls(8, 17, listOf(newImage)))
+            assertEquals(null, db.recordDao().getByServerId(17)?.remotePhotoUrls)
+            assertEquals("https://new-url", cache.updateImageUrls(7, 17, listOf(newImage))?.remotePhotoUrls)
         } finally {
             db.close()
         }

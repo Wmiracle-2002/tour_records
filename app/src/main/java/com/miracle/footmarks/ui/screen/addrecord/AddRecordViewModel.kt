@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.repository.CityRepository
 import com.miracle.footmarks.data.repository.CloudCoordinator
-import com.miracle.footmarks.data.repository.RecordRepository
 import com.miracle.footmarks.data.repository.TripRepository
 import com.miracle.footmarks.ui.validation.RecordInputValidator
 import com.miracle.footmarks.ui.validation.TripDateValidator
@@ -40,7 +39,6 @@ data class AddRecordUiState(
 @HiltViewModel
 class AddRecordViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val recordRepository: RecordRepository,
     private val cityRepository: CityRepository,
     private val tripRepository: TripRepository,
     private val cloud: CloudCoordinator
@@ -129,6 +127,10 @@ class AddRecordViewModel @Inject constructor(
 
     fun saveTrip(onSuccess: (Long) -> Unit) {
         val state = _uiState.value
+        if (!cloud.isCloudMode) {
+            _uiState.value = state.copy(error = "请先登录后创建旅行")
+            return
+        }
         val cityId = state.cityId
         if (cityId == null) {
             _uiState.value = state.copy(error = "请选择旅游城市")
@@ -143,16 +145,8 @@ class AddRecordViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
             try {
-                val tripId = if (cloud.isCloudMode) {
-                    val city = requireNotNull(cityRepository.getCityById(cityId)) { "城市不存在" }
-                    cloud.createTrip(city, state.tripStartDate, state.tripEndDate)
-                } else {
-                    tripRepository.createTrip(
-                        cityId = cityId,
-                        startDate = state.tripStartDate.toEpochDay() * DAY_MILLIS,
-                        endDate = state.tripEndDate.toEpochDay() * DAY_MILLIS
-                    )
-                }
+                val city = requireNotNull(cityRepository.getCityById(cityId)) { "城市不存在" }
+                val tripId = cloud.createTrip(city, state.tripStartDate, state.tripEndDate)
                 _uiState.value = _uiState.value.copy(isSaving = false)
                 onSuccess(tripId)
             } catch (error: Exception) {
@@ -166,6 +160,10 @@ class AddRecordViewModel @Inject constructor(
 
     fun saveRecord(onSuccess: () -> Unit) {
         val state = _uiState.value
+        if (!cloud.isCloudMode) {
+            _uiState.value = state.copy(error = "请先登录后添加记录")
+            return
+        }
         val tripId = state.tripId
         val validationError = RecordInputValidator.validate(
             cityId = state.cityId,
@@ -195,17 +193,10 @@ class AddRecordViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
             try {
-                if (cloud.isCloudMode) {
-                    cloud.createRecordForTrip(
-                        tripId, state.recordType, state.name, state.date,
-                        state.rating, state.cost, state.notes.ifBlank { null }, state.photoUris
-                    )
-                } else {
-                    recordRepository.createRecordForTrip(
-                        tripId, state.recordType, state.name, state.date,
-                        state.rating, state.cost, state.notes.ifBlank { null }, state.photoUris
-                    )
-                }
+                cloud.createRecordForTrip(
+                    tripId, state.recordType, state.name, state.date,
+                    state.rating, state.cost, state.notes.ifBlank { null }, state.photoUris
+                )
                 onSuccess()
             } catch (error: Exception) {
                 _uiState.value = _uiState.value.copy(

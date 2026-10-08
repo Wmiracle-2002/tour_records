@@ -31,10 +31,12 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CloudCoordinatorTest {
     @Test
-    fun loginRejectsExistingLocalTripsWithoutDeletingThem() = runBlocking {
+    fun loginClearsAnonymousTripsAndActivatesAccount() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, FootmarksDatabase::class.java).build()
         MockWebServer().use { server ->
+            server.enqueue(json("""{"access_token":"eyJhbGciOiJub25lIn0.eyJzdWIiOiIxIiwic2lkIjoxLCJyb2xlIjoidXNlciJ9.","refresh_token":"refresh","token_type":"bearer","user_id":1,"role":"user"}"""))
+            server.enqueue(json("""{"upserts":[],"deleted_ids":[],"next_cursor":"d:0","has_more":false}"""))
             server.start()
             val city = db.cityDao().insert(CityEntity(name = "北京", provinceCode = "110000", cityCode = "110100"))
             val tripId = db.tripDao().insert(TripEntity(cityId = city, startDate = 1000, endDate = 2000))
@@ -43,11 +45,11 @@ class CloudCoordinatorTest {
             })
             val coordinator = CloudCoordinator(CloudCache(db), session, PhotoManager(context))
 
-            val failure = runCatching { coordinator.login("shared", "password") }.exceptionOrNull()
-            assertTrue(failure is IllegalStateException)
-            assertTrue(!session.isCloudMode)
-            assertEquals(tripId, db.tripDao().getById(tripId)?.id)
-            assertEquals(0, server.requestCount)
+            coordinator.login("shared", "password")
+            assertTrue(session.isCloudMode)
+            assertEquals(null, db.tripDao().getById(tripId))
+            assertEquals(1L, CloudCache(db).activeAccountId())
+            assertEquals(2, server.requestCount)
         }
         db.close()
     }

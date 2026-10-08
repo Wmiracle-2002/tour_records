@@ -32,6 +32,11 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
+    status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
+    requires_password_change: Mapped[bool] = mapped_column(default=False, server_default="0")
+    monthly_token_limit: Mapped[int | None] = mapped_column(nullable=True)
+    photo_bytes_used: Mapped[int] = mapped_column(default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -39,6 +44,71 @@ class User(Base):
     trips: Mapped[list["Trip"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    refresh_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AuthRateLimit(Base):
+    __tablename__ = "auth_rate_limits"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    window_start: Mapped[int] = mapped_column()
+    attempts: Mapped[int] = mapped_column(default=0)
+
+
+class AdminAudit(Base):
+    __tablename__ = "admin_audit"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    actor_user_id: Mapped[int | None] = mapped_column(nullable=True)
+    target_user_id: Mapped[int | None] = mapped_column(nullable=True)
+    method: Mapped[str] = mapped_column(String(8))
+    route: Mapped[str] = mapped_column(String(200))
+    object_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    request_id: Mapped[str] = mapped_column(String(64))
+    status_code: Mapped[int] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MonthlyTokenUsage(Base):
+    __tablename__ = "monthly_token_usage"
+    __table_args__ = (UniqueConstraint("user_id", "period", name="uq_monthly_token_usage_user_period"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    period: Mapped[str] = mapped_column(String(7))
+    input_tokens: Mapped[int] = mapped_column(default=0)
+    output_tokens: Mapped[int] = mapped_column(default=0)
+    fallback_tokens: Mapped[int] = mapped_column(default=0)
+    reserved_tokens: Mapped[int] = mapped_column(default=0)
+
+
+class TokenUsageCall(Base):
+    __tablename__ = "token_usage_calls"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    period: Mapped[str] = mapped_column(String(7), index=True)
+    reserved_tokens: Mapped[int] = mapped_column()
+    input_tokens: Mapped[int | None] = mapped_column(nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="reserved")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TokenQuotaPolicy(Base):
+    __tablename__ = "token_quota_policy"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    default_limit: Mapped[int] = mapped_column(default=0)
 
 
 class UserPreference(Base):
@@ -60,6 +130,30 @@ class UserPreference(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class KnowledgeEntry(Base):
+    __tablename__ = "knowledge_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('note', 'travel_guide', 'food_guide', 'attraction_guide')",
+            name="ck_knowledge_entry_category",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    category: Mapped[str] = mapped_column(String(32))
+    title: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(Text)
+    city_code: Mapped[str] = mapped_column(String(6), index=True)
+    city_name: Mapped[str] = mapped_column(String(100))
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    source: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -217,6 +311,15 @@ class Trip(Base):
     records: Mapped[list["Record"]] = relationship(
         back_populates="trip", cascade="all, delete-orphan"
     )
+
+
+class TripChange(Base):
+    __tablename__ = "trip_changes"
+
+    seq: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    trip_id: Mapped[int] = mapped_column()
+    kind: Mapped[str] = mapped_column(String(8))
 
 
 class Record(Base):

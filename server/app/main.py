@@ -8,16 +8,21 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.agent.runtime import AgentRuntime
 from app.api.agent import router as agent_router
+from app.api.knowledge import router as knowledge_router
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
+from app.api.admin import router as admin_router
 from app.api.travel import router as travel_router
+from app.api.sync import router as sync_router
 from app.core.config import Settings, get_settings
 from app.core.request_context import request_context
 from app.storage import ObjectStorage, create_storage
+from app.models import AdminAudit
 
 
 http_logger = logging.getLogger("footmarks.http")
@@ -58,8 +63,11 @@ def create_app(
     application.state.agent_runtime = agent_runtime or AgentRuntime(current_settings)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(auth_router, prefix="/api/v1")
+    application.include_router(admin_router, prefix="/api/v1")
     application.include_router(travel_router, prefix="/api/v1")
+    application.include_router(sync_router, prefix="/api/v1")
     application.include_router(agent_router, prefix="/api/v1")
+    application.include_router(knowledge_router, prefix="/api/v1")
 
     @application.middleware("http")
     async def trace_request(request: Request, call_next):
@@ -90,6 +98,26 @@ def create_app(
                 raise
             finally:
                 route = request.scope.get("route")
+                if request.method in {"POST", "PATCH", "PUT", "DELETE"} and request.url.path.startswith("/api/v1/admin/"):
+                    bind = getattr(request.state, "admin_bind", None)
+                    actor_id = getattr(request.state, "admin_actor_id", None)
+                    if bind is not None and actor_id is not None:
+                        params = request.path_params
+                        object_id = next((str(params[key]) for key in ("trip_id", "record_id", "image_id", "entry_id", "conversation_id") if key in params), None)
+                        try:
+                            with Session(bind=bind) as audit_db:
+                                audit_db.add(AdminAudit(
+                                    actor_user_id=actor_id,
+                                    target_user_id=getattr(request.state, "admin_target_id", params.get("user_id")),
+                                    method=request.method,
+                                    route=getattr(route, "path", request.url.path),
+                                    object_id=object_id,
+                                    request_id=request_id,
+                                    status_code=status_code or 500,
+                                ))
+                                audit_db.commit()
+                        except Exception:
+                            http_logger.exception("Admin audit write failed request_id=%s", request_id)
                 fields = {
                     "event": "http_request_completed",
                     "request_id": request_id,

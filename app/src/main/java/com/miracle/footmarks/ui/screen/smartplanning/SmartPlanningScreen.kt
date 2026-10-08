@@ -55,6 +55,7 @@ import com.miracle.footmarks.ui.theme.ChatUserBlue
 @Composable
 fun SmartPlanningScreen(
     modifier: Modifier = Modifier,
+    onOpenKnowledge: (Long) -> Unit = {},
     viewModel: SmartPlanningViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -67,6 +68,7 @@ fun SmartPlanningScreen(
         onOpenConversation = viewModel::openConversation,
         onDeleteConversation = viewModel::deleteConversation,
         onLoadOlderMessages = viewModel::loadOlderMessages,
+        onOpenKnowledge = onOpenKnowledge,
         modifier = modifier
     )
 }
@@ -82,6 +84,7 @@ fun SmartPlanningContent(
     onOpenConversation: (String) -> Unit = {},
     onDeleteConversation: (String) -> Unit = {},
     onLoadOlderMessages: () -> Unit = {},
+    onOpenKnowledge: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showConversations by remember { mutableStateOf(false) }
@@ -189,12 +192,15 @@ fun SmartPlanningContent(
                     }
                 }
                 items(uiState.messages, key = { it.id }) { message ->
-                    ChatBubble(message)
+                    ChatBubble(message, onOpenKnowledge)
                 }
                 if (uiState.isSending) {
                     item {
                         if (uiState.streamingText.isNotEmpty()) {
-                            ChatBubble(ChatMessage(-1, ChatRole.AGENT, uiState.streamingText, "pending"))
+                            ChatBubble(
+                                ChatMessage(-1, ChatRole.AGENT, uiState.streamingText, "pending"),
+                                onOpenKnowledge
+                            )
                         } else {
                             Surface(color = AccentMintContainer, shape = RoundedCornerShape(16.dp)) {
                                 Text(
@@ -338,7 +344,7 @@ fun SmartPlanningContent(
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage) {
+private fun ChatBubble(message: ChatMessage, onOpenKnowledge: (Long) -> Unit) {
     val isUser = message.role == ChatRole.USER
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -359,6 +365,15 @@ private fun ChatBubble(message: ChatMessage) {
             SelectionContainer {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp)) {
                     Text(text = message.text)
+                    if (!isUser) {
+                        Regex("收藏#(\\d+)").findAll(message.text)
+                            .mapNotNull { it.groupValues[1].toLongOrNull() }
+                            .distinct().take(5).forEach { id ->
+                                TextButton(onClick = { onOpenKnowledge(id) }) {
+                                    Text("查看收藏 #$id")
+                                }
+                            }
+                    }
                     if (message.status == "failed" || message.status == "pending") {
                         Text(
                             text = if (message.status == "failed") "发送失败，可在输入框重试" else "处理中…",

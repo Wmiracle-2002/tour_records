@@ -12,6 +12,6 @@
 ## 开发与设计资料
 
 - 产品和客户端：[需求分析](需求分析.md)、[客户端开发计划](客户端开发计划.md)、[城市数据源](城市数据源.md)、[CRUD 功能完成总结](CRUD功能完成总结.md)。
-- 服务端：[服务端开发计划](服务端开发计划.md)、[接入 API 计划](接入API计划.md)、[Middleware 开发计划](Middleware开发计划.md)。
+- 服务端：[服务端开发计划](服务端开发计划.md)、[用户注册登录开发计划](用户注册登录开发计划.md)、[接入 API 计划](接入API计划.md)、[Middleware 开发计划](Middleware开发计划.md)。
 - Agent：[Agent 架构](Agent架构.md)、[Agent 开发计划](Agent开发计划.md)、[Agent 稳定性计划](Agent稳定性计划.md)、[Agent 稳定性测试报告](Agent稳定性测试报告.md)、[Agent 参数模型修正](Agent参数模型修正.md)、[Agent 最小化改进方案](Agent最小化改进方案.md)、[Agent 记忆系统方案](Agent记忆系统方案.md)。
-- 过程记录：[开发日志](开发日志.md)、[2026-09-25 调用参数排查](2026-09-25-agent-call-diagnosis.md)、[旧版 README 进度存档](README-开发过程存档.md)。
+- 过程记录：[开发日志](开发日志.md)、[问题排查记录](问题排查记录.md)、[2026-09-25 调用参数排查](2026-09-25-agent-call-diagnosis.md)、[旧版 README 进度存档](README-开发过程存档.md)。

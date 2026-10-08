@@ -11,9 +11,9 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from starlette.concurrency import run_in_threadpool
 
 from app.agent.budget import (
@@ -28,6 +28,7 @@ from app.agent.llm import (
     LLMTimeoutError,
     LLMUpstreamError,
 )
+from app.agent.quota import QuotaExceeded, quota_user
 from app.agent.preferences import (
     PreferenceCategory,
     PreferenceOut,
@@ -396,7 +397,7 @@ async def chat(
         _watch_client_disconnect(request, cancellation, request_id)
     )
     try:
-        with cancellation_context(cancellation):
+        with cancellation_context(cancellation), quota_user(user.id):
             runtime_options = (
                 {
                     "conversation_id": conversation.id,
@@ -428,6 +429,9 @@ async def chat(
             (monotonic() - started_at) * 1000,
         )
         raise _llm_http_exception(error) from error
+    except QuotaExceeded as error:
+        _mark_chat_failed(db, user_message)
+        raise HTTPException(status_code=429, detail="Monthly Agent token limit reached") from error
     except AgentClientDisconnected as error:
         _mark_chat_failed(db, user_message)
         logger.info(
@@ -500,6 +504,7 @@ _STAGE_LABELS = {
 }
 
 _STREAM_ERROR_MESSAGES = {
+    429: "本月智能规划额度已用完，请下月再试",
     409: "这条消息仍在处理中，请稍后查看对话",
     499: "请求已取消，请重新发送",
     502: "智能规划上游调用失败，请稍后重试",
@@ -620,12 +625,25 @@ async def stream_chat(
                     break
         finally:
             cancellation.cancel()
-            if not completed:
-                message_id = getattr(request.state, "stream_user_message_id", None)
-                if message_id is not None:
-                    _mark_chat_failed(db, db.get(ChatMessage, message_id))
             if not worker.done():
                 worker.cancel()
+                with suppress(asyncio.CancelledError):
+                    await worker
+            if not completed:
+                message_id = getattr(request.state, "stream_user_message_id", None)
+                logger.info("Agent stream cleanup request_id=%s message_id=%s", request_id, message_id)
+                if message_id is not None:
+                    try:
+                        with sessionmaker(bind=db.get_bind())() as cleanup:
+                            changed = cleanup.execute(
+                                update(ChatMessage)
+                                .where(ChatMessage.id == message_id, ChatMessage.status == "pending")
+                                .values(status="failed")
+                            )
+                            cleanup.commit()
+                            logger.info("Agent stream cleanup persisted request_id=%s rows=%s", request_id, changed.rowcount)
+                    except Exception:
+                        logger.exception("Agent stream cleanup failed request_id=%s", request_id)
             logger.info(
                 "Agent stream closed request_id=%s completed=%s duration_ms=%.0f",
                 request_id, completed, (monotonic() - stream_started_at) * 1000,

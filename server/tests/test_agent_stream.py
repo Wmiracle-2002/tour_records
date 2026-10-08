@@ -5,11 +5,14 @@ from threading import Event, Thread
 
 import httpx
 import uvicorn
+from sqlalchemy.orm import sessionmaker
 
 from app.agent.runtime import AgentRunResult
 from app.agent.llm import LLMTimeoutError
 from app.agent.observability import AgentEvent, current_preview_sink, current_stream_event_sink
-from app.models import ChatMessage
+from app.database import Base, create_database_engine, get_db
+from app.models import ChatMessage, User
+from app.security import hash_password
 
 
 def events(response):
@@ -195,7 +198,22 @@ def test_stream_sends_verified_day_preview_before_agent_finishes(client):
         server_thread.join(timeout=5)
 
 
-def test_stream_disconnect_does_not_save_partial_answer(client, db_session):
+def test_stream_disconnect_does_not_save_partial_answer(client, tmp_path):
+    # A live HTTP server and the test must not share the in-memory fixture's one SQLite connection.
+    engine = create_database_engine(f"sqlite:///{tmp_path / 'stream-disconnect.db'}")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions.begin() as setup:
+        setup.add(User(username="shared", password_hash=hash_password("test-password")))
+
+    def separate_db():
+        with sessions() as session:
+            yield session
+
+    client.app.dependency_overrides[get_db] = separate_db
+    login = client.post("/api/v1/auth/login", json={"username": "shared", "password": "test-password"})
+    assert login.status_code == 200
+    client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
     entered = Event()
     release = Event()
 
@@ -218,25 +236,36 @@ def test_stream_disconnect_does_not_save_partial_answer(client, db_session):
     server_thread = Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
     server_thread.start()
     try:
-        with httpx.Client(timeout=8) as live:
-            with live.stream(
-                "POST", f"http://127.0.0.1:{port}/api/v1/agent/chat/stream",
-                headers={"Authorization": client.headers["Authorization"]},
-                json={"message": "南京怎么玩", "conversation_id": conversation["id"]},
-            ) as response:
-                assert response.status_code == 200
-                assert next(response.iter_lines()) == "event: started"
-                assert entered.wait(5)
+        connection = socket.create_connection(("127.0.0.1", port), timeout=8)
+        body = json.dumps({"message": "南京怎么玩", "conversation_id": conversation["id"]}).encode()
+        connection.sendall(
+            b"POST /api/v1/agent/chat/stream HTTP/1.1\r\n"
+            + f"Host: 127.0.0.1:{port}\r\n".encode()
+            + f"Authorization: {client.headers['Authorization']}\r\n".encode()
+            + b"Content-Type: application/json\r\n"
+            + f"Content-Length: {len(body)}\r\n\r\n".encode()
+            + body
+        )
+        received = b""
+        while b"event: started" not in received:
+            received += connection.recv(4096)
+        assert b"200 OK" in received
+        assert entered.wait(5)
+        connection.shutdown(socket.SHUT_RDWR)
+        connection.close()
         release.set()
-        for _ in range(40):
-            db_session.expire_all()
-            user_message = db_session.query(ChatMessage).filter_by(role="user").one()
-            if user_message.status == "failed":
+        for _ in range(100):
+            with sessions() as observer:
+                user_message = observer.query(ChatMessage).filter_by(role="user").one()
+                status = user_message.status
+                assistant_count = observer.query(ChatMessage).filter_by(role="assistant").count()
+            if status == "failed":
                 break
             time.sleep(0.1)
-        assert user_message.status == "failed"
-        assert db_session.query(ChatMessage).filter_by(role="assistant").count() == 0
+        assert status == "failed"
+        assert assistant_count == 0
     finally:
         release.set()
         server.should_exit = True
         server_thread.join(timeout=5)
+        engine.dispose()

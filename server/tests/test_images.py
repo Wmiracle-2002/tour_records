@@ -91,6 +91,21 @@ def test_record_allows_at_most_nine_images(client: TestClient) -> None:
     assert len(storage.uploaded) == 9
 
 
+def test_account_photo_limit_releases_bytes_after_delete(client: TestClient) -> None:
+    storage = FakeStorage()
+    client.app.state.storage = storage
+    client.app.state.photo_storage_limit_bytes = 20
+    record_id = create_record(client)
+
+    first = upload(client, record_id)
+    assert first.status_code == 201
+    assert upload(client, record_id).status_code == 413
+    assert len(storage.uploaded) == 1
+
+    assert client.delete(f"/api/v1/images/{first.json()['id']}").status_code == 204
+    assert upload(client, record_id).status_code == 201
+
+
 def test_deleting_record_deletes_all_cos_objects(client: TestClient) -> None:
     storage = FakeStorage()
     client.app.state.storage = storage

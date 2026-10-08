@@ -23,6 +23,7 @@ from app.agent.models import (
     InfoRequirement,
     InformationStatus,
     Itinerary,
+    KnowledgeInfo,
     TravelRequirement,
     ValidationResult,
 )
@@ -94,6 +95,7 @@ def build_agent_graph(
     factual_answerer: FactualAnswerer | None = None,
     planning_poi_client: AmapWebClient | None = None,
     tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
+    knowledge_searcher: Callable[[str, list[str]], list[KnowledgeInfo]] | None = None,
 ):
     """Build and compile the V1 graph from already-tested node dependencies."""
     if max_validation_rounds < 0:
@@ -104,7 +106,7 @@ def build_agent_graph(
     builder.add_node(
         "initialize_information",
         lambda state: _initialize_information_node(
-            state, planning_poi_client, tool_run_recorder
+            state, planning_poi_client, tool_run_recorder, knowledge_searcher
         ),
     )
     builder.add_node("react_collector", _collector_node(collector))
@@ -271,10 +273,13 @@ def _initialize_information_node(
     state: TravelAgentState,
     planning_poi_client: AmapWebClient | None = None,
     tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
+    knowledge_searcher: Callable[[str, list[str]], list[KnowledgeInfo]] | None = None,
 ) -> dict[str, Any]:
     requirement = state["requirement"]
     status = initialize_information_status(requirement)
     collected = CollectedInfo()
+    if requirement.intent == "trip_planning" and requirement.city and knowledge_searcher:
+        collected.knowledge = knowledge_searcher(requirement.city, requirement.preferences)
     if requirement.intent == "trip_planning" and requirement.duration_days is not None:
         budget_result = EstimateBudgetTool().run(
             city=requirement.city,
@@ -326,6 +331,12 @@ def _initialize_information_node(
                 critical=True,
                 reason="；".join(errors) if errors else None,
             )
+            if collected.knowledge:
+                notes = " ".join(item.title + " " + item.excerpt for item in collected.knowledge)
+                collected.pois.sort(
+                    key=lambda poi: len(poi.name) >= 2 and poi.name in notes,
+                    reverse=True,
+                )
     return {
         "information_status": status,
         "collected_info": collected,

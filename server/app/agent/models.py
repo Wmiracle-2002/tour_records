@@ -203,6 +203,18 @@ class BudgetInfo(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
 
 
+class KnowledgeInfo(BaseModel):
+    """A bounded excerpt from one user-owned travel note."""
+
+    id: int
+    title: str
+    category: str
+    city_code: str
+    tags: list[str] = Field(default_factory=list)
+    excerpt: str
+    updated_at: str
+
+
 class CollectedInfo(BaseModel):
     """Agent 已经收集到的结构化业务信息。"""
 
@@ -212,6 +224,7 @@ class CollectedInfo(BaseModel):
     routes: list[RouteInfo] = Field(default_factory=list)
     distances: list[DistanceInfo] = Field(default_factory=list)
     budget: BudgetInfo | None = None
+    knowledge: list[KnowledgeInfo] = Field(default_factory=list)
 
 
 class ItineraryItem(BaseModel):

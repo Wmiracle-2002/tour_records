@@ -5,6 +5,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.miracle.footmarks.ui.navigation.MainBottomBar
+import com.miracle.footmarks.ui.navigation.Screen
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -96,6 +104,25 @@ class SmartPlanningScreenTest {
         restorationTester.emulateSavedInstanceStateRestore()
 
         composeRule.onNodeWithText("周末去苏州").assertIsDisplayed()
+    }
+
+    @Test
+    fun opensCitedKnowledgeFromAgentAnswer() {
+        var openedId: Long? = null
+        composeRule.setContent {
+            SmartPlanningContent(
+                uiState = SmartPlanningUiState(
+                    messages = listOf(ChatMessage(1, ChatRole.AGENT, "参考收藏：[收藏#42] 南京美食"))
+                ),
+                onDraftChange = {},
+                onSend = {},
+                onDismissError = {},
+                onOpenKnowledge = { openedId = it }
+            )
+        }
+
+        composeRule.onNodeWithText("查看收藏 #42").performClick()
+        assertTrue(openedId == 42L)
     }
 
     @Test
@@ -233,6 +260,63 @@ class SmartPlanningScreenTest {
         composeRule.onAllNodesWithText("删除")[0].performClick()
         composeRule.onNodeWithText("删除对话？").assertIsDisplayed()
         composeRule.onAllNodesWithText("删除").get(1).performClick()
+    }
+
+    @Test
+    fun returnsToPlanningWhileReplyFinishesOnAnotherTab() {
+        var state by mutableStateOf(SmartPlanningUiState(
+            messages = (1L..50L).map { ChatMessage(it, ChatRole.AGENT, "历史回答 $it") },
+            hasOlderMessages = true
+        ))
+        composeRule.setContent {
+            val navController = rememberNavController()
+            Column {
+                NavHost(navController, startDestination = Screen.Records.route,
+                    modifier = Modifier.weight(1f)) {
+                    composable(Screen.Records.route) { Text("记录页内容") }
+                    composable(Screen.SmartPlanning.route) {
+                        SmartPlanningContent(
+                            uiState = state,
+                            onDraftChange = { state = state.copy(draft = it) },
+                            onSend = {
+                                state = state.copy(
+                                    messages = state.messages + ChatMessage(51, ChatRole.USER, state.draft),
+                                    draft = "",
+                                    isSending = true,
+                                    streamingStage = "正在规划行程"
+                                )
+                            },
+                            onDismissError = {}
+                        )
+                    }
+                    composable(Screen.Profile.route) { Text("个人中心内容") }
+                }
+                MainBottomBar(navController)
+            }
+        }
+
+        composeRule.onNodeWithText("智能规划").performClick()
+        composeRule.onNodeWithText("说说你想去哪里").performTextInput("南京三日游")
+        composeRule.onNodeWithContentDescription("发送").performClick()
+        composeRule.onNodeWithText("个人中心").performClick()
+        composeRule.onNodeWithText("个人中心内容").assertIsDisplayed()
+        composeRule.onNodeWithText("智能规划").performClick()
+        composeRule.onNodeWithText("正在规划行程").assertIsDisplayed()
+        composeRule.onNodeWithText("记录").performClick()
+        composeRule.onNodeWithText("记录页内容").assertIsDisplayed()
+        composeRule.runOnUiThread {
+            state = state.copy(
+                messages = listOf(
+                    ChatMessage(51, ChatRole.USER, "南京三日游"),
+                    ChatMessage(52, ChatRole.AGENT, "这是规划结果")
+                ),
+                hasOlderMessages = false,
+                isSending = false,
+                streamingStage = null
+            )
+        }
+        composeRule.onNodeWithText("智能规划").performClick()
+        composeRule.onNodeWithText("这是规划结果").assertIsDisplayed()
     }
 
     private fun setInteractiveContent(initial: SmartPlanningUiState = SmartPlanningUiState()) {

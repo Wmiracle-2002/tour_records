@@ -51,7 +51,7 @@ def db_session() -> Iterator[Session]:
 def client(db_session: Session) -> Iterator[TestClient]:
     db_session.add(User(username="shared", password_hash=hash_password("test-password")))
     db_session.commit()
-    app = create_app(Settings(database_url="sqlite:///:memory:", token_secret="test-only-secret-for-test-cases-only"))
+    app = create_app(Settings(database_url="sqlite:///:memory:", token_secret="test-only-secret-for-test-cases-only", public_registration_enabled=True))
     app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app) as test_client:
         response = test_client.post(

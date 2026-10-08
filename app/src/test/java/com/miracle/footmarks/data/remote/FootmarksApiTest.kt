@@ -12,6 +12,58 @@ import org.junit.Test
 
 class FootmarksApiTest {
     @Test
+    fun existingSessionLoadsItsUsernameFromCurrentAccount() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(
+                """{"id":7,"username":"ccqq","role":"user","status":"active","requires_password_change":false}"""
+            ))
+            server.start()
+            val store = MemoryTokenStore().apply {
+                tokens = Tokens("access", "refresh", userId = 7)
+            }
+            val session = CloudSession(FootmarksApi.create(server.url("/").toString()), store)
+
+            assertEquals("ccqq", session.resolveAccountUsername())
+            assertEquals("ccqq", store.tokens?.username)
+            val request = server.takeRequest()
+            assertEquals("/api/v1/auth/me", request.path)
+            assertEquals("Bearer access", request.getHeader("Authorization"))
+        }
+    }
+
+    @Test
+    fun knowledgeEndpointsKeepCityAndOwnershipContract() = runBlocking {
+        MockWebServer().use { server ->
+            val entry = """{"id":7,"category":"food_guide","title":"南京小吃","body":"鸭血粉丝汤","city_code":"320100","city_name":"南京市","tags":["小吃"],"source":null,"created_at":"now","updated_at":"now"}"""
+            server.enqueue(MockResponse().setBody("[$entry]"))
+            server.enqueue(MockResponse().setBody(entry))
+            server.enqueue(MockResponse().setResponseCode(201).setBody(entry))
+            server.enqueue(MockResponse().setBody(entry))
+            server.enqueue(MockResponse().setResponseCode(204))
+            server.start()
+            val api = FootmarksApi.create(server.url("/").toString())
+            val request = KnowledgeRequest(
+                "food_guide", "南京小吃", "鸭血粉丝汤", "320100", "南京市", listOf("小吃"), null
+            )
+
+            assertEquals("320100", api.getKnowledge("Bearer token").single().cityCode)
+            assertEquals("南京小吃", api.getKnowledgeEntry("Bearer token", 7).title)
+            api.createKnowledge("Bearer token", request)
+            api.updateKnowledge("Bearer token", 7, request)
+            api.deleteKnowledge("Bearer token", 7)
+
+            assertEquals("/api/v1/agent/knowledge", server.takeRequest().path)
+            assertEquals("/api/v1/agent/knowledge/7", server.takeRequest().path)
+            val created = server.takeRequest()
+            assertEquals("POST", created.method)
+            assertEquals("Bearer token", created.getHeader("Authorization"))
+            assertEquals(true, created.body.readUtf8().contains("\"city_code\":\"320100\""))
+            assertEquals("PATCH", server.takeRequest().method)
+            assertEquals("DELETE", server.takeRequest().method)
+        }
+    }
+
+    @Test
     fun readsCreatesUpdatesAndDeletesTravelPreferences() = runBlocking {
         MockWebServer().use { server ->
             val preference = """{"id":4,"category":"food_restriction","content":"不吃辣","created_at":"now","updated_at":"now"}"""
@@ -224,7 +276,7 @@ class FootmarksApiTest {
             )
             server.start()
             val store = MemoryTokenStore().apply {
-                tokens = Tokens("old-access", "refresh")
+                tokens = Tokens("old-access", "refresh", username = "ccqq")
             }
             val session = CloudSession(FootmarksApi.create(server.url("/").toString()), store)
 
@@ -239,6 +291,7 @@ class FootmarksApiTest {
             assertEquals("Bearer new-access", retriedRequest.getHeader("Authorization"))
             assertEquals("req-2", response.requestId)
             assertEquals("new-refresh", store.tokens?.refreshToken)
+            assertEquals("ccqq", store.tokens?.username)
         }
     }
 

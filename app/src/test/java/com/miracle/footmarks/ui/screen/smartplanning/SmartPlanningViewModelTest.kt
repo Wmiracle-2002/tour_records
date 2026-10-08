@@ -479,6 +479,60 @@ private class FakeFootmarksApi(
     private val conversations: List<RemoteConversation> = emptyList(),
     private val messages: Map<String, List<RemoteConversationMessage>> = emptyMap()
 ) : FootmarksApi {
+    override suspend fun myAccount(authorization: String) = unsupported<com.miracle.footmarks.data.remote.AccountInfo>()
+    override suspend fun deleteMyAccount(authorization: String, request: com.miracle.footmarks.data.remote.DeleteAccountRequest) = unsupported<Unit>()
+    override suspend fun myQuota(authorization: String): com.miracle.footmarks.data.remote.TokenQuotaBalance = unsupported()
+    override suspend fun adminUsers(authorization: String): List<com.miracle.footmarks.data.remote.AdminUser> = unsupported()
+    override suspend fun adminCreateUser(authorization: String, request: LoginRequest): com.miracle.footmarks.data.remote.AdminUser = unsupported()
+    override suspend fun adminSetStatus(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.AdminStatusRequest): com.miracle.footmarks.data.remote.AdminUser = unsupported()
+    override suspend fun adminResetPassword(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.AdminPasswordRequest) = unsupported<Unit>()
+    override suspend fun adminSetQuota(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.AdminQuotaRequest): com.miracle.footmarks.data.remote.AdminUser = unsupported()
+    override suspend fun adminUserQuota(authorization: String, userId: Long): com.miracle.footmarks.data.remote.TokenQuotaBalance = unsupported()
+    override suspend fun adminDefaultQuota(authorization: String): com.miracle.footmarks.data.remote.AdminDefaultQuota = unsupported()
+    override suspend fun changePassword(authorization: String, request: com.miracle.footmarks.data.remote.PasswordChangeRequest) = unsupported<Unit>()
+    override suspend fun getRecordImages(authorization: String, recordId: Long): List<com.miracle.footmarks.data.remote.RemoteImage> = unsupported()
+    override suspend fun adminSetDefaultQuota(authorization: String, request: com.miracle.footmarks.data.remote.AdminDefaultQuota): com.miracle.footmarks.data.remote.AdminDefaultQuota = unsupported()
+    override suspend fun adminCreateRecord(authorization: String, userId: Long, tripId: Long, record: com.miracle.footmarks.data.remote.RecordRequest): com.miracle.footmarks.data.remote.RemoteRecord = unsupported()
+    override suspend fun adminUpdateRecord(authorization: String, userId: Long, recordId: Long, record: com.miracle.footmarks.data.remote.RecordRequest): com.miracle.footmarks.data.remote.RemoteRecord = unsupported()
+    override suspend fun adminDeleteRecord(authorization: String, userId: Long, recordId: Long) = unsupported<Unit>()
+    override suspend fun adminDeleteImage(authorization: String, userId: Long, imageId: Long) = unsupported<Unit>()
+    override suspend fun adminUploadImage(authorization: String, userId: Long, recordId: Long, file: okhttp3.MultipartBody.Part): com.miracle.footmarks.data.remote.RemoteImage = unsupported()
+    override suspend fun adminKnowledge(authorization: String, userId: Long): List<com.miracle.footmarks.data.remote.RemoteKnowledge> = unsupported()
+    override suspend fun adminCreateKnowledge(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.KnowledgeRequest): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+    override suspend fun adminUpdateKnowledge(authorization: String, userId: Long, entryId: Long, request: com.miracle.footmarks.data.remote.KnowledgeRequest): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+    override suspend fun adminDeleteKnowledge(authorization: String, userId: Long, entryId: Long) = unsupported<Unit>()
+    override suspend fun adminConversations(authorization: String, userId: Long): List<com.miracle.footmarks.data.remote.RemoteConversation> = unsupported()
+    override suspend fun adminDeleteConversation(authorization: String, userId: Long, conversationId: String) = unsupported<Unit>()
+    override suspend fun adminPreferences(authorization: String, userId: Long): List<com.miracle.footmarks.data.remote.RemotePreference> = unsupported()
+    override suspend fun adminUpsertPreference(authorization: String, userId: Long, category: String, request: com.miracle.footmarks.data.remote.PreferenceRequest): com.miracle.footmarks.data.remote.RemotePreference = unsupported()
+    override suspend fun adminDeletePreference(authorization: String, userId: Long, category: String) = unsupported<Unit>()
+    override suspend fun adminDeleteUser(authorization: String, userId: Long) = unsupported<Unit>()
+    override suspend fun adminTrips(authorization: String, userId: Long): List<RemoteTrip> = unsupported()
+    override suspend fun adminCreateTrip(authorization: String, userId: Long, trip: TripRequest): RemoteTripSummary = unsupported()
+    override suspend fun adminUpdateTrip(authorization: String, userId: Long, tripId: Long, trip: TripRequest): RemoteTrip = unsupported()
+    override suspend fun adminDeleteTrip(authorization: String, userId: Long, tripId: Long) = unsupported<Unit>()
+    override suspend fun syncTrips(authorization: String, cursor: String?, limit: Int): com.miracle.footmarks.data.remote.TripSyncPage = unsupported()
+    override suspend fun register(request: LoginRequest): Tokens = unsupported()
+    override suspend fun logout(authorization: String) = unsupported<Unit>()
+    override suspend fun getKnowledge(
+        authorization: String, query: String?
+    ): List<com.miracle.footmarks.data.remote.RemoteKnowledge> = emptyList()
+
+    override suspend fun getKnowledgeEntry(
+        authorization: String, entryId: Long
+    ): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+
+    override suspend fun createKnowledge(
+        authorization: String, request: com.miracle.footmarks.data.remote.KnowledgeRequest
+    ): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+
+    override suspend fun updateKnowledge(
+        authorization: String, entryId: Long,
+        request: com.miracle.footmarks.data.remote.KnowledgeRequest
+    ): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+
+    override suspend fun deleteKnowledge(authorization: String, entryId: Long) = Unit
+
     var chatCalls = 0
     val sentClientMessageIds = mutableListOf<String?>()
     var createConversationCalls = 0

@@ -17,7 +17,7 @@ from app.agent.models import Itinerary, TravelRequirement
 from app.agent.observability import RecordingAgentObserver
 from app.agent.runtime import AgentRuntime
 from app.core.config import Settings
-from app.models import Record, RecordType, Trip
+from app.models import KnowledgeEntry, Record, RecordType, Trip
 
 
 class ScenarioLLM:
@@ -221,6 +221,40 @@ def test_authenticated_chat_scenarios_keep_request_trace_and_verified_facts(
     amap_logs = [json.loads(record.message) for record in caplog.records if record.name == "footmarks.agent.amap"]
     assert all(event["request_id"] == trace_id for event in amap_logs)
     assert all("fake-key" not in record.message for record in caplog.records)
+
+
+def test_planning_cites_owned_note_then_stops_after_edit_and_delete(
+    client: TestClient, db_session: Session,
+) -> None:
+    note = KnowledgeEntry(
+        user_id=1, category="food_guide", title="南京小吃",
+        body="鸭血粉丝汤值得尝试", city_code="320100", city_name="南京市", tags=["美食"],
+    )
+    db_session.add(note)
+    db_session.commit()
+    client.app.state.agent_runtime = AgentRuntime(
+        settings=Settings(token_secret="test-only-secret", amap_web_key="fake-key"),
+        llm_client=ScenarioLLM(TravelRequirement(
+            intent="trip_planning", city="南京", duration_days=1,
+        )),
+        amap_transport=provider([]),
+    )
+
+    def plan() -> str:
+        response = client.post("/api/v1/agent/chat", json={
+            "message": "规划南京一日游",
+        })
+        assert response.status_code == 200
+        return response.json()["answer"]
+
+    assert f"收藏#{note.id}" in plan()
+    note.body = "请提前预约博物馆"
+    note.title = "南京博物馆"
+    db_session.commit()
+    assert f"收藏#{note.id}" not in plan()
+    db_session.delete(note)
+    db_session.commit()
+    assert f"收藏#{note.id}" not in plan()
 
 
 @pytest.mark.parametrize(
