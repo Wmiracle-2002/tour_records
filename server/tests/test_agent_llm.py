@@ -1,10 +1,12 @@
 import json
+import logging
 from collections.abc import Callable
 
 import httpx
 import pytest
 from pydantic import BaseModel
 
+from app.agent.budget import AgentBudget
 from app.agent.llm import (
     LLMInvalidResponseError,
     LLMNotConfiguredError,
@@ -13,6 +15,7 @@ from app.agent.llm import (
     OpenAICompatibleTransport,
     StructuredLLMClient,
 )
+from app.agent.observability import request_context
 from app.core.config import Settings
 
 
@@ -78,6 +81,99 @@ def test_structured_client_sends_json_schema_and_validates_result() -> None:
     assert result == Answer(answer="hello")
 
 
+def test_json_object_mode_includes_schema_in_prompt_and_validates_result() -> None:
+    result, requests = run_client(
+        lambda request: response_with_content('{"answer":"hello"}'),
+        llm_structured_output_mode="json_object",
+    )
+    payload = json.loads(requests[0].content)
+    assert payload["response_format"] == {"type": "json_object"}
+    assert '"required": ["answer"]' in payload["messages"][0]["content"]
+    assert result.answer == "hello"
+
+
+def test_json_object_mode_does_not_accept_schema_invalid_result() -> None:
+    with pytest.raises(LLMInvalidResponseError):
+        run_client(lambda request: response_with_content('{"answer":null}'),
+                   llm_structured_output_mode="json_object", llm_max_retries=0)
+
+
+@pytest.mark.parametrize("mode", ["json_schema", "json_object"])
+def test_structured_client_streams_json_fragments_before_completion(mode: str) -> None:
+    received: list[str] = []
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        chunks = (
+            'data: {"choices":[{"delta":{"content":"{\\"answer\\":\\"he"}}]}\n\n'
+            'data: {"choices":[{"delta":{"content":"llo\\"}"}}]}\n\n'
+            'data: {"choices":[],"usage":{"total_tokens":12}}\n\n'
+            'data: [DONE]\n\n'
+        )
+        return httpx.Response(200, text=chunks, headers={"Content-Type": "text/event-stream"})
+
+    transport = OpenAICompatibleTransport(
+        settings(llm_structured_output_mode=mode), http_transport=httpx.MockTransport(handler),
+    )
+    result = StructuredLLMClient(transport).complete_structured_stream(
+        system_prompt="Return JSON", user_prompt="Say hello",
+        output_model=Answer, on_delta=received.append,
+    )
+
+    assert json.loads(requests[0].content)["stream"] is True
+    assert json.loads(requests[0].content)["response_format"]["type"] == mode
+    assert received == ['{"answer":"he', 'llo"}']
+    assert result == Answer(answer="hello")
+
+
+def test_structured_stream_rejects_missing_done_marker() -> None:
+    transport = OpenAICompatibleTransport(
+        settings(),
+        http_transport=httpx.MockTransport(lambda _request: httpx.Response(
+            200,
+            text='data: {"choices":[{"delta":{"content":"{\\"answer\\":\\"hello\\"}"}}]}\n\n',
+            headers={"Content-Type": "text/event-stream"},
+        )),
+    )
+
+    with pytest.raises(LLMInvalidResponseError, match="before completion"):
+        StructuredLLMClient(transport).complete_structured_stream(
+            system_prompt="Return JSON", user_prompt="Say hello",
+            output_model=Answer, on_delta=lambda _delta: None,
+        )
+
+
+def test_qwen37_structured_stream_disables_thinking_for_early_content() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, text=(
+            'data: {"choices":[{"delta":{"content":"{\\"answer\\":\\"ok\\"}"}}]}\n\n'
+            'data: [DONE]\n\n'
+        ))
+
+    transport = OpenAICompatibleTransport(
+        settings(llm_model="qwen3.7-flash-2026-07-15"),
+        http_transport=httpx.MockTransport(handler),
+    )
+    StructuredLLMClient(transport).complete_structured_stream(
+        system_prompt="Return JSON", user_prompt="hello", output_model=Answer,
+        on_delta=lambda _part: None,
+    )
+
+    assert json.loads(requests[0].content)["enable_thinking"] is False
+
+
+def test_llm_completion_log_contains_request_id(caplog) -> None:
+    with caplog.at_level(logging.INFO, logger="footmarks.agent.llm"):
+        with request_context("req-llm-1"):
+            run_client(lambda request: response_with_content('{"answer":"hello"}'))
+
+    assert "request_id=req-llm-1" in caplog.text
+
+
 def test_missing_configuration_is_rejected_before_network_call() -> None:
     transport = OpenAICompatibleTransport(
         Settings(_env_file=None),
@@ -106,6 +202,30 @@ def test_timeout_is_converted_to_llm_timeout_error_without_retry() -> None:
         run_client(timeout_handler)
 
     assert calls == 1
+
+
+def test_agent_stage_budget_overrides_provider_request_timeout() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return response_with_content('{"answer":"hello"}')
+
+    settings_for_test = settings(llm_timeout_seconds=30.0)
+    transport = OpenAICompatibleTransport(
+        settings_for_test,
+        http_transport=httpx.MockTransport(handler),
+    )
+    budget = AgentBudget(total_timeout_seconds=60.0, stage_timeout_seconds=2.0)
+
+    with budget.stage("react_decision"):
+        StructuredLLMClient(transport).complete_structured(
+            system_prompt="Return JSON",
+            user_prompt="Say hello",
+            output_model=Answer,
+        )
+
+    assert requests[0].extensions["timeout"]["read"] == pytest.approx(2.0, abs=0.01)
 
 
 @pytest.mark.parametrize("status_code", [429, 500, 503])

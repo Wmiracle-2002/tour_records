@@ -23,7 +23,7 @@ from app.agent.state import TravelAgentState
 def test_travel_requirement_uses_safe_defaults_and_optional_fields() -> None:
     requirement = TravelRequirement(intent="general_query")
 
-    assert requirement.destination is None
+    assert requirement.city is None
     assert requirement.preferences == []
     assert requirement.constraints == []
 
@@ -35,6 +35,103 @@ def test_travel_requirement_uses_safe_defaults_and_optional_fields() -> None:
 def test_invalid_intent_is_rejected() -> None:
     with pytest.raises(ValidationError):
         TravelRequirement(intent="unknown_query")
+
+
+def test_requirement_uses_city_for_city_and_destination_only_for_route_endpoints() -> None:
+    weather = TravelRequirement(intent="weather_query", city="南京")
+    route = TravelRequirement(
+        intent="route_query", origin="中山陵", destination="夫子庙"
+    )
+
+    assert weather.city == "南京"
+    assert route.destination == "夫子庙"
+    with pytest.raises(ValidationError):
+        TravelRequirement(intent="weather_query", destination="南京")
+
+
+def test_distance_requirement_keeps_city_and_endpoint_names_separate() -> None:
+    requirement = TravelRequirement(
+        intent="distance_query",
+        city="南京",
+        origin="中山陵",
+        destination="夫子庙",
+        distance_mode="straight",
+    )
+    assert requirement.city == "南京"
+    assert requirement.destination == "夫子庙"
+    assert requirement.distance_mode == "straight"
+
+
+def test_weather_requirement_has_explicit_time_kind() -> None:
+    requirement = TravelRequirement(
+        intent="weather_query",
+        city="南京",
+        date_expression="今晚",
+        start_date="2026-09-25",
+        weather_time_kind="forecast_date",
+    )
+    assert requirement.weather_time_kind == "forecast_date"
+    with pytest.raises(ValidationError):
+        TravelRequirement(intent="history_query", weather_time_kind="realtime")
+
+
+def test_itinerary_accepts_day_number_and_coarse_period_without_clock_times() -> None:
+    itinerary = Itinerary(
+        days=[
+            ItineraryDay(
+                day_number=1,
+                items=[
+                    ItineraryItem(
+                        poi_id="p1",
+                        poi_name="中山陵",
+                        period="morning",
+                        activity_type="ATTRACTION",
+                    ),
+                    ItineraryItem(
+                        poi_id="p2",
+                        poi_name="南京小吃店",
+                        period="lunch",
+                        activity_type="FOOD",
+                    ),
+                ],
+            )
+        ]
+    )
+    assert itinerary.days[0].date is None
+    assert itinerary.days[0].items[0].start_time is None
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"poi_id": "p1", "poi_name": "中山陵", "activity_type": "ATTRACTION"},
+        {
+            "poi_id": "p1",
+            "poi_name": "中山陵",
+            "activity_type": "ATTRACTION",
+            "period": "noonish",
+        },
+        {
+            "poi_id": "p1",
+            "poi_name": "中山陵",
+            "activity_type": "ATTRACTION",
+            "start_time": "09:00",
+        },
+    ],
+)
+def test_itinerary_rejects_incomplete_or_unknown_time_slots(item: dict) -> None:
+    with pytest.raises(ValidationError):
+        ItineraryItem(**item)
+
+
+def test_itinerary_day_requires_date_or_day_number() -> None:
+    with pytest.raises(ValidationError):
+        ItineraryDay(items=[])
+
+
+def test_requirement_rejects_unknown_fields() -> None:
+    with pytest.raises(ValidationError):
+        TravelRequirement(intent="general_query", location="南京")
 
 
 def test_invalid_information_status_is_rejected() -> None:
@@ -214,7 +311,7 @@ def test_complete_state_validates_and_round_trips() -> None:
         "messages": [{"role": "user", "content": "帮我规划南京三日游"}],
         "requirement": TravelRequirement(
             intent="trip_planning",
-            destination="南京",
+            city="南京",
             duration_days=3,
         ),
         "information_status": InformationStatus(

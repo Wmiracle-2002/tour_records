@@ -34,7 +34,7 @@ class FakeItineraryClient:
 def build_requirement() -> TravelRequirement:
     return TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         start_date="2026-10-01",
         duration_days=2,
         preferences=["历史文化"],
@@ -107,10 +107,52 @@ def test_generator_requests_structured_itinerary_and_preserves_poi_ids() -> None
     assert "不要输出自然语言旅行攻略" in ITINERARY_GENERATOR_SYSTEM_PROMPT
 
 
+def test_generator_previews_first_verified_day_before_model_finishes() -> None:
+    itinerary = build_itinerary()
+    raw = itinerary.model_dump_json()
+    boundary = raw.index('},{') + 1
+    previews: list[str] = []
+
+    class StreamingClient:
+        def complete_structured_stream(self, *, on_delta, **_kwargs):
+            on_delta(raw[:boundary])
+            assert len(previews) == 1
+            assert "中山陵" in previews[0]
+            assert "夫子庙" not in previews[0]
+            on_delta(raw[boundary:])
+            return itinerary
+
+    result = StructuredItineraryGenerator(
+        StreamingClient(), on_preview=previews.append,
+    ).generate(build_requirement(), build_collected_info())
+
+    assert result == itinerary
+    assert len(previews) == 2
+    assert "夫子庙" in previews[1]
+
+
+def test_generator_does_not_preview_day_with_unknown_poi() -> None:
+    itinerary = build_itinerary()
+    itinerary.days[0].items[0].poi_id = "UNKNOWN"
+    previews: list[str] = []
+
+    class StreamingClient:
+        def complete_structured_stream(self, *, on_delta, **_kwargs):
+            on_delta(itinerary.model_dump_json())
+            return itinerary
+
+    with pytest.raises(ValueError, match="unknown poi_id"):
+        StructuredItineraryGenerator(
+            StreamingClient(), on_preview=previews.append,
+        ).generate(build_requirement(), build_collected_info())
+
+    assert previews == []
+
+
 def test_generator_prompt_declares_exact_itinerary_shape() -> None:
     assert "根对象只能包含 days" in ITINERARY_GENERATOR_SYSTEM_PROMPT
     assert "不要使用 itinerary 字段包裹" in ITINERARY_GENERATOR_SYSTEM_PROMPT
-    assert "poi_id、poi_name、start_time、end_time、activity_type" in ITINERARY_GENERATOR_SYSTEM_PROMPT
+    assert "poi_id、poi_name、period、activity_type" in ITINERARY_GENERATOR_SYSTEM_PROMPT
     assert "days 必须恰好包含 duration_days 天" in ITINERARY_GENERATOR_SYSTEM_PROMPT
 
 

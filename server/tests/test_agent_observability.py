@@ -23,14 +23,19 @@ from app.agent.observability import (
     AgentEvent,
     RecordingAgentObserver,
     StructuredLoggingObserver,
+    current_request_id,
+    request_context,
 )
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
+from app.agent.tools.amap import WeatherInput
 
 
 class WeatherTool:
     name = "weather"
     description = "查询天气"
+    input_model = WeatherInput
+    information_need = "weather"
 
     def run(self, **_arguments: Any) -> ToolResult[dict[str, Any]]:
         return ToolResult.completed(
@@ -47,12 +52,22 @@ class WeatherTool:
         )
 
 
+class FailingWeatherTool:
+    name = "weather"
+    description = "weather"
+    input_model = WeatherInput
+    information_need = "weather"
+
+    def run(self, **_arguments: Any) -> ToolResult[dict[str, Any]]:
+        return ToolResult.failed("INVALID_USER_KEY", error_code="amap_api_error")
+
+
 class OneDecisionClient:
     def decide(self, _context):
         return ReActDecision(
             tool_call=ToolCall(
                 name="weather",
-                arguments={"city": "南京", "prompt": "不要记录这个参数"},
+                arguments={"city": "不可记录参数"},
             )
         )
 
@@ -128,9 +143,18 @@ def test_initial_state_contains_request_identity_and_start_time() -> None:
     assert first["run_started_at"] > 0
 
 
-def test_collector_records_tool_lifecycle_without_raw_payload() -> None:
+def test_request_context_exposes_and_restores_request_id() -> None:
+    assert current_request_id() is None
+
+    with request_context("req-context-1"):
+        assert current_request_id() == "req-context-1"
+
+    assert current_request_id() is None
+
+
+def test_collector_records_tool_arguments_without_raw_response_payload() -> None:
     observer = RecordingAgentObserver()
-    requirement = TravelRequirement(intent="weather_query", destination="南京")
+    requirement = TravelRequirement(intent="weather_query", city="南京")
     registry = ToolRegistry()
     registry.register(WeatherTool())
     state = {
@@ -154,19 +178,57 @@ def test_collector_records_tool_lifecycle_without_raw_payload() -> None:
     ).collect_round(state)
 
     assert [event.event for event in observer.events] == [
+        "stage_started",
+        "stage_completed",
         "tool_started",
         "tool_completed",
         "information_updated",
     ]
-    completed = observer.events[1]
+    assert observer.events[0].stage_name == "react_decision"
+    assert observer.events[1].stage_duration_ms is not None
+    assert observer.events[1].stage_status == "success"
+    completed = observer.events[3]
     assert completed.request_id == "req-tool-1"
     assert completed.tool_name == "weather"
     assert completed.tool_success is True
     assert completed.tool_duration_ms is not None
-    assert observer.events[2].information_status == {"weather": "completed"}
+    assert observer.events[2].tool_arguments == {"city": "不可记录参数"}
+    assert completed.executed_tool_arguments == {"city": "不可记录参数"}
+    assert observer.events[4].information_status == {"weather": "completed"}
     serialized = " ".join(event.model_dump_json() for event in observer.events)
     assert "晴" not in serialized
-    assert "不要记录这个参数" not in serialized
+    assert "不可记录参数" in serialized
+
+
+def test_collector_records_tool_error_reason_without_raw_payload() -> None:
+    observer = RecordingAgentObserver()
+    requirement = TravelRequirement(intent="weather_query", city="鍗椾含")
+    registry = ToolRegistry()
+    registry.register(FailingWeatherTool())
+    state = {
+        "messages": ["weather"],
+        "requirement": requirement,
+        "information_status": initialize_information_status(requirement),
+        "collected_info": CollectedInfo(),
+        "itinerary": None,
+        "validation": None,
+        "react_round": 0,
+        "request_id": "req-tool-error-1",
+        "run_started_at": monotonic(),
+        "validation_round": 0,
+        "final_response": None,
+    }
+
+    ReActCollector(
+        ToolLayer(registry),
+        OneDecisionClient(),
+        observer=observer,
+    ).collect_round(state)
+
+    completed = observer.events[3]
+    assert completed.tool_success is False
+    assert completed.error_code == "amap_api_error"
+    assert completed.error_message == "INVALID_USER_KEY"
 
 
 def test_graph_records_node_events_and_validation_status() -> None:
@@ -178,7 +240,7 @@ def test_graph_records_node_events_and_validation_status() -> None:
         analyzer=FakeAnalyzer(
             TravelRequirement(
                 intent="trip_planning",
-                destination="南京",
+                city="南京",
                 duration_days=1,
             )
         ),
@@ -196,30 +258,49 @@ def test_graph_records_node_events_and_validation_status() -> None:
 
     assert result["final_response"]
     assert [event.event for event in observer.events] == [
+        "stage_started",
+        "stage_completed",
         "requirement_ready",
+        "stage_started",
+        "stage_completed",
         "itinerary_generated",
+        "stage_started",
         "validation_started",
+        "stage_completed",
         "validation_completed",
+        "stage_started",
+        "stage_completed",
         "final_response_ready",
     ]
+    stage_completed = [
+        event for event in observer.events if event.event == "stage_completed"
+    ]
+    assert [event.stage_name for event in stage_completed] == [
+        "requirement_analyzer",
+        "itinerary_generator",
+        "validator",
+        "final_response",
+    ]
+    assert all(event.stage_duration_ms is not None for event in stage_completed)
     assert observer.events[-1].total_duration_ms is not None
     assert all(event.request_id == "req-graph-1" for event in observer.events)
 
 
-def test_structured_logging_observer_emits_json_without_prompt_or_raw_response(
+def test_structured_logging_observer_emits_tool_arguments_without_prompt_or_raw_response(
     caplog,
 ) -> None:
     logger = logging.getLogger("footmarks.agent.test")
     observer = StructuredLoggingObserver(logger)
     api_key = "secret-api-key"
     prompt = "secret prompt content"
-    tool_arguments = "secret tool arguments"
+    tool_arguments = {"origin": "中山陵", "destination": "夫子庙"}
     raw_response = "secret raw response"
     event = AgentEvent(
         event="final_response_ready",
         request_id="req-log-1",
         node_name="final_response",
         intent="weather_query",
+        tool_arguments=tool_arguments,
     )
 
     with caplog.at_level(logging.INFO, logger="footmarks.agent.test"):
@@ -229,9 +310,8 @@ def test_structured_logging_observer_emits_json_without_prompt_or_raw_response(
     assert payload["event"] == "final_response_ready"
     assert payload["request_id"] == "req-log-1"
     assert "user_prompt" not in payload
-    assert "tool_arguments" not in payload
+    assert payload["tool_arguments"] == tool_arguments
     assert "raw_response" not in payload
     assert all(
-        value not in caplog.text
-        for value in (api_key, prompt, tool_arguments, raw_response)
+        value not in caplog.text for value in (api_key, prompt, raw_response)
     )

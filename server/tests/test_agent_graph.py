@@ -132,7 +132,7 @@ def test_graph_finishes_with_available_final_response_when_information_is_incomp
 def test_graph_degrades_incomplete_trip_before_itinerary_generation() -> None:
     requirement = TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         duration_days=1,
     )
     graph, generator, validator, reviser, collector = _build_graph(
@@ -150,10 +150,53 @@ def test_graph_degrades_incomplete_trip_before_itinerary_generation() -> None:
     assert collector.calls == 2
 
 
+def test_graph_generates_trip_when_only_optional_information_is_incomplete() -> None:
+    requirement = TravelRequirement(
+        intent="trip_planning",
+        city="南京",
+        duration_days=1,
+    )
+    itinerary = Itinerary(
+        days=[
+            ItineraryDay(
+                date="2026-10-01",
+                items=[
+                    ItineraryItem(
+                        poi_id="P1",
+                        poi_name="中山陵",
+                        start_time="09:00",
+                        end_time="11:00",
+                        activity_type="游览",
+                    )
+                ],
+            )
+        ]
+    )
+    graph, generator, validator, _, collector = _build_graph(
+        requirement,
+        InformationStatus(
+            pois=InfoRequirement(status="completed", critical=True),
+            distances=InfoRequirement(status="pending", critical=False, attempts=1),
+        ),
+        CollectedInfo(
+            pois=[POIInfo(poi_id="P1", name="中山陵", location="118.8,32.0")]
+        ),
+        itinerary=itinerary,
+        validation_results=[ValidationResult(valid=True)],
+    )
+
+    result = graph.invoke(make_initial_state("帮我规划南京一日游。"))
+
+    assert collector.calls == 2
+    assert generator.calls == 1
+    assert validator.calls == 1
+    assert "中山陵" in result["final_response"]
+
+
 def test_graph_routes_trip_planning_through_generator_validator_and_final_response() -> None:
     requirement = TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         duration_days=1,
     )
     itinerary = Itinerary(
@@ -193,7 +236,7 @@ def test_graph_routes_trip_planning_through_generator_validator_and_final_respon
 
 
 def test_graph_revises_failures_before_final_response() -> None:
-    requirement = TravelRequirement(intent="trip_planning", destination="南京")
+    requirement = TravelRequirement(intent="trip_planning", city="南京")
     itinerary = Itinerary(
         days=[
             ItineraryDay(

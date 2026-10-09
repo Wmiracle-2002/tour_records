@@ -46,7 +46,7 @@ def _itinerary() -> Itinerary:
 
 def test_trip_response_renders_itinerary_and_available_supporting_facts() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(
             pois=[
                 POIInfo(poi_id="P1", name="中山陵", location="118.8,32.0"),
@@ -91,7 +91,7 @@ def test_trip_response_renders_itinerary_and_available_supporting_facts() -> Non
 
 def test_trip_response_explains_unknown_information_without_inventing_it() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(),
         InformationStatus(
             weather=InfoRequirement(
@@ -124,7 +124,7 @@ def test_trip_response_explains_unknown_information_without_inventing_it() -> No
 
 def test_trip_response_exposes_remaining_failures_after_revision_limit() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(),
         InformationStatus(),
         _itinerary(),
@@ -151,7 +151,7 @@ def test_trip_response_exposes_remaining_failures_after_revision_limit() -> None
 
 def test_trip_response_handles_missing_itinerary() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="trip_planning", destination="南京"),
+        TravelRequirement(intent="trip_planning", city="南京"),
         CollectedInfo(),
         InformationStatus(),
         None,
@@ -159,3 +159,24 @@ def test_trip_response_handles_missing_itinerary() -> None:
     )
 
     assert response == "当前还没有可展示的完整行程。"
+
+
+def test_coarse_trip_budget_uses_chinese_labels_and_does_not_call_unestimated_tickets_free() -> None:
+    response = FinalResponseGenerator().generate(
+        TravelRequirement(intent="trip_planning", city="南京", duration_days=1),
+        CollectedInfo(budget=BudgetInfo(
+            estimated_min=168, estimated_max=252,
+            breakdown={"accommodation": 0, "food": 150, "transport": 60, "poi_tickets": 0},
+        )),
+        InformationStatus(budget=InfoRequirement(status="completed")),
+        Itinerary(days=[ItineraryDay(day_number=1, items=[])]),
+        ValidationResult(valid=True),
+    )
+
+    assert "住宿 0 元" in response
+    assert "餐饮 150 元" in response
+    assert "交通 60 元" in response
+    assert "景点门票未计入" in response
+    assert "poi_tickets" not in response
+    assert "校验说明：已安排地点通过规则检查" in response
+    assert "行程已通过可确定规则检查" not in response

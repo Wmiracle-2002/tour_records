@@ -19,16 +19,69 @@ class CloudCoordinator @Inject constructor(
 ) {
     val isCloudMode: Boolean get() = session.isCloudMode
 
-    suspend fun login(username: String, password: String) {
-        check(!cache.hasLocalTrips()) {
-            "本机已有未同步的旅行，请先备份或使用空数据设备登录"
+    suspend fun login(username: String, password: String, keepSignedIn: Boolean = true, rememberUsername: Boolean = false) {
+        session.login(username, password, keepSignedIn, rememberUsername)
+        session.accountId?.let {
+            cache.clearAnonymousTrips()
+            cache.activateAccount(it)
         }
-        session.login(username, password)
+        if (!session.requiresPasswordChange) refresh()
+    }
+
+    suspend fun register(username: String, password: String, keepSignedIn: Boolean = true, rememberUsername: Boolean = false) {
+        session.register(username, password, keepSignedIn, rememberUsername)
+        session.accountId?.let {
+            cache.clearAnonymousTrips()
+            cache.activateAccount(it)
+        }
         refresh()
     }
 
+    suspend fun logout() {
+        try {
+            session.logout()
+        } finally {
+            cache.activateAccount(0)
+        }
+    }
+
+    suspend fun changePassword(currentPassword: String, newPassword: String) {
+        session.changePassword(currentPassword, newPassword)
+        cache.activateAccount(0)
+    }
+
+    suspend fun deleteMyAccount(password: String) {
+        val userId = requireNotNull(session.accountId)
+        session.deleteMyAccount(password)
+        cache.deleteAccountCache(userId)
+    }
+
     suspend fun refresh() {
-        cache.replaceRemoteTrips(session.getTrips())
+        val userId = session.accountId
+        if (userId == null) {
+            cache.replaceRemoteTrips(session.getTrips())
+            return
+        }
+        if (cache.activeAccountId() == 0L) cache.activateAccount(userId)
+        check(cache.activeAccountId() == userId) { "账号已切换，请重试" }
+        var cursor = cache.cursor(userId)
+        var hasMore: Boolean
+        do {
+            val page = session.syncTrips(cursor)
+            check(session.accountId == userId) { "账号已切换，忽略旧同步响应" }
+            cache.applySyncPage(userId, page)
+            cursor = page.nextCursor
+            hasMore = page.hasMore
+        } while (hasMore)
+    }
+
+    suspend fun refreshImageUrls(localRecordId: Long): RecordEntity? {
+        val userId = session.accountId ?: return null
+        val record = cache.getRecord(localRecordId) ?: return null
+        val remoteId = record.serverId ?: return record
+        val images = session.recordImages(remoteId)
+        check(session.accountId == userId) { "账号已切换，忽略旧照片响应" }
+        return cache.updateImageUrls(userId, remoteId, images)
     }
 
     suspend fun createTrip(

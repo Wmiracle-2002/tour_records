@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any, TypeVar
@@ -291,6 +292,21 @@ def _append_unique(values: list[str], value: str | None) -> None:
         values.append(value)
 
 
+def _group_history_record(
+    groups: dict[str, dict[str, list[str]]], city: str | None, record: Mapping[str, Any],
+    ratings: dict[str, dict[str, list[float | None]]],
+) -> None:
+    category = record.get("category")
+    name = _text(record.get("name"), "record.name")
+    if city and name and category in {"ATTRACTION", "FOOD"}:
+        _append_unique(groups.setdefault(city, {}).setdefault(category, []), name)
+    if city and name and "rating" in record:
+        rating = _number(record.get("rating"), "record.rating", required=False)
+        ratings.setdefault(city, {}).setdefault(name, []).append(
+            float(rating) if rating is not None else None
+        )
+
+
 def normalize_history(raw: Any) -> TravelHistoryInfo:
     """将内部数据库旅行查询结果汇总为历史事实。"""
     if is_empty_result(raw):
@@ -321,12 +337,23 @@ def normalize_history(raw: Any) -> TravelHistoryInfo:
     cities: list[str] = []
     names: list[str] = []
     poi_ids: list[str] = []
+    groups: dict[str, dict[str, list[str]]] = {}
+    periods: dict[str, list[tuple[str, str]]] = {}
+    ratings: dict[str, dict[str, list[float | None]]] = {}
     for index, item in enumerate(items):
         trip = _mapping(item, f"history[{index}]")
-        _append_unique(cities, _text(trip.get("city_name"), "city_name"))
+        city = _text(trip.get("city_name"), "city_name")
+        _append_unique(cities, city)
+        if city and ("start_date" in trip or "end_date" in trip):
+            dates = []
+            for key in ("start_date", "end_date"):
+                value = trip.get(key)
+                dates.append(value.isoformat() if isinstance(value, date) else _text(value, key) or "")
+            periods.setdefault(city, []).append((dates[0], dates[1]))
         records = _list_value(trip.get("records", []), f"history[{index}].records")
         for record_index, record in enumerate(records):
             record_value = _mapping(record, f"history[{index}].records[{record_index}]")
+            _group_history_record(groups, city, record_value, ratings)
             _append_unique(names, _text(record_value.get("name"), "record.name"))
             _append_unique(poi_ids, _text(record_value.get("poi_id"), "record.poi_id"))
     trip_count = int(payload["trip_count"]) if payload and "trip_count" in payload else len(items)
@@ -335,6 +362,9 @@ def normalize_history(raw: Any) -> TravelHistoryInfo:
         visited_cities=cities,
         visited_names=names,
         visited_poi_ids=poi_ids,
+        records_by_city=groups,
+        trip_periods_by_city=periods,
+        ratings_by_city=ratings,
     )
 
 
@@ -353,8 +383,11 @@ def normalize_records(raw: Any) -> TravelHistoryInfo:
     names: list[str] = []
     poi_ids: list[str] = []
     trip_ids: set[str] = set()
+    groups: dict[str, dict[str, list[str]]] = {}
+    ratings: dict[str, dict[str, list[float | None]]] = {}
     for index, item in enumerate(items):
         record = _mapping(item, f"records[{index}]")
+        _group_history_record(groups, _text(record.get("city_name"), "record.city_name"), record, ratings)
         _append_unique(cities, _text(record.get("city_name"), "record.city_name"))
         _append_unique(names, _text(record.get("name"), "record.name"))
         _append_unique(poi_ids, _text(record.get("poi_id"), "record.poi_id"))
@@ -366,6 +399,8 @@ def normalize_records(raw: Any) -> TravelHistoryInfo:
         visited_cities=cities,
         visited_names=names,
         visited_poi_ids=poi_ids,
+        records_by_city=groups,
+        ratings_by_city=ratings,
     )
 
 

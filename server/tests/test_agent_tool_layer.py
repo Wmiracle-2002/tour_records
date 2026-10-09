@@ -1,7 +1,7 @@
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.agent.tools.layer import (
     DuplicateToolError,
@@ -16,6 +16,13 @@ class EchoTool:
     name = "echo"
     description = "返回传入的值"
 
+    class Input(BaseModel):
+        model_config = ConfigDict(extra="forbid", strict=True)
+        value: str = Field(min_length=1)
+
+    input_model = Input
+    information_need = "history"
+
     def __init__(self) -> None:
         self.arguments: dict[str, Any] | None = None
 
@@ -28,6 +35,13 @@ class UnavailableTool:
     name = "weather"
     description = "查询天气"
 
+    class Input(BaseModel):
+        model_config = ConfigDict(extra="forbid", strict=True)
+        city: str = Field(min_length=1)
+
+    input_model = Input
+    information_need = "weather"
+
     def run(self, **_arguments: Any) -> ToolResult[Any]:
         raise ToolUnavailableError("天气服务暂不可用")
 
@@ -35,6 +49,12 @@ class UnavailableTool:
 class BrokenTool:
     name = "broken"
     description = "模拟异常工具"
+
+    class Input(BaseModel):
+        model_config = ConfigDict(extra="forbid", strict=True)
+
+    input_model = Input
+    information_need = "history"
 
     def run(self, **_arguments: Any) -> ToolResult[Any]:
         raise RuntimeError("内部细节不应直接暴露")
@@ -82,11 +102,42 @@ def test_tool_layer_forwards_arguments_and_returns_completed_result() -> None:
     assert tool.arguments == {"value": "南京"}
 
 
+def test_tool_layer_rejects_unknown_arguments_before_handler() -> None:
+    tool = EchoTool()
+    registry = ToolRegistry()
+    registry.register(tool)
+
+    result = ToolLayer(registry).execute(
+        "echo", value="南京", city="南京"
+    )
+
+    assert result.status == "failed"
+    assert result.error_code == "invalid_tool_arguments"
+    assert result.details == {
+        "tool_name": "echo",
+        "invalid_fields": ["city"],
+        "missing_fields": [],
+    }
+    assert tool.arguments is None
+
+
+def test_tool_layer_rejects_coerced_types_before_handler() -> None:
+    tool = EchoTool()
+    registry = ToolRegistry()
+    registry.register(tool)
+
+    result = ToolLayer(registry).execute("echo", value=123)
+
+    assert result.error_code == "invalid_tool_arguments"
+    assert result.details["invalid_fields"] == ["value"]
+    assert tool.arguments is None
+
+
 def test_tool_layer_maps_unavailable_exception() -> None:
     registry = ToolRegistry()
     registry.register(UnavailableTool())
 
-    result = ToolLayer(registry).execute("weather", location="南京")
+    result = ToolLayer(registry).execute("weather", city="南京")
 
     assert result.status == "unavailable"
     assert result.message == "天气服务暂不可用"
@@ -99,7 +150,7 @@ def test_tool_layer_maps_unexpected_exception_without_leaking_details() -> None:
     result = ToolLayer(registry).execute("broken")
 
     assert result.status == "failed"
-    assert result.error_code == "tool_execution_failed"
+    assert result.error_code == "tool_execution_error"
     assert result.message == "Tool execution failed"
     assert "内部细节" not in result.message
 

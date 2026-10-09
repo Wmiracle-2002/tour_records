@@ -6,12 +6,13 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
+from app.core.config import get_settings
 from app.api.auth import current_user
-from app.models import Record, RecordImage, RecordType, Trip, User
+from app.models import Record, RecordImage, RecordType, Trip, TripChange, User
 from app.storage import ObjectStorage, StorageError, StorageNotConfigured
 
 router = APIRouter(tags=["travel"])
@@ -195,12 +196,18 @@ def delete_objects(images: list[RecordImage], storage: ObjectStorage) -> None:
         raise HTTPException(status_code=502, detail="COS storage operation failed") from error
 
 
+def mark_trip_changed(db: Session, user_id: int, trip_id: int, kind: str = "upsert") -> None:
+    db.add(TripChange(user_id=user_id, trip_id=trip_id, kind=kind))
+
+
 @router.post("/trips", response_model=TripOut, status_code=201)
 def create_trip(
     payload: TripFields, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> Trip:
     trip = Trip(user=user, **payload.model_dump())
     db.add(trip)
+    db.flush()
+    mark_trip_changed(db, user.id, trip.id)
     db.commit()
     db.refresh(trip)
     return trip
@@ -245,6 +252,7 @@ def update_trip(
             if not value:
                 raise HTTPException(status_code=422, detail="City name must not be blank")
         setattr(trip, key, value)
+    mark_trip_changed(db, user.id, trip.id)
     db.commit()
     db.refresh(trip)
     return trip_detail(trip, storage_from(request))
@@ -255,8 +263,11 @@ def delete_trip(
     trip_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> Response:
     trip = find_trip(db, trip_id, user.id)
-    delete_objects([image for record in trip.records for image in record.images], storage_from(request))
+    images = [image for record in trip.records for image in record.images]
+    delete_objects(images, storage_from(request))
+    release_photo_bytes(db, user.id, images)
     db.delete(trip)
+    mark_trip_changed(db, user.id, trip_id, "delete")
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -271,6 +282,7 @@ def create_record(
         raise HTTPException(status_code=422, detail="Record date is outside trip")
     record = Record(trip=trip, **payload.model_dump())
     db.add(record)
+    mark_trip_changed(db, user.id, trip_id)
     db.commit()
     db.refresh(record)
     return record_detail(record, storage_from(request))
@@ -316,6 +328,7 @@ def update_record(
         setattr(trip, key, value)
     for key, value in changes.items():
         setattr(record, key, value)
+    mark_trip_changed(db, user.id, trip.id)
     db.commit()
     db.refresh(record)
     return record_detail(record, storage_from(request))
@@ -327,12 +340,23 @@ def delete_record(
 ) -> Response:
     record = find_record(db, record_id, user.id)
     delete_objects(record.images, storage_from(request))
+    release_photo_bytes(db, user.id, record.images)
+    mark_trip_changed(db, user.id, record.trip_id)
     db.delete(record)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 MAX_IMAGE_COUNT = 9
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
+
+def release_photo_bytes(db: Session, user_id: int, images: list[RecordImage]) -> None:
+    size = sum(image.size_bytes or 0 for image in images)
+    if size:
+        db.execute(update(User).where(User.id == user_id).values(
+            photo_bytes_used=func.max(0, User.photo_bytes_used - size)
+        ))
 
 
 def image_object_key(record_id: int, filename: str | None) -> str:
@@ -356,14 +380,29 @@ def upload_image(
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=415, detail="Only image files are supported")
 
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    if size > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image exceeds 10 MB")
+    limit = getattr(request.app.state, "photo_storage_limit_bytes", get_settings().photo_storage_limit_bytes)
+    reserved = db.execute(update(User).where(
+        User.id == user.id,
+        User.photo_bytes_used + size <= limit,
+    ).values(photo_bytes_used=User.photo_bytes_used + size))
+    if reserved.rowcount != 1:
+        db.rollback()
+        raise HTTPException(status_code=413, detail="Account photo storage limit reached")
+
     storage = storage_from(request)
     object_key = image_object_key(record_id, file.filename)
     try:
         file.file.seek(0)
         storage.upload(object_key, file.file, file.content_type)
     except StorageError as error:
+        db.rollback()
         raise storage_http_error(error) from error
     except Exception as error:
+        db.rollback()
         raise HTTPException(status_code=502, detail="COS storage operation failed") from error
 
     image = RecordImage(
@@ -371,13 +410,15 @@ def upload_image(
         object_key=object_key,
         original_filename=(file.filename or "image")[:255],
         content_type=file.content_type,
-        size_bytes=file.size,
+        size_bytes=size,
     )
     try:
         db.add(image)
+        mark_trip_changed(db, user.id, record.trip_id)
         db.commit()
         db.refresh(image)
     except Exception:
+        db.rollback()
         try:
             storage.delete(object_key)
         except Exception:
@@ -417,6 +458,8 @@ def delete_image(
     if image is None:
         raise HTTPException(status_code=404, detail="Image not found")
     delete_objects([image], storage_from(request))
+    release_photo_bytes(db, user.id, [image])
+    mark_trip_changed(db, user.id, image.record.trip_id)
     db.delete(image)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

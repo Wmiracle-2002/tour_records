@@ -5,13 +5,18 @@ from __future__ import annotations
 import json
 import logging
 from time import monotonic
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from app.agent.budget import current_llm_timeout_seconds
 from app.agent.collector import ReActContext, ReActDecision
+from app.agent.observability import current_request_id
 from app.core.config import Settings, get_settings
+from app.agent.quota import TokenQuota, current_quota_user
+from app.database import create_database_engine
+from sqlalchemy.orm import sessionmaker
 
 
 logger = logging.getLogger("footmarks.agent.llm")
@@ -53,8 +58,18 @@ class OpenAICompatibleTransport:
         self._base_url = (current_settings.llm_base_url or "").rstrip("/")
         self._api_key = current_settings.llm_api_key
         self._model = current_settings.llm_model
+        self._structured_output_mode = current_settings.llm_structured_output_mode
         self._timeout_seconds = current_settings.llm_timeout_seconds
         self._max_retries = current_settings.llm_max_retries
+        self._max_output_tokens = current_settings.llm_max_output_tokens
+        self._quota_engine = (
+            create_database_engine(current_settings.database_url)
+            if current_settings.token_quota_enabled else None
+        )
+        self._quota = (
+            TokenQuota(sessionmaker(bind=self._quota_engine), current_settings.default_monthly_token_limit)
+            if self._quota_engine is not None else None
+        )
         self._client = httpx.Client(
             timeout=self._timeout_seconds,
             transport=http_transport,
@@ -68,6 +83,7 @@ class OpenAICompatibleTransport:
         output_model: type[T],
     ) -> dict[str, Any]:
         self._ensure_configured()
+        system_prompt, response_format = self._structured_format(system_prompt, output_model)
         request_payload = {
             "model": self._model,
             "temperature": 0,
@@ -75,23 +91,22 @@ class OpenAICompatibleTransport:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": output_model.__name__,
-                    "strict": True,
-                    "schema": output_model.model_json_schema(),
-                },
-            },
+            "response_format": response_format,
         }
 
+        if self._quota is not None:
+            request_payload["max_tokens"] = self._max_output_tokens
         total_attempts = self._max_retries + 1
         output_name = output_model.__name__
+        request_id = current_request_id() or "unknown"
         for attempt in range(total_attempts):
             started_at = monotonic()
             attempt_number = attempt + 1
+            timeout_seconds = (
+                current_llm_timeout_seconds() or self._timeout_seconds
+            )
             try:
-                response = self._client.post(
+                response = self._post_with_quota(
                     f"{self._base_url}/chat/completions",
                     headers={
                         "Accept": "application/json",
@@ -99,15 +114,19 @@ class OpenAICompatibleTransport:
                         "Content-Type": "application/json",
                     },
                     json=request_payload,
+                    timeout=timeout_seconds,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
                 )
             except httpx.TimeoutException as error:
                 elapsed_ms = (monotonic() - started_at) * 1000
                 logger.warning(
-                    "LLM timeout stage=%s attempt=%d retrying=false elapsed_ms=%.0f timeout_seconds=%.1f",
+                    "LLM timeout request_id=%s stage=%s attempt=%d retrying=false elapsed_ms=%.0f timeout_seconds=%.1f",
+                    request_id,
                     output_name,
                     attempt_number,
                     elapsed_ms,
-                    self._timeout_seconds,
+                    timeout_seconds,
                 )
                 # A timeout already consumed the full request budget. Retrying it
                 # here can make one Agent request exceed the mobile/API timeout.
@@ -118,7 +137,8 @@ class OpenAICompatibleTransport:
                 elapsed_ms = (monotonic() - started_at) * 1000
                 if attempt < self._max_retries:
                     logger.warning(
-                        "LLM network failure stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=true",
+                        "LLM network failure request_id=%s stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=true",
+                        request_id,
                         output_name,
                         attempt_number,
                         total_attempts,
@@ -126,7 +146,8 @@ class OpenAICompatibleTransport:
                     )
                     continue
                 logger.warning(
-                    "LLM network failure stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=false",
+                    "LLM network failure request_id=%s stage=%s attempt=%d/%d elapsed_ms=%.0f retrying=false",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -138,7 +159,8 @@ class OpenAICompatibleTransport:
                 elapsed_ms = (monotonic() - started_at) * 1000
                 if attempt < self._max_retries:
                     logger.warning(
-                        "LLM upstream retryable status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=true",
+                        "LLM upstream retryable status request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=true",
+                        request_id,
                         output_name,
                         attempt_number,
                         total_attempts,
@@ -147,7 +169,8 @@ class OpenAICompatibleTransport:
                     )
                     continue
                 logger.warning(
-                    "LLM upstream retryable status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=false",
+                    "LLM upstream retryable status request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f retrying=false",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -159,7 +182,8 @@ class OpenAICompatibleTransport:
                 )
             if response.status_code < 200 or response.status_code >= 300:
                 logger.warning(
-                    "LLM upstream status stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    "LLM upstream status request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -173,7 +197,8 @@ class OpenAICompatibleTransport:
                 decoded = self._decode_response(response)
             except LLMInvalidResponseError:
                 logger.warning(
-                    "LLM invalid structured response stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    "LLM invalid structured response request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                    request_id,
                     output_name,
                     attempt_number,
                     total_attempts,
@@ -182,7 +207,8 @@ class OpenAICompatibleTransport:
                 )
                 raise
             logger.info(
-                "LLM completed stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                "LLM completed request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
+                request_id,
                 output_name,
                 attempt_number,
                 total_attempts,
@@ -193,13 +219,164 @@ class OpenAICompatibleTransport:
 
         raise LLMUpstreamError("LLM provider request failed")
 
+    def complete_json_stream(
+        self, *, system_prompt: str, user_prompt: str,
+        output_model: type[T], on_delta: Callable[[str], None],
+    ) -> dict[str, Any]:
+        self._ensure_configured()
+        system_prompt, response_format = self._structured_format(system_prompt, output_model)
+        request_payload = {
+            "model": self._model,
+            "temperature": 0,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": response_format,
+        }
+        if self._model.startswith("qwen3.7-"):
+            request_payload["enable_thinking"] = False
+        if self._quota is not None:
+            request_payload["max_tokens"] = self._max_output_tokens
+            request_payload["stream_options"] = {"include_usage": True}
+        timeout = current_llm_timeout_seconds() or self._timeout_seconds
+        quota_call = self._reserve(system_prompt, user_prompt)
+        usage: tuple[int, int] | None = None
+        parts: list[str] = []
+        content_size = 0
+        completed = False
+        started_at = monotonic()
+        try:
+            with self._client.stream(
+                "POST", f"{self._base_url}/chat/completions",
+                headers={
+                    "Accept": "text/event-stream",
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=request_payload, timeout=timeout,
+            ) as response:
+                if response.status_code != 200:
+                    raise LLMUpstreamError(
+                        f"LLM provider returned HTTP {response.status_code}"
+                    )
+                for line in response.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    payload = line.removeprefix("data: ")
+                    if payload == "[DONE]":
+                        completed = True
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                        if chunk.get("choices") == []:
+                            usage = self._usage_values(chunk.get("usage")) or usage
+                            continue
+                        delta = chunk["choices"][0]["delta"].get("content")
+                    except (ValueError, KeyError, IndexError, TypeError) as error:
+                        raise LLMInvalidResponseError("LLM stream chunk is invalid") from error
+                    if delta is None:
+                        continue
+                    if not isinstance(delta, str):
+                        raise LLMInvalidResponseError("LLM stream content is invalid")
+                    parts.append(delta)
+                    content_size += len(delta)
+                    if content_size > 2_000_000:
+                        raise LLMInvalidResponseError("LLM stream is too large")
+                    on_delta(delta)
+        except (httpx.ConnectError, httpx.ConnectTimeout) as error:
+            if quota_call is not None and self._quota is not None:
+                self._quota.release(quota_call)
+                quota_call = None
+            raise LLMUpstreamError("LLM provider connection failed") from error
+        except httpx.TimeoutException as error:
+            raise LLMTimeoutError(
+                f"LLM provider request timed out for {output_model.__name__}"
+            ) from error
+        except httpx.RequestError as error:
+            raise LLMUpstreamError("LLM provider request failed") from error
+        finally:
+            self._settle(quota_call, usage)
+        if not completed:
+            raise LLMInvalidResponseError("LLM stream ended before completion")
+        try:
+            decoded = json.loads("".join(parts))
+        except ValueError as error:
+            raise LLMInvalidResponseError("LLM stream did not contain valid JSON") from error
+        if not isinstance(decoded, dict):
+            raise LLMInvalidResponseError("LLM structured response must be a JSON object")
+        logger.info(
+            "LLM completed request_id=%s stage=%s stream=true elapsed_ms=%.0f",
+            current_request_id() or "unknown", output_model.__name__,
+            (monotonic() - started_at) * 1000,
+        )
+        return decoded
+
     def close(self) -> None:
         self._client.close()
+        if self._quota_engine is not None:
+            self._quota_engine.dispose()
+
+    def _reserve(self, system_prompt: str, user_prompt: str) -> str | None:
+        user_id = current_quota_user()
+        if self._quota is None or user_id is None:
+            return None
+        conservative_input = len(system_prompt.encode("utf-8")) + len(user_prompt.encode("utf-8"))
+        return self._quota.reserve(user_id, conservative_input + self._max_output_tokens)
+
+    def _settle(self, call_id: str | None, usage: tuple[int, int] | None) -> None:
+        if call_id is not None and self._quota is not None:
+            self._quota.settle(
+                call_id,
+                input_tokens=usage[0] if usage is not None else None,
+                output_tokens=usage[1] if usage is not None else None,
+            )
+
+    @staticmethod
+    def _usage_values(value: object) -> tuple[int, int] | None:
+        if not isinstance(value, dict):
+            return None
+        prompt = value.get("prompt_tokens")
+        completion = value.get("completion_tokens")
+        if type(prompt) is int and type(completion) is int and prompt >= 0 and completion >= 0:
+            return prompt, completion
+        return None
+
+    def _post_with_quota(self, url: str, *, system_prompt: str, user_prompt: str, **kwargs) -> httpx.Response:
+        call_id = self._reserve(system_prompt, user_prompt)
+        usage = None
+        try:
+            response = self._client.post(url, **kwargs)
+            try:
+                usage = self._usage_values(response.json().get("usage"))
+            except (ValueError, AttributeError):
+                pass
+            return response
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            if call_id is not None and self._quota is not None:
+                self._quota.release(call_id)
+                call_id = None
+            raise
+        finally:
+            self._settle(call_id, usage)
 
     @property
     def max_retries(self) -> int:
         """Return the configured retry count for transient or invalid output."""
         return self._max_retries
+
+    def _structured_format(self, system_prompt: str, output_model: type[T]) -> tuple[str, dict[str, Any]]:
+        schema = output_model.model_json_schema()
+        if self._structured_output_mode == "json_object":
+            return (
+                system_prompt + "\n\n只输出符合以下 JSON Schema 的 JSON 对象：\n"
+                + json.dumps(schema, ensure_ascii=False),
+                {"type": "json_object"},
+            )
+        return system_prompt, {"type": "json_schema", "json_schema": {
+            "name": output_model.__name__, "strict": True, "schema": schema,
+        }}
 
     def _ensure_configured(self) -> None:
         if not self._base_url or not self._api_key or not self._model:
@@ -228,6 +405,21 @@ class StructuredLLMClient:
     def __init__(self, transport: OpenAICompatibleTransport) -> None:
         self._transport = transport
 
+    def complete_structured_stream(
+        self, *, system_prompt: str, user_prompt: str,
+        output_model: type[T], on_delta: Callable[[str], None],
+    ) -> T:
+        payload = self._transport.complete_json_stream(
+            system_prompt=system_prompt, user_prompt=user_prompt,
+            output_model=output_model, on_delta=on_delta,
+        )
+        try:
+            return output_model.model_validate(payload)
+        except ValidationError as error:
+            raise LLMInvalidResponseError(
+                "LLM structured response failed schema validation"
+            ) from error
+
     def complete_structured(
         self,
         *,
@@ -251,7 +443,8 @@ class StructuredLLMClient:
                 return output_model.model_validate(payload)
             except LLMInvalidResponseError:
                 logger.warning(
-                    "LLM schema retry stage=%s attempt=%d/%d",
+                    "LLM schema retry request_id=%s stage=%s attempt=%d/%d",
+                    current_request_id() or "unknown",
                     output_model.__name__,
                     attempt + 1,
                     self._transport.max_retries + 1,
@@ -260,7 +453,8 @@ class StructuredLLMClient:
                     raise
             except ValidationError as error:
                 logger.warning(
-                    "LLM schema validation retry stage=%s attempt=%d/%d",
+                    "LLM schema validation retry request_id=%s stage=%s attempt=%d/%d",
+                    current_request_id() or "unknown",
                     output_model.__name__,
                     attempt + 1,
                     self._transport.max_retries + 1,
@@ -277,9 +471,10 @@ REACT_DECISION_SYSTEM_PROMPT = """
 
 输入包含用户需求、当前信息状态、已经收集的结构化信息和可用 Tool。
 每轮最多返回一个 Tool Call；如果信息已经足够，返回 null Tool Call。
-只能选择 available_tools 中存在的 Tool，并使用它的参数格式。
+只能选择 available_tools 中存在的 Tool。每个 Tool 的 parameters 是执行时的硬 Schema，arguments 必须严格符合它；示例只帮助理解，不能替代 Schema。
+如果上下文包含 tool_argument_error，必须重试其中指定的同一个 Tool，只修正 invalid_fields 和 missing_fields，不能切换 Tool，也不能添加 Schema 外字段。
 询问去过哪些城市、景点或美食时，优先使用 search_trip_history 或 search_records；只有询问旅行次数、城市数、总花费或平均评分时才使用 get_travel_summary。
-根对象只能包含 tool_call 和 reason；tool_call 可以是 null，或包含 name、arguments、information_need、critical；arguments 必须是对象；information_need 只能是 history、pois、weather、routes、distances、budget 之一或 null；critical 必须是布尔值。不要使用 decision 字段包裹，不要增加其他外层字段。
+根对象只能包含 tool_call 和 reason；tool_call 可以是 null，或只包含 name、arguments；arguments 必须是对象。信息归属和重要程度由系统确定，不要输出 information_need 或 critical。不要使用 decision 字段包裹，不要增加其他字段。
 不要输出思维链或隐藏推理；reason 只允许是一句简短的操作说明。
 只返回符合 ReActDecision 的结构化 JSON。
 """.strip()

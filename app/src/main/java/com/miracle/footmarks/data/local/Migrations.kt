@@ -68,3 +68,14 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE records ADD COLUMN remotePhotoUrls TEXT")
     }
 }
+
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DELETE FROM records")
+        db.execSQL("DELETE FROM trips")
+        db.execSQL("ALTER TABLE trips ADD COLUMN ownerId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_trips_ownerId ON trips(ownerId)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS active_account (id INTEGER NOT NULL PRIMARY KEY, userId INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS sync_cursors (userId INTEGER NOT NULL PRIMARY KEY, cursor TEXT NOT NULL)")
+    }
+}

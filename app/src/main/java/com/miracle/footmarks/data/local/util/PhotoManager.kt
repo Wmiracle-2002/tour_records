@@ -25,6 +25,13 @@ class PhotoManager @Inject constructor(
     private val photoDir: File
         get() = File(context.filesDir, "photos").also { it.mkdirs() }
 
+    fun clearLegacyLocalPhotosOnce() {
+        val preferences = context.getSharedPreferences("photo_migration", Context.MODE_PRIVATE)
+        if (preferences.getBoolean("anonymous_photos_cleared_v5", false)) return
+        val cleared = photoDir.listFiles()?.filter { it.isFile }?.all { it.delete() } == true
+        if (cleared) preferences.edit().putBoolean("anonymous_photos_cleared_v5", true).apply()
+    }
+
     suspend fun savePhoto(uri: Uri): String? = withContext(Dispatchers.IO) {
         try {
             val bitmap = context.contentResolver.openInputStream(uri)?.use { inputStream ->

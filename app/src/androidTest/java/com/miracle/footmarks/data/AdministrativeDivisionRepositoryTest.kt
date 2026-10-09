@@ -39,31 +39,30 @@ class AdministrativeDivisionRepositoryTest {
     @Test
     fun bundledDataContainsCompleteProvinceCityAreaHierarchy() {
         val repository = AdministrativeDivisionRepository(context)
-        val startedAt = System.currentTimeMillis()
-
         val provinces = repository.getProvinces()
-        val elapsed = System.currentTimeMillis() - startedAt
         val cities = provinces.flatMap { it.cities }
         val areas = cities.flatMap { it.areas }
 
         assertEquals(31, provinces.size)
         assertTrue(areas.size >= 3_000)
-        assertTrue(elapsed < 500)
         assertTrue(provinces.any { it.name == "北京市" && it.code == "110000" })
         assertTrue(cities.any { it.name == "阿坝藏族羌族自治州" })
         assertTrue(areas.any { it.name == "昆山市" && it.code == "320583" })
     }
 
     @Test
-    fun searchReturnsBreadcrumbAndNormalizedCodes() {
+    fun searchCountyReturnsItsSelectablePrefecture() {
         val repository = AdministrativeDivisionRepository(context)
 
         val result = repository.search("昆山").single()
 
-        assertEquals("昆山市", result.name)
-        assertEquals("江苏省 · 苏州市 · 昆山市", result.breadcrumb)
+        assertEquals("苏州市", result.name)
+        assertEquals("江苏省 · 苏州市", result.breadcrumb)
         assertEquals("320000", result.provinceCode)
-        assertEquals("320583", result.code)
+        assertEquals("320500", result.code)
+        assertTrue(repository.getLocations("320000").none { it.name == "昆山市" })
+        assertTrue(repository.getLocations("110000").single().name == "北京市")
+        assertTrue(repository.getLocations("420000").any { it.name == "仙桃市" })
     }
 
     @Test

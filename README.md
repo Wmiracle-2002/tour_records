@@ -1,167 +1,72 @@
-# 足迹（Footmarks）
+﻿# 足迹（Footmarks）
 
-个人旅行记录 Android App。支持纯本地 Demo，也可在个人中心登录本地 FastAPI 服务端同步文字旅行记录。
+足迹是旅行记录与智能规划 App。Android 端按账号缓存旅行；FastAPI 服务端保存旅行、照片元数据、Agent 会话和偏好。Agent 可回答旅行历史、地点、美食、天气、距离、预算问题，并生成按天与时段安排的行程。
 
-## 当前状态
+新版客户端提供注册、登录和账号管理。服务器已创建 `admin` 与 `ccqq`，并将旧账号数据迁至 `ccqq`；公开注册与 token 配额已启用，新用户默认每个自然月 50,000 token，管理员可调整。
 
-- Android `versionName`：`1.0.0`
-- 当前工作分支：`develop`
-- 当前开发里程碑：阶段 11～15、Agent Phase 1～15 和接入 API Task 1～9 已合并；文字记录与云端照片同步代码已完成，真实 COS 和手机真机业务回归待验收
-- 构建环境：JDK 17、Android SDK 34、Gradle 8.4
-- 最低系统：Android 7.0（API 24）
+## 当前能力
 
-## 已实现
+- **旅行记录**：按城市与日期建立旅行，添加景点/美食子记录，支持增删改查、照片及城市数/出行次数统计。服务端 SQLite 保存文字记录，腾讯云 COS 保存云端原图；Room 按账号缓存并增量同步。
+- **账号与管理**：用户名/密码注册、可撤销会话、退出与自助注销、管理员账号和数据管理；管理员可设置按自然月计算的智能规划 token 上限。个人中心顶部账号卡进入登录或账号管理页，旅行统计下展示偏好、收藏、关于足迹；登录后以进度条展示额度。
+- **智能规划**：LangGraph 编排需求分析、信息收集、行程生成、校验与修订；服务端以严格参数模型调用高德 Web 服务和内部旅行记录工具。回答以已验证的 POI 和实际记录为依据，不提供导航路线。
+- **会话记忆**：会话列表、历史消息、结构化当前话题、限额近期上下文、70% 阈值分块摘要、原文与工具结果回查，以及由用户明确要求保存的长期偏好。
+- **个人旅行收藏**：登录后可从个人中心管理笔记、旅行/美食/景点攻略，按城市和关键词查找；规划时限量检索同城收藏，在采用内容时标明收藏标题和编号。收藏不作为实时开放时间、价格或未经高德核验的地点事实。
+- **响应与排查**：保留 JSON 聊天接口；SSE 聊天接口先推送阶段进度，再按段发送最终校验过的回答。请求 ID 贯穿 HTTP 与 Agent 阶段日志。
 
-- 底部导航：记录、智能规划、个人中心
-- 旅行时间线：按旅行开始日期倒序展示 Trip 卡片及内部景点、美食记录
-- 添加流程：新建旅行时录入城市和起止日期，旅行卡片内的 `+` 可继续添加子记录
-- 记录页统计：实时显示去过的城市数和出行次数
-- 记录 CRUD：添加、列表查询、详情查询、编辑、删除确认
-- 记录列表显示真实城市名称
-- 输入校验：名称、备注、人民币花费范围和最多 9 张照片
-- 记录字段：城市、类型、名称、日期、评分、人民币花费、备注、照片路径
-- 地区选择：离线内置 2023 年 3429 条省/市/区县数据，支持省份筛选、中文名称全局搜索和层级路径展示
-- 本地存储：Room 3，采用 `City → Trip → Record` 三层关系；云端记录另保存服务端 ID
-- Trip 数据层：旅行起止日期、子记录日期范围校验、DAO/Repository CRUD 和级联删除
-- 数据库升级：Room 1 → 2 → 3 迁移保留旧旅行、子记录和照片路径，旧记录的服务端 ID 为空
-- 自动化验证：服务端全量回归、8 个 Android JVM 测试与 API 34 模拟器 34 个仪器测试通过
-- 权限：仅增加 `INTERNET`；Photo Picker 无需相册、存储或相机权限，Debug 版本允许本机 HTTP
-- 图片选择与展示：系统照片选择器、1080px 长边与 JPEG 质量 80 压缩、App 内部存储、Coil 预览
-- 图片生命周期：最多 9 张；编辑时清理移除的副本，删除记录时清理全部内部照片
-- 云端照片：服务端通过 COS 保存原图，支持上传、查询、编辑时删除和删除记录时联动清理
-- 智能规划：欢迎消息、消息展示区、可保留草稿的多行输入框，已接入受认证的 Agent API；发送后立即清空输入框，失败时恢复草稿供重试，聊天消息支持长按选择复制，并区分显示 502/503/504 服务错误
-- 个人中心：本地用户说明、城市数、出行次数、人民币总花费和应用版本
-- 可选本机服务端模式：共享账号登录、Access Token 过期刷新、文字旅行记录增删改查、手动刷新远端变更；Room 缓存用于浏览，云端写入先成功后更新缓存
-- 会话凭据保存在 App 私有偏好设置中，并从系统云备份及设备迁移中排除；原有本地旅行数据仍按应用备份设置处理
+完整范围、数据流、接口和限制见 [项目功能说明](docs/项目功能说明.md)。知识库的开发验收见 [Phase 17 计划](docs/Agent开发计划.md) 和 [开发日志](docs/开发日志.md)。
 
-## 当前限制
+## 本地开发
 
-- 服务端 Agent 已完成 Phase 1～15，并已部署受认证的 HTTPS Agent API；Android 智能规划页已接入该接口。服务器真实 LLM 冒烟、天气/历史/POI/预算/路线/三日行程六类场景均已通过。手机真机手工验收和真实 COS 凭据验证仍待完善。
-- 登录云端前要求本机没有未同步的旧旅行，以免把两套数据混在同一时间线；旧本地数据不会被自动上传或删除。云端模式支持新增、编辑和删除照片，但需要服务端 `.env` 配置 COS SecretId、SecretKey。
-- 服务端不可用时可以浏览已缓存的云端记录；云端模式的新增、编辑、删除和刷新会报错，不自动改为本地写入。两台真实设备和 API 24 网络回归尚待补测。
-- 最低版本配置为 API 24；本机只有 API 34 镜像，API 24 设备回归需在镜像可下载后补跑。
-
-## 项目结构
-
-```text
-app/src/main/java/com/miracle/footmarks/
-├── data/
-│   ├── local/
-│   │   ├── dao/             # CityDao、TripDao、RecordDao
-│   │   ├── entity/          # CityEntity、TripEntity、RecordEntity
-│   │   ├── util/            # PhotoManager
-│   │   ├── Converters.kt
-│   │   └── FootmarksDatabase.kt
-│   ├── remote/              # Retrofit API、Token 会话
-│   └── repository/          # 本地 Repository、云端缓存与协调层
-├── di/                      # Hilt 数据库模块
-├── ui/
-│   ├── navigation/          # 底部导航与页面路由
-│   ├── screen/
-│   │   ├── records/         # 记录列表
-│   │   ├── addrecord/       # 添加记录和城市选择
-│   │   ├── recorddetail/    # 记录详情与删除
-│   │   ├── editrecord/      # 编辑记录
-│   │   ├── smartplanning/   # 智能规划对话框架
-│   │   └── profile/         # 本地用户与旅行统计
-│   └── theme/
-├── MainActivity.kt
-└── FootmarksApplication.kt
-```
-
-## 数据模型
-
-当前 Room 数据库版本为 3，包含三张表：
-
-```text
-CityEntity 1 ─── * TripEntity 1 ─── * RecordEntity
-```
-
-`TripEntity` 通过 `cityId` 关联城市并保存旅行起止日期；`RecordEntity` 通过 `tripId` 关联旅行，包含 `ATTRACTION`/`FOOD` 类型、名称、实际游览日期、可选评分、可选花费、备注和逗号分隔的内部照片路径。删除记录时 Repository 会清理对应照片。
-
-服务端采用 `User → Trip → Record → RecordImage`，照片表只预留元数据；文字记录在服务端 SQLite 保存。Android 的 `serverId` 只映射来自服务端的旅行与子记录，旧本地行保持为空。
-
-## 构建与安装
-
-Android Studio 不是必需的，可以使用 VSCode 和命令行工具开发。必须安装 JDK 17 和 Android SDK。
+Android Studio 不是必需的。安装 JDK 17、Android SDK 34 后，可用 VSCode 和命令行构建：
 
 ```powershell
-# 构建 Debug APK（模拟器默认访问宿主机 10.0.2.2:8000）
-.\gradlew.bat assembleDebug
-
-# 真机调试可指定可达的 HTTPS 地址
 .\gradlew.bat assembleDebug -PfootmarksApiBaseUrl=https://your-server.example/
-
-# 安装到已连接设备
 adb install -r app\build\outputs\apk\debug\app-debug.apk
-
-# 启动应用
-adb shell am start -n com.miracle.footmarks/.MainActivity
 ```
 
-Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。
+默认 Debug 地址 `10.0.2.2:8000` 仅供 Android 模拟器访问本机服务端；真机必须在构建时指定手机可访问的 API 地址。服务端使用 Python 3.12 和 SQLite，可在 `server` 目录安装 `requirements-dev.txt`、按 `server/.env.example` 配置环境变量，运行 Alembic 迁移后启动 `uvicorn app.main:app`。Docker 部署配置见 `server/compose.yaml`。不要提交 `.env`、Token 密钥、LLM/高德/COS 凭据。
 
-## 服务端开发（阶段 11～13）
+## 验证状态
 
-需要 Python 3.12。在 `server` 目录执行：
+2026-10-01：服务端完成备份、部署、数据库迁移和旧账号数据转移：`ccqq` 接收了 2 次旅行、6 条子记录、5 张照片与 1 段对话；5 张云端照片均可读取。生产环境已通过认证会话、增量同步、管理员账号/数据操作、COS 上传及真实模型 JSON/SSE 用量结算联调。公开 HTTPS 注册与 token 配额已启用，临时账号验证了 50,000 token 默认值、越限拒绝及角色隔离。服务端全量 **501/501**、额度相关定向 **22/22** 通过。2026-10-03 个人中心重排后 Android 模拟器 **59/59** 通过，正式 HTTPS 地址的 Debug APK 已重建；真机跨账号验收待完成。详情见 [用户注册登录开发计划](docs/用户注册登录开发计划.md)、[开发日志](docs/开发日志.md) 与 [测试指南](docs/测试指南.md)。
 
-```powershell
-py -3.12 -m pip install -r requirements-dev.txt
-$env:FOOTMARKS_TOKEN_SECRET = Read-Host 'Token Secret（至少32字符）'
-py -3.12 -m alembic upgrade head
-$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码（至少12字符）'
-py -3.12 -m app.bootstrap
-Remove-Item Env:FOOTMARKS_INITIAL_PASSWORD
-py -3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
+2026-10-08 提交前复核：服务端全量 **501/501** 通过，Android 单元测试与 HTTPS Debug APK 构建成功；最新模拟器全量结果为 2026-10-03 的 **61/61**，包含账号卡导航回归。问题原因和待真机复验项见 [问题排查记录](docs/问题排查记录.md)。
 
-浏览 `http://127.0.0.1:8000/api/v1/health` 应得到 `{"status":"ok","service":"footmarks-api"}`。另一个终端在 `server` 目录运行 `py -3.12 -m pytest -q` 回归。也可以使用固定的开发测试容器：首次在仓库根目录执行 `docker compose -f server/compose.dev.yaml up -d --build agent-test`，之后执行 `docker compose -f server/compose.dev.yaml exec agent-test pytest -q`。源码通过目录挂载到容器，代码修改后直接重新执行测试即可；只有 `requirements.txt` 或 `requirements-dev.txt` 变化时才需要重新构建。共享账号默认用户名为 `shared`，初始化仅允许一次。Token Secret 需至少 32 字符，必须妥善保管；上面的交互输入不会将密码写入命令历史。
+首次登录 `admin` 或 `ccqq` 时，在自己电脑的终端通过项目部署密钥 SSH 登录服务器，再用 `sudo cat /opt/footmarks/server/data/temporary-account-credentials.json` 查看各自的一次性密码。密码只在服务器本地保存，登录后 App 会要求立即修改；不要把文件内容发到聊天或提交到 Git。
 
-Docker 开发模式在 `server/.env` 配置 `FOOTMARKS_TOKEN_SECRET`，然后在仓库根目录执行 `docker compose --env-file server/.env -f server/compose.yaml up --build`。另开终端输入 `$env:FOOTMARKS_INITIAL_PASSWORD = Read-Host '初始密码'`，再执行 `docker compose --env-file server/.env -f server/compose.yaml exec -e FOOTMARKS_INITIAL_PASSWORD api python -m app.bootstrap`，完成后清除该环境变量。账号只初始化一次。容器仅绑定本机 127.0.0.1，数据持久化于 `server/data`。不要把密码或密钥提交到仓库，环境变量示例见 `server/.env.example`。
+Android 客户端收到已校验的行程预览或最终正文后，会在同一条消息中渐进显示文字，形成打字机效果。生成第一天前仍需等待模型和工具；这不是未经校验的模型 token 直接输出。
 
-高德能力由后端通过 Web 服务 API 调用，不使用 Android SDK。申请高德 Web 服务 API Key 后，编辑服务器上的 `server/.env`，填入 `FOOTMARKS_AMAP_WEB_KEY=你的Key`，然后重新构建或重启服务端容器。Key 只保存在服务器环境变量中，不要写入代码、APK 或提交到 Git。天气接口使用城市 `adcode`，POI、地理编码、距离和路线查询也由后端适配器统一调用。
+## 文档
 
-真实 Agent 还需要在服务器 `server/.env` 配置 `FOOTMARKS_LLM_BASE_URL`、`FOOTMARKS_LLM_API_KEY`、`FOOTMARKS_LLM_MODEL`、`FOOTMARKS_LLM_TIMEOUT_SECONDS` 和 `FOOTMARKS_LLM_MAX_RETRIES`。`FOOTMARKS_LLM_BASE_URL` 必须是供应商提供的 OpenAI 兼容接口地址，并包含 `http://` 或 `https://` 协议；修改后需要重建或重启 API 容器。不要把这些值写入代码、APK 或提交到 Git。
-
-业务 API 提供 `POST/GET /api/v1/trips`、`GET/PATCH/DELETE /api/v1/trips/{id}`、`POST /api/v1/trips/{id}/records`、`GET/PATCH/DELETE /api/v1/records/{id}` 和 `GET /api/v1/stats`。`POST /api/v1/auth/login` 接收用户名与密码，返回 Access Token/Refresh Token；`POST /api/v1/auth/refresh` 接收 `refresh_token`，`GET /api/v1/auth/me` 查询当前用户。业务请求带 `Authorization: Bearer <access_token>`。日期使用 ISO `YYYY-MM-DD`，金额为人民币元。
-
-模拟器先启动服务端，再安装 Debug APK，在“个人中心 → 共享账号”输入用户名和密码，点“登录并同步”。切回记录页查看云端旅行；其他设备改动后，在个人中心点“刷新共享记录”。真机需要能访问服务端的地址，建议使用 HTTPS；默认 `10.0.2.2` 只适用于 Android 模拟器。Release 默认指向不可用占位地址，需要构建时指定 HTTPS。服务端模式的本机缓存保存文字记录和远端图片元数据，原图由 COS 保存。
-
-## 快速回归
-
-1. 在“记录”页点击右下角 `+`，选择城市、旅行起止日期并填写第一条景点记录。
-2. 确认页面显示 1 个城市、1 次出行，且记录位于对应旅行卡片中。
-3. 点击旅行卡片内的 `+` 添加第二条景点或美食记录。
-4. 在详情页编辑名称、评分或花费，保存后确认变化。
-5. 选择照片后保存，重启 App 确认仍能显示；编辑移除照片后确认预览消失。
-6. 在详情页删除记录，确认列表中不再显示。
-7. 关闭并重新启动 App，确认未删除的记录仍存在。
-
-完整步骤和已知限制见 [测试指南.md](./测试指南.md)。
-
-## 文档导航
-
-- [需求分析.md](./需求分析.md)：产品目标、已确认决策和当前实现差距
-- [客户端开发计划.md](./客户端开发计划.md)：Android 本地阶段任务与回归
-- [服务端开发计划.md](./服务端开发计划.md)：服务端阶段任务与回归
-- [开发日志.md](./开发日志.md)：按日期记录已完成工作和验证结果
-- [测试指南.md](./测试指南.md)：构建、安装和 CRUD 手工回归步骤
-- [CRUD功能完成总结.md](./CRUD功能完成总结.md)：本次 CRUD 里程碑范围
-- [城市数据源.md](./城市数据源.md)：2023 年行政区划来源、条目数量、转换规则和许可证
-
-## Agent 开发进度
-
-Agent Phase 1～15 的 State、Requirement Analyzer、Tool Layer、ReAct Collector、基础 Workflow、Itinerary Generator、Validator、Local Reviser、最终响应生成器、LangGraph 主流程、异常边界测试、端到端场景测试、结构化可观测性和最终代码检查已经完成。Graph 已接入普通请求和行程规划的条件分支，以及 Validator/Reviser 回路。
-
-Phase 13 已完成 10 个可控端到端场景，Phase 14 增加结构化事件日志，Phase 15 完成架构、可靠性、反幻觉和用户输出检查；服务端全量回归 211 项通过。接入 API Task 1～9 的服务端实现、HTTPS 部署和六类真实 LLM 场景已完成。
-
-## 下一步
-
-1. 在真实手机上安装 HTTPS APK，完成登录、天气请求、三日行程请求、失败重试和重复发送检查。
-2. 下载条件恢复后补跑 API 24 最低版本回归。
-3. 补充大量记录的页面滚动压力测试。
-4. 在第二台真实设备和 API 24 上补跑文字记录同步、弱网/断网与大量数据回归。
+- [项目功能说明](docs/项目功能说明.md)：当前功能、架构、数据与 API、边界
+- [简历项目介绍](docs/简历项目介绍.md)：Agent 项目描述和可直接使用的简历条目
+- [Agent 架构](docs/Agent架构.md)、[Agent 记忆系统方案](docs/Agent记忆系统方案.md)、[Agent 开发计划](docs/Agent开发计划.md)
+- [客户端开发计划](docs/客户端开发计划.md)、[服务端开发计划](docs/服务端开发计划.md)、[开发日志](docs/开发日志.md)、[问题排查记录](docs/问题排查记录.md)
+- [测试指南](docs/测试指南.md)、[城市数据源](docs/城市数据源.md)、[文档索引](docs/README.md)
+- [按模块修订的评测指标](docs/Agent评测指标修订.md)、[模型切换与修复复评计划](docs/Agent修复与模型复评计划.md)：常见指标、标注边界及本轮执行顺序。
+- [Agent评测方案](docs/Agent评测方案.md)、[核心评测用例](docs/Agent评测用例.md)：性能、任务质量与调用成本的评测设计及首批样例
+- [全量评测报告](docs/Agent全量评测报告-2026-10-09.md)、[人工复核说明](docs/Agent全量评测人工复核.md)：正式三轮141条消息的性能、质量初判与待修复问题，最终正确率待语义复核
 
 ## 许可证
 
 待定。
+
+## 2026-10-09 模型复评
+
+- [新模型全量复评报告](docs/Agent模型复评报告-2026-10-09.md)：三轮141条已完成；分模块指标、性能对照和剩余评测。
+- [本轮人工复核材料](docs/Agent模型复评人工复核-2026-10-09.md)：61组答案与各轮请求ID，TSR仍待复核。
+
+- [人工复核与四项修复记录](docs/Agent人工复核修复记录-2026-10-09.md)：Linux回归、定向模型验收和已部署状态。
+
+- [Agent最终评测指标汇总](docs/Agent最终评测指标汇总-2026-10-09.md)：已导入用户最终复核，分别报告全量与修复复评，包含质量、可靠性、性能和成本。
+
+### 零Token评测（2026-10-09）
+
+[分阶段结果与待改进项](docs/Agent零Token分阶段评测结果-2026-10-09.md) · [样例与参考答案](docs/Agent离线评测样例与参考答案-2026-10-09.md)。114条组件验收样例，知识库实际入口与底层分别评测；不等同于LLM或整个Agent的真实准确率。
+
+### 知识库地域检索（2026-10-09，本地完成）
+
+收藏支持可选的区县与原文片段标注，明确区县查询只返回对应片段，城市查询保留旧笔记兼容。使用、验收和上线要求见 [区域片段检索实现](docs/知识库区域片段检索实现-2026-10-09.md)。服务器已部署，数据库迁移至`20261009_01`。
+# 最新进度（2026-10-09）
+
+智能规划生成时显示实际阶段及耗时，正文出现后收起，完成后隐藏；失败保留失败阶段。后端已部署，实现与验证见[生成进度展示](docs/Agent生成进度展示-2026-10-09.md)。记录页新增离线地图：全国→省份→城市旅行列表，支持1～12倍双指缩放、拖动及复位；见[地图方案](docs/旅行足迹地图开发方案.md)和[地图验收](docs/旅行足迹地图实现与验收-2026-10-09.md)。

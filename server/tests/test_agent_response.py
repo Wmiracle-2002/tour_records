@@ -15,7 +15,7 @@ from app.agent.response import FinalResponseGenerator
 
 def test_weather_response_uses_only_collected_weather_facts() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="weather_query", destination="南京"),
+        TravelRequirement(intent="weather_query", city="南京"),
         CollectedInfo(
             weather=WeatherInfo(
                 location="南京市",
@@ -37,7 +37,7 @@ def test_weather_response_uses_only_collected_weather_facts() -> None:
 
 def test_failed_information_is_explained_explicitly() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="weather_query", destination="南京"),
+        TravelRequirement(intent="weather_query", city="南京"),
         CollectedInfo(),
         InformationStatus(
             weather=InfoRequirement(
@@ -53,7 +53,7 @@ def test_failed_information_is_explained_explicitly() -> None:
     assert "天气服务没有返回数据" in response
 
     failed_response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="weather_query", destination="南京"),
+        TravelRequirement(intent="weather_query", city="南京"),
         CollectedInfo(),
         InformationStatus(
             weather=InfoRequirement(
@@ -82,9 +82,50 @@ def test_history_response_uses_structured_history_facts() -> None:
         InformationStatus(history=InfoRequirement(status="completed", critical=True)),
     )
 
-    assert "2 次" in response
     assert "南京市、北京市" in response
-    assert "中山陵、故宫" in response
+    assert "中山陵" not in response
+    assert "故宫" not in response
+
+
+def test_history_response_reports_no_matching_city_instead_of_zero_summary() -> None:
+    response = FinalResponseGenerator().generate(
+        TravelRequirement(intent="history_query", city="哈尔滨"),
+        CollectedInfo(
+            history=TravelHistoryInfo(
+                trip_count=1,
+                visited_cities=["南京市"],
+                visited_names=["中山陵"],
+            )
+        ),
+        InformationStatus(history=InfoRequirement(status="completed", critical=True)),
+    )
+
+    assert "哈尔滨" in response
+    assert "没有找到" in response
+    assert "共记录 0 次" not in response
+
+
+def test_history_response_lists_places_for_requested_city() -> None:
+    response = FinalResponseGenerator().generate(
+        TravelRequirement(
+            intent="history_query",
+            city="南京",
+            history_category="ATTRACTION",
+        ),
+        CollectedInfo(
+            history=TravelHistoryInfo(
+                trip_count=2,
+                visited_cities=["南京市"],
+                visited_names=["中山陵", "夫子庙"],
+                records_by_city={"南京市": {"ATTRACTION": ["中山陵", "夫子庙"]}},
+            )
+        ),
+        InformationStatus(history=InfoRequirement(status="completed", critical=True)),
+    )
+
+    assert "南京" in response
+    assert "去过的地点：中山陵、夫子庙" in response
+    assert "去过的城市1：南京市" in response
 
 
 def test_route_response_uses_route_facts_and_rmb_budget_is_labeled() -> None:
@@ -104,7 +145,7 @@ def test_route_response_uses_route_facts_and_rmb_budget_is_labeled() -> None:
         InformationStatus(routes=InfoRequirement(status="completed", critical=True)),
     )
     budget_response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="budget_query", destination="南京"),
+        TravelRequirement(intent="budget_query", city="南京"),
         CollectedInfo(
             budget=BudgetInfo(
                 estimated_min=800,
@@ -125,7 +166,7 @@ def test_route_response_uses_route_facts_and_rmb_budget_is_labeled() -> None:
 
 def test_poi_response_lists_only_available_poi_fields() -> None:
     response = FinalResponseGenerator().generate(
-        TravelRequirement(intent="poi_recommendation", destination="杭州"),
+        TravelRequirement(intent="poi_recommendation", city="杭州"),
         CollectedInfo(
             pois=[
                 POIInfo(

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.agent.tools.layer import ToolResult
+from app.agent.tools.layer import EmptyToolInput, ToolInputModel, ToolResult
 from app.models import Record, RecordType, Trip
 
 
@@ -56,20 +56,48 @@ class TripInfo(BaseModel):
     records: list[RecordSearchItem] = Field(default_factory=list)
 
 
-class SearchTripHistoryInput(BaseModel):
+class SearchTripHistoryInput(ToolInputModel):
     """历史旅行查询的筛选条件。"""
 
-    city: str | None = None
-    start_date: date | None = None
-    end_date: date | None = None
+    city: str | None = Field(default=None, description="按城市名称筛选")
+    category: RecordType | None = Field(default=None, description="ATTRACTION 或 FOOD")
+    start_date: date | None = Field(default=None, description="筛选起始日期，YYYY-MM-DD")
+    end_date: date | None = Field(default=None, description="筛选结束日期，YYYY-MM-DD")
 
     @field_validator("city", mode="before")
     @classmethod
-    def normalize_city(cls, value: Any) -> str | None:
+    def normalize_city(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        normalized = str(value).strip()
+        normalized = value.strip()
         return normalized or None
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def parse_category(cls, value: Any) -> RecordType | None:
+        if value is None or isinstance(value, RecordType):
+            return value
+        if isinstance(value, str):
+            try:
+                return RecordType(value)
+            except ValueError:
+                pass
+        raise ValueError("category must be ATTRACTION or FOOD")
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def parse_date(cls, value: Any) -> date | None:
+        if value is None or isinstance(value, date):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = date.fromisoformat(value)
+            except ValueError as error:
+                raise ValueError("date must use YYYY-MM-DD") from error
+            if parsed.isoformat() != value:
+                raise ValueError("date must use YYYY-MM-DD")
+            return parsed
+        raise ValueError("date must use YYYY-MM-DD")
 
     @model_validator(mode="after")
     def valid_date_range(self) -> "SearchTripHistoryInput":
@@ -78,12 +106,12 @@ class SearchTripHistoryInput(BaseModel):
         return self
 
 
-class SearchRecordsInput(BaseModel):
+class SearchRecordsInput(ToolInputModel):
     """旅行记录查询的筛选条件。"""
 
-    trip_id: int | None = Field(default=None, ge=1)
-    city: str | None = None
-    category: RecordType | None = None
+    trip_id: int | None = Field(default=None, ge=1, description="旅行记录 ID")
+    city: str | None = Field(default=None, description="按城市名称筛选")
+    category: RecordType | None = Field(default=None, description="ATTRACTION 或 FOOD")
     min_rating: Decimal | None = Field(default=None, ge=1, le=5)
     max_rating: Decimal | None = Field(default=None, ge=1, le=5)
     min_cost: Decimal | None = Field(default=None, ge=0)
@@ -91,11 +119,35 @@ class SearchRecordsInput(BaseModel):
 
     @field_validator("city", mode="before")
     @classmethod
-    def normalize_city(cls, value: Any) -> str | None:
+    def normalize_city(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        normalized = str(value).strip()
+        normalized = value.strip()
         return normalized or None
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def parse_category(cls, value: Any) -> RecordType | None:
+        if value is None or isinstance(value, RecordType):
+            return value
+        if isinstance(value, str):
+            try:
+                return RecordType(value)
+            except ValueError:
+                pass
+        raise ValueError("category must be ATTRACTION or FOOD")
+
+    @field_validator("min_rating", "max_rating", "min_cost", "max_cost", mode="before")
+    @classmethod
+    def parse_numeric_filter(cls, value: Any) -> Decimal | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+            raise ValueError("numeric filters must be JSON numbers")
+        parsed = Decimal(str(value))
+        if not parsed.is_finite():
+            raise ValueError("numeric filters must be finite")
+        return parsed
 
     @model_validator(mode="after")
     def valid_ranges(self) -> "SearchRecordsInput":
@@ -108,10 +160,10 @@ class SearchRecordsInput(BaseModel):
         return self
 
 
-class GetTripDetailInput(BaseModel):
+class GetTripDetailInput(ToolInputModel):
     """旅行详情查询的输入。"""
 
-    trip_id: int = Field(ge=1)
+    trip_id: int = Field(ge=1, description="正整数旅行记录 ID")
 
 
 class _UserScopedTool:
@@ -142,6 +194,9 @@ class GetTravelSummaryTool(_UserScopedTool):
 
     name = "get_travel_summary"
     description = "只能获取旅行次数、城市数、总花费和平均评分，不返回去过的城市或景点列表"
+    input_model = EmptyToolInput
+    information_need = "history"
+    examples = ({},)
 
     def run(self, **arguments: Any) -> ToolResult[TravelSummary]:
         if arguments:
@@ -180,28 +235,17 @@ class SearchTripHistoryTool(_UserScopedTool):
     """按城市和日期区间查询当前用户的历史旅行。"""
 
     name = "search_trip_history"
-    description = "查询去过哪些城市及每次旅行时间段，支持城市和日期筛选"
+    description = "查询去过哪些城市及具体景点/美食，支持城市、类型和日期筛选"
+    input_model = SearchTripHistoryInput
+    information_need = "history"
+    examples = ({"city": "南京", "category": "ATTRACTION"},)
 
     def run(self, **arguments: Any) -> ToolResult[list[TripInfo]]:
         query = SearchTripHistoryInput.model_validate(arguments)
         statement = (
-            select(
-                Trip.id,
-                Trip.city_code,
-                Trip.city_name,
-                Trip.start_date,
-                Trip.end_date,
-                func.count(Record.id),
-            )
-            .outerjoin(Record)
+            select(Trip)
             .where(Trip.user_id == self._user_id)
-            .group_by(
-                Trip.id,
-                Trip.city_code,
-                Trip.city_name,
-                Trip.start_date,
-                Trip.end_date,
-            )
+            .options(selectinload(Trip.records))
             .order_by(Trip.start_date.desc(), Trip.id.desc())
         )
         if query.city:
@@ -211,20 +255,33 @@ class SearchTripHistoryTool(_UserScopedTool):
         if query.end_date:
             statement = statement.where(Trip.start_date <= query.end_date)
 
-        rows = self._db.execute(statement).all()
-        return ToolResult.completed(
-            [
-                    TripInfo(
-                        trip_id=trip_id,
-                        city_code=city_code,
-                        city_name=city_name,
-                        start_date=start_date,
-                        end_date=end_date,
-                        record_count=record_count,
+        trips = self._db.scalars(statement).unique().all()
+        items: list[TripInfo] = []
+        for trip in trips:
+            records = sorted(
+                [
+                    record
+                    for record in trip.records
+                    if query.category is None or record.type == query.category
+                ],
+                key=lambda item: (item.date, item.id),
+                reverse=True,
+            )
+            items.append(
+                TripInfo(
+                    trip_id=trip.id,
+                    city_code=trip.city_code,
+                    city_name=trip.city_name,
+                    start_date=trip.start_date,
+                    end_date=trip.end_date,
+                    record_count=len(records),
+                    records=[
+                        record_search_item(record, trip.city_name)
+                        for record in records
+                    ],
                 )
-                for trip_id, city_code, city_name, start_date, end_date, record_count in rows
-            ]
-        )
+            )
+        return ToolResult.completed(items)
 
 
 class SearchRecordsTool(_UserScopedTool):
@@ -232,6 +289,9 @@ class SearchRecordsTool(_UserScopedTool):
 
     name = "search_records"
     description = "查询去过的具体景点和美食记录，支持城市、类型、评分和花费筛选"
+    input_model = SearchRecordsInput
+    information_need = "history"
+    examples = ({"city": "南京", "category": "FOOD", "min_rating": 4},)
 
     def run(self, **arguments: Any) -> ToolResult[list[RecordSearchItem]]:
         query = SearchRecordsInput.model_validate(arguments)
@@ -267,6 +327,9 @@ class GetTripDetailTool(_UserScopedTool):
 
     name = "get_trip_detail"
     description = "按旅行 ID 获取完整旅行详情"
+    input_model = GetTripDetailInput
+    information_need = "history"
+    examples = ({"trip_id": 1},)
 
     def run(self, **arguments: Any) -> ToolResult[TripInfo]:
         query = GetTripDetailInput.model_validate(arguments)

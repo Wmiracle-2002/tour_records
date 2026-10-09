@@ -15,7 +15,6 @@ def test_initialize_status_for_each_direct_query() -> None:
         ("weather_query", "weather"),
         ("history_query", "history"),
         ("budget_query", "budget"),
-        ("route_query", "routes"),
         ("poi_recommendation", "pois"),
     ]
 
@@ -25,6 +24,9 @@ def test_initialize_status_for_each_direct_query() -> None:
         requirement = getattr(status, field)
         assert requirement == InfoRequirement(status="pending", critical=True)
         assert sum(value is not None for value in status.model_dump().values()) == 1
+
+    route_status = initialize_information_status(TravelRequirement(intent="route_query"))
+    assert all(value is None for value in route_status.model_dump().values())
 
 
 def test_initialize_trip_planning_adds_explicit_budget_and_history_needs() -> None:

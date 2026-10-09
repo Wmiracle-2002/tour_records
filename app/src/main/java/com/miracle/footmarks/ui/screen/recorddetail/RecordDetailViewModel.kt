@@ -45,7 +45,10 @@ class RecordDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val record = recordRepository.getRecordById(recordId)
+                var record = recordRepository.getRecordById(recordId)
+                if (record?.remotePhotoIds != null && cloud.isCloudMode) {
+                    record = runCatching { cloud.refreshImageUrls(recordId) }.getOrNull() ?: record
+                }
                 if (record != null) {
                     val trip = tripRepository.getTripById(record.tripId)
                     val city = trip?.let { cityRepository.getCityById(it.cityId) }

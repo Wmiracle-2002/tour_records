@@ -15,7 +15,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("cityId"), Index("startDate"), Index(value = ["serverId"], unique = true)]
+    indices = [Index("cityId"), Index("startDate"), Index("ownerId"), Index(value = ["serverId"], unique = true)]
 )
 data class TripEntity(
     @PrimaryKey(autoGenerate = true)
@@ -24,5 +24,6 @@ data class TripEntity(
     val startDate: Long,
     val endDate: Long,
     val createdAt: Long = System.currentTimeMillis(),
-    val serverId: Long? = null
+    val serverId: Long? = null,
+    val ownerId: Long = 0
 )

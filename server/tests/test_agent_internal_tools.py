@@ -188,6 +188,83 @@ def test_search_trip_history_filters_city_and_overlapping_date_range(
     assert result.data[0].records == []
 
 
+def test_search_trip_history_includes_records_for_matching_trips(
+    db_session: Session,
+) -> None:
+    user = add_user(db_session, "history-record-user")
+    trip = add_trip(
+        db_session,
+        user,
+        "320100",
+        "南京市",
+        date(2026, 9, 1),
+        date(2026, 9, 3),
+    )
+    add_record(
+        db_session,
+        trip,
+        "中山陵",
+        RecordType.ATTRACTION,
+        date(2026, 9, 1),
+    )
+    add_record(
+        db_session,
+        trip,
+        "盐水鸭",
+        RecordType.FOOD,
+        date(2026, 9, 2),
+    )
+    db_session.commit()
+
+    result = tool_layer(db_session, user.id).execute(
+        "search_trip_history",
+        city="南京",
+    )
+
+    assert result.status == "completed"
+    assert result.data[0].record_count == 2
+    assert [record.name for record in result.data[0].records] == ["盐水鸭", "中山陵"]
+
+
+def test_search_trip_history_filters_record_category(
+    db_session: Session,
+) -> None:
+    user = add_user(db_session, "history-category-user")
+    trip = add_trip(
+        db_session,
+        user,
+        "320100",
+        "南京市",
+        date(2026, 9, 1),
+        date(2026, 9, 3),
+    )
+    add_record(
+        db_session,
+        trip,
+        "中山陵",
+        RecordType.ATTRACTION,
+        date(2026, 9, 1),
+    )
+    add_record(
+        db_session,
+        trip,
+        "盐水鸭",
+        RecordType.FOOD,
+        date(2026, 9, 2),
+    )
+    db_session.commit()
+
+    result = tool_layer(db_session, user.id).execute(
+        "search_trip_history",
+        city="南京",
+        category="ATTRACTION",
+    )
+
+    assert result.status == "completed"
+    assert result.data[0].record_count == 1
+    assert [record.name for record in result.data[0].records] == ["中山陵"]
+
+
 def test_search_records_supports_filters_and_user_scope(db_session: Session) -> None:
     user = add_user(db_session, "record-user")
     other_user = add_user(db_session, "other-record-user")
@@ -240,10 +317,10 @@ def test_search_records_supports_filters_and_user_scope(db_session: Session) -> 
         "search_records",
         city="南京",
         category="FOOD",
-        min_rating="3",
-        max_rating="3",
-        min_cost="30",
-        max_cost="50",
+        min_rating=3,
+        max_rating=3,
+        min_cost=30,
+        max_cost=50,
     )
 
     assert result.status == "completed"
@@ -300,8 +377,26 @@ def test_internal_db_tool_rejects_invalid_query_boundaries(db_session: Session) 
         end_date="2026-09-01",
     )
     invalid_trip_id = layer.execute("get_trip_detail", trip_id=0)
+    numeric_string_rating = layer.execute("search_records", min_rating="3")
 
     assert invalid_date_range.status == "failed"
-    assert invalid_date_range.error_code == "tool_execution_failed"
+    assert invalid_date_range.error_code == "invalid_tool_arguments"
     assert invalid_trip_id.status == "failed"
-    assert invalid_trip_id.error_code == "tool_execution_failed"
+    assert invalid_trip_id.error_code == "invalid_tool_arguments"
+    assert numeric_string_rating.error_code == "invalid_tool_arguments"
+
+
+def test_summary_and_history_reject_extra_or_coerced_arguments(
+    db_session: Session,
+) -> None:
+    user = add_user(db_session, "strict-arguments-user")
+    db_session.commit()
+    layer = tool_layer(db_session, user.id)
+
+    extra_summary_field = layer.execute("get_travel_summary", city="南京")
+    coerced_trip_id = layer.execute("get_trip_detail", trip_id="1")
+
+    assert extra_summary_field.error_code == "invalid_tool_arguments"
+    assert extra_summary_field.details["invalid_fields"] == ["city"]
+    assert coerced_trip_id.error_code == "invalid_tool_arguments"
+    assert coerced_trip_id.details["invalid_fields"] == ["trip_id"]

@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,6 +11,11 @@ class Settings(BaseSettings):
     token_secret: str | None = None
     access_token_minutes: int = 30
     refresh_token_days: int = 30
+    public_registration_enabled: bool = False
+    token_quota_enabled: bool = False
+    default_monthly_token_limit: int = Field(default=50000, ge=0)
+    llm_max_output_tokens: int = Field(default=4096, ge=1)
+    photo_storage_limit_bytes: int = Field(default=104857600, ge=1)
     cos_bucket: str | None = "footmark-1489262329"
     cos_region: str = "ap-hongkong"
     cos_domain: str = "https://footmark-1489262329.cos.ap-hongkong.myqcloud.com"
@@ -23,8 +29,11 @@ class Settings(BaseSettings):
     llm_base_url: str | None = None
     llm_api_key: str | None = None
     llm_model: str | None = None
+    llm_structured_output_mode: Literal["json_schema", "json_object"] = "json_schema"
     llm_timeout_seconds: float = Field(default=30.0, gt=0)
     llm_max_retries: int = Field(default=1, ge=0)
+    agent_total_timeout_seconds: float = Field(default=120.0, gt=0)
+    agent_stage_timeout_seconds: float = Field(default=60.0, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

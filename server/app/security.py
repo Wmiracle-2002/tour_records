@@ -25,22 +25,26 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-def create_token(user_id: int, token_type: str, secret: str, lifetime: timedelta) -> str:
+def create_token(
+    user_id: int, token_type: str, secret: str, lifetime: timedelta,
+    *, session_id: str | None = None, token_id: str | None = None,
+) -> str:
     now = datetime.now(timezone.utc)
-    return jwt.encode(
-        {
+    claims = {
             "sub": str(user_id),
             "iss": "footmarks",
             "type": token_type,
             "iat": now,
             "exp": now + lifetime,
-        },
-        secret,
-        algorithm="HS256",
-    )
+        }
+    if session_id is not None:
+        claims["sid"] = session_id
+    if token_id is not None:
+        claims["jti"] = token_id
+    return jwt.encode(claims, secret, algorithm="HS256")
 
 
-def read_token(token: str, expected_type: str, secret: str) -> int | None:
+def token_claims(token: str, expected_type: str, secret: str) -> dict | None:
     try:
         claims = jwt.decode(
             token,
@@ -51,6 +55,12 @@ def read_token(token: str, expected_type: str, secret: str) -> int | None:
         )
         if claims["type"] != expected_type:
             return None
-        return int(claims["sub"])
+        int(claims["sub"])
+        return claims
     except (jwt.InvalidTokenError, ValueError, TypeError):
         return None
+
+
+def read_token(token: str, expected_type: str, secret: str) -> int | None:
+    claims = token_claims(token, expected_type, secret)
+    return int(claims["sub"]) if claims is not None else None

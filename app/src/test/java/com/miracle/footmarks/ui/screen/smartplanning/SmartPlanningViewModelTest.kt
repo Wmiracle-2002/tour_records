@@ -4,6 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import com.miracle.footmarks.data.remote.AgentChatResponse
 import com.miracle.footmarks.data.remote.CloudSession
 import com.miracle.footmarks.data.remote.FootmarksApi
+import com.miracle.footmarks.data.remote.RemoteConversation
+import com.miracle.footmarks.data.remote.RemoteConversationMessage
+import com.miracle.footmarks.data.remote.RemotePreference
+import com.miracle.footmarks.data.remote.PreferenceRequest
 import com.miracle.footmarks.data.remote.LoginRequest
 import com.miracle.footmarks.data.remote.RecordRequest
 import com.miracle.footmarks.data.remote.RefreshRequest
@@ -18,6 +22,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -33,6 +38,7 @@ import org.junit.Before
 import org.junit.Test
 import retrofit2.HttpException
 import retrofit2.Response
+import java.net.SocketTimeoutException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SmartPlanningViewModelTest {
@@ -67,6 +73,8 @@ class SmartPlanningViewModelTest {
             viewModel.uiState.value.messages
         )
         assertEquals(1, api.chatCalls)
+        assertEquals(1, api.createConversationCalls)
+        assertEquals("conversation-1", viewModel.uiState.value.currentConversationId)
     }
 
     @Test
@@ -123,6 +131,73 @@ class SmartPlanningViewModelTest {
     }
 
     @Test
+    fun clientClosedRequestShowsRetryMessage() = runTest(dispatcher) {
+        val api = FakeFootmarksApi(failure = HttpException(
+            Response.error<AgentChatResponse>(
+                499,
+                "client closed".toResponseBody("text/plain".toMediaType())
+            )
+        ))
+        val viewModel = viewModel(api)
+
+        viewModel.updateDraft("规划北京三日游")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertEquals("请求已取消（499），请重新发送", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun socketTimeoutShowsStableRetryMessage() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeFootmarksApi(failure = SocketTimeoutException()))
+
+        viewModel.updateDraft("规划北京三日游")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertEquals("智能规划请求超时，请稍后重试", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun retryAfterLostStreamUsesSameClientMessageId() = runTest(dispatcher) {
+        val api = FakeFootmarksApi(failure = java.io.IOException("connection lost"))
+        val viewModel = viewModel(api)
+
+        viewModel.updateDraft("南京怎么玩")
+        viewModel.send()
+        advanceUntilIdle()
+        api.failure = null
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertEquals(2, api.sentClientMessageIds.size)
+        assertEquals(api.sentClientMessageIds.first(), api.sentClientMessageIds.last())
+    }
+
+    @Test
+    fun failedRequestFollowedBySendKeepsMessageIdsUnique() = runTest(dispatcher) {
+        val conversation = RemoteConversation("thread-1", "历史对话", "", "", 1)
+        val api = FakeFootmarksApi(
+            failure = java.io.IOException("connection lost"),
+            conversations = listOf(conversation),
+            messages = mapOf(conversation.id to listOf(
+                RemoteConversationMessage(1, "user", "旧问题", "completed", "")
+            ))
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.updateDraft("福州长乐有哪些风景")
+        viewModel.send()
+        advanceUntilIdle()
+        viewModel.updateDraft("再问一个问题")
+        viewModel.send()
+
+        val ids = viewModel.uiState.value.messages.map { it.id }
+        assertEquals(ids.size, ids.toSet().size)
+    }
+
+    @Test
     fun sendClearsDraftWhileRequestIsInFlight() = runTest(dispatcher) {
         val gate = CompletableDeferred<Unit>()
         val viewModel = viewModel(FakeFootmarksApi(gate = gate))
@@ -133,9 +208,116 @@ class SmartPlanningViewModelTest {
 
         assertEquals("", viewModel.uiState.value.draft)
         assertTrue(viewModel.uiState.value.isSending)
+        assertEquals("正在连接智能规划…", viewModel.uiState.value.streamingStage)
 
         gate.complete(Unit)
         advanceUntilIdle()
+    }
+
+    @Test
+    fun streamedContentAppearsGraduallyBeforeFinalMessage() = runTest(dispatcher) {
+        val answer = "南京天气晴朗，适合出游。"
+        val body = "event: content\ndata: {\"request_id\":\"req-1\",\"text\":\"$answer\"}\n\n" +
+            "event: completed\ndata: {\"request_id\":\"req-1\",\"answer\":\"$answer\",\"conversation_id\":\"conversation-1\"}\n\n"
+        val viewModel = viewModel(FakeFootmarksApi(
+            result = AgentChatResponse("req-1", answer), streamBody = body
+        ))
+
+        viewModel.updateDraft("南京天气怎么样")
+        viewModel.send()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isSending)
+        assertEquals("", viewModel.uiState.value.streamingText)
+
+        advanceTimeBy(80)
+        runCurrent()
+        val partial = viewModel.uiState.value.streamingText
+        assertTrue(partial.isNotEmpty())
+        assertTrue(answer.startsWith(partial))
+        assertTrue(partial.length < answer.length)
+
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isSending)
+        assertEquals(answer, viewModel.uiState.value.messages.last().text)
+    }
+
+    @Test
+    fun progressTracksActualOutcomesAndDisappearsAfterAnswer() = runTest(dispatcher) {
+        val body = "event: stage\ndata: {\"stage\":\"itinerary_generator\",\"status\":\"running\",\"message\":\"正在规划行程\"}\n\n" +
+            "event: stage\ndata: {\"stage\":\"itinerary_generator\",\"status\":\"degraded\",\"message\":\"正在规划行程\"}\n\n" +
+            "event: stage\ndata: {\"stage\":\"validator\",\"status\":\"success\",\"message\":\"正在校验行程\"}\n\n" +
+            "event: content\ndata: {\"text\":\"规划完成\"}\n\n" +
+            "event: completed\ndata: {\"answer\":\"规划完成\",\"conversation_id\":\"conversation-1\"}\n\n"
+        val viewModel = viewModel(FakeFootmarksApi(streamBody = body))
+        viewModel.updateDraft("南京一日游")
+        viewModel.send()
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isSending)
+        assertTrue(state.progressStartedAtMillis != null)
+        assertEquals(listOf("degraded", "success"), state.progressSteps.map { it.status })
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.progressSteps.isEmpty())
+        assertEquals(null, viewModel.uiState.value.progressStartedAtMillis)
+    }
+
+    @Test
+    fun failedStreamRetainsFailedStageAndNextRequestResetsIt() = runTest(dispatcher) {
+        val body = "event: stage\ndata: {\"message\":\"正在规划行程\"}\n\n" +
+            "event: error\ndata: {\"code\":504,\"message\":\"响应超时\"}\n\n"
+        val viewModel = viewModel(FakeFootmarksApi(streamBody = body))
+        viewModel.updateDraft("南京三日游")
+        viewModel.send()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isSending)
+        assertEquals("failed", viewModel.uiState.value.progressSteps.last().status)
+        assertEquals("正在规划行程", viewModel.uiState.value.progressSteps.last().label)
+        viewModel.send()
+        assertEquals(listOf("connection"), viewModel.uiState.value.progressSteps.map { it.id })
+        assertEquals("running", viewModel.uiState.value.progressSteps.single().status)
+        advanceUntilIdle()
+        viewModel.dismissError()
+        assertTrue(viewModel.uiState.value.progressSteps.isEmpty())
+    }
+
+    @Test
+    fun responseDoesNotClearTextTypedWhilePreviousRequestIsInFlight() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val viewModel = viewModel(FakeFootmarksApi(gate = gate))
+
+        viewModel.updateDraft("南京三日游")
+        viewModel.send()
+        runCurrent()
+        viewModel.updateDraft("中秋天气怎么样")
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("中秋天气怎么样", viewModel.uiState.value.draft)
+        assertEquals(2, viewModel.uiState.value.messages.size)
+    }
+
+    @Test
+    fun failureDoesNotReplaceTextTypedWhilePreviousRequestIsInFlight() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val viewModel = viewModel(
+            FakeFootmarksApi(
+                failure = SocketTimeoutException(),
+                gate = gate
+            )
+        )
+
+        viewModel.updateDraft("南京三日游")
+        viewModel.send()
+        runCurrent()
+        viewModel.updateDraft("中秋天气怎么样")
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("中秋天气怎么样", viewModel.uiState.value.draft)
+        assertEquals("智能规划请求超时，请稍后重试", viewModel.uiState.value.error)
     }
 
     @Test
@@ -176,8 +358,151 @@ class SmartPlanningViewModelTest {
         assertEquals("周末去苏州", restored.uiState.value.draft)
     }
 
+    @Test
+    fun restoresMostRecentConversationAndItsMessages() = runTest(dispatcher) {
+        val conversation = RemoteConversation("conversation-1", "南京三日游", "", "", 2)
+        val api = FakeFootmarksApi(
+            conversations = listOf(conversation),
+            messages = mapOf(
+                conversation.id to listOf(
+                    RemoteConversationMessage(21, "user", "南京三日游", "completed", ""),
+                    RemoteConversationMessage(22, "assistant", "收到", "completed", "")
+                )
+            )
+        )
+
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        assertEquals(conversation.id, viewModel.uiState.value.currentConversationId)
+        assertEquals(
+            listOf(
+                ChatMessage(21, ChatRole.USER, "南京三日游"),
+                ChatMessage(22, ChatRole.AGENT, "收到")
+            ),
+            viewModel.uiState.value.messages
+        )
+    }
+
+    @Test
+    fun createsNewConversationAndClearsPreviousMessages() = runTest(dispatcher) {
+        val existing = RemoteConversation("conversation-1", "旧对话", "", "", 1)
+        val api = FakeFootmarksApi(
+            conversations = listOf(existing),
+            messages = mapOf(existing.id to listOf(
+                RemoteConversationMessage(1, "user", "旧问题", "completed", "")
+            ))
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+        viewModel.updateDraft("保留输入")
+
+        viewModel.createNewConversation()
+        advanceUntilIdle()
+
+        assertEquals("conversation-2", viewModel.uiState.value.currentConversationId)
+        assertTrue(viewModel.uiState.value.messages.isEmpty())
+        assertEquals("保留输入", viewModel.uiState.value.draft)
+        assertEquals(2, viewModel.uiState.value.conversations.size)
+    }
+
+    @Test
+    fun repeatedNewConversationTapsDoNotCreateMultipleEmptyThreads() = runTest(dispatcher) {
+        val api = FakeFootmarksApi()
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.createNewConversation()
+        viewModel.createNewConversation()
+        viewModel.updateDraft("南京一日游")
+        viewModel.send()
+        advanceUntilIdle()
+        viewModel.createNewConversation()
+        advanceUntilIdle()
+
+        assertEquals(1, api.createConversationCalls)
+        assertEquals(1, viewModel.uiState.value.conversations.size)
+        assertEquals("conversation-1", viewModel.uiState.value.currentConversationId)
+        assertEquals(0, api.chatCalls)
+        assertEquals("南京一日游", viewModel.uiState.value.draft)
+    }
+
+    @Test
+    fun openingAnotherConversationReplacesCurrentMessages() = runTest(dispatcher) {
+        val first = RemoteConversation("thread-1", "第一段", "", "", 0)
+        val second = RemoteConversation("thread-2", "第二段", "", "", 1)
+        val api = FakeFootmarksApi(
+            conversations = listOf(first, second),
+            messages = mapOf(
+                first.id to listOf(
+                    RemoteConversationMessage(1, "user", "旧问题", "completed", "")
+                ),
+                second.id to listOf(
+                    RemoteConversationMessage(2, "user", "新问题", "completed", "")
+                )
+            )
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.openConversation(second.id)
+        advanceUntilIdle()
+
+        assertEquals(second.id, viewModel.uiState.value.currentConversationId)
+        assertEquals(listOf("新问题"), viewModel.uiState.value.messages.map { it.text })
+    }
+
+    @Test
+    fun loadingOlderMessagesPrependsThePreviousPageInOrder() = runTest(dispatcher) {
+        val conversation = RemoteConversation("thread-1", "长对话", "", "", 53)
+        val messages = (0L until 53L).map { id ->
+            RemoteConversationMessage(id, "user", "消息$id", "completed", "")
+        }
+        val viewModel = viewModel(
+            FakeFootmarksApi(conversations = listOf(conversation), messages = mapOf(conversation.id to messages))
+        )
+        advanceUntilIdle()
+
+        assertEquals(50, viewModel.uiState.value.messages.size)
+        assertTrue(viewModel.uiState.value.hasOlderMessages)
+
+        viewModel.loadOlderMessages()
+        advanceUntilIdle()
+
+        assertEquals(53, viewModel.uiState.value.messages.size)
+        assertEquals("消息0", viewModel.uiState.value.messages.first().text)
+        assertEquals("消息52", viewModel.uiState.value.messages.last().text)
+        assertFalse(viewModel.uiState.value.hasOlderMessages)
+    }
+
+    @Test
+    fun deletingCurrentConversationOpensAnotherThread() = runTest(dispatcher) {
+        val first = RemoteConversation("thread-1", "第一段", "", "", 0)
+        val second = RemoteConversation("thread-2", "第二段", "", "", 1)
+        val api = FakeFootmarksApi(
+            conversations = listOf(first, second),
+            messages = mapOf(
+                first.id to emptyList(),
+                second.id to listOf(
+                    RemoteConversationMessage(2, "user", "保留的对话", "completed", "")
+                )
+            )
+        )
+        val viewModel = viewModel(api)
+        advanceUntilIdle()
+
+        viewModel.deleteConversation(first.id)
+        advanceUntilIdle()
+
+        assertEquals(second.id, viewModel.uiState.value.currentConversationId)
+        assertEquals(listOf(second), viewModel.uiState.value.conversations)
+        assertEquals(listOf("保留的对话"), viewModel.uiState.value.messages.map { it.text })
+    }
+
     private fun viewModel(api: FakeFootmarksApi) = SmartPlanningViewModel(
-        CloudSession(api, MemoryTokenStore(Tokens("access", "refresh"))),
+        CloudSession(api, MemoryTokenStore(Tokens("access", "refresh"))).apply {
+            streamDispatcher = dispatcher
+        },
         SavedStateHandle()
     )
 }
@@ -188,21 +513,164 @@ private class MemoryTokenStore(
 
 private class FakeFootmarksApi(
     private val result: AgentChatResponse = AgentChatResponse("req-1", "规划完成"),
-    private val failure: Exception? = null,
-    private val gate: CompletableDeferred<Unit>? = null
+    var failure: Exception? = null,
+    private val gate: CompletableDeferred<Unit>? = null,
+    private val streamBody: String? = null,
+    private val conversations: List<RemoteConversation> = emptyList(),
+    private val messages: Map<String, List<RemoteConversationMessage>> = emptyMap()
 ) : FootmarksApi {
+    override suspend fun myAccount(authorization: String) = unsupported<com.miracle.footmarks.data.remote.AccountInfo>()
+    override suspend fun deleteMyAccount(authorization: String, request: com.miracle.footmarks.data.remote.DeleteAccountRequest) = unsupported<Unit>()
+    override suspend fun myQuota(authorization: String): com.miracle.footmarks.data.remote.TokenQuotaBalance = unsupported()
+    override suspend fun adminUsers(authorization: String): List<com.miracle.footmarks.data.remote.AdminUser> = unsupported()
+    override suspend fun adminCreateUser(authorization: String, request: LoginRequest): com.miracle.footmarks.data.remote.AdminUser = unsupported()
+    override suspend fun adminSetStatus(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.AdminStatusRequest): com.miracle.footmarks.data.remote.AdminUser = unsupported()
+    override suspend fun adminResetPassword(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.AdminPasswordRequest) = unsupported<Unit>()
+    override suspend fun adminSetQuota(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.AdminQuotaRequest): com.miracle.footmarks.data.remote.AdminUser = unsupported()
+    override suspend fun adminUserQuota(authorization: String, userId: Long): com.miracle.footmarks.data.remote.TokenQuotaBalance = unsupported()
+    override suspend fun adminDefaultQuota(authorization: String): com.miracle.footmarks.data.remote.AdminDefaultQuota = unsupported()
+    override suspend fun changePassword(authorization: String, request: com.miracle.footmarks.data.remote.PasswordChangeRequest) = unsupported<Unit>()
+    override suspend fun getRecordImages(authorization: String, recordId: Long): List<com.miracle.footmarks.data.remote.RemoteImage> = unsupported()
+    override suspend fun adminSetDefaultQuota(authorization: String, request: com.miracle.footmarks.data.remote.AdminDefaultQuota): com.miracle.footmarks.data.remote.AdminDefaultQuota = unsupported()
+    override suspend fun adminCreateRecord(authorization: String, userId: Long, tripId: Long, record: com.miracle.footmarks.data.remote.RecordRequest): com.miracle.footmarks.data.remote.RemoteRecord = unsupported()
+    override suspend fun adminUpdateRecord(authorization: String, userId: Long, recordId: Long, record: com.miracle.footmarks.data.remote.RecordRequest): com.miracle.footmarks.data.remote.RemoteRecord = unsupported()
+    override suspend fun adminDeleteRecord(authorization: String, userId: Long, recordId: Long) = unsupported<Unit>()
+    override suspend fun adminDeleteImage(authorization: String, userId: Long, imageId: Long) = unsupported<Unit>()
+    override suspend fun adminUploadImage(authorization: String, userId: Long, recordId: Long, file: okhttp3.MultipartBody.Part): com.miracle.footmarks.data.remote.RemoteImage = unsupported()
+    override suspend fun adminKnowledge(authorization: String, userId: Long): List<com.miracle.footmarks.data.remote.RemoteKnowledge> = unsupported()
+    override suspend fun adminCreateKnowledge(authorization: String, userId: Long, request: com.miracle.footmarks.data.remote.KnowledgeRequest): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+    override suspend fun adminUpdateKnowledge(authorization: String, userId: Long, entryId: Long, request: com.miracle.footmarks.data.remote.KnowledgeRequest): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+    override suspend fun adminDeleteKnowledge(authorization: String, userId: Long, entryId: Long) = unsupported<Unit>()
+    override suspend fun adminConversations(authorization: String, userId: Long): List<com.miracle.footmarks.data.remote.RemoteConversation> = unsupported()
+    override suspend fun adminDeleteConversation(authorization: String, userId: Long, conversationId: String) = unsupported<Unit>()
+    override suspend fun adminPreferences(authorization: String, userId: Long): List<com.miracle.footmarks.data.remote.RemotePreference> = unsupported()
+    override suspend fun adminUpsertPreference(authorization: String, userId: Long, category: String, request: com.miracle.footmarks.data.remote.PreferenceRequest): com.miracle.footmarks.data.remote.RemotePreference = unsupported()
+    override suspend fun adminDeletePreference(authorization: String, userId: Long, category: String) = unsupported<Unit>()
+    override suspend fun adminDeleteUser(authorization: String, userId: Long) = unsupported<Unit>()
+    override suspend fun adminTrips(authorization: String, userId: Long): List<RemoteTrip> = unsupported()
+    override suspend fun adminCreateTrip(authorization: String, userId: Long, trip: TripRequest): RemoteTripSummary = unsupported()
+    override suspend fun adminUpdateTrip(authorization: String, userId: Long, tripId: Long, trip: TripRequest): RemoteTrip = unsupported()
+    override suspend fun adminDeleteTrip(authorization: String, userId: Long, tripId: Long) = unsupported<Unit>()
+    override suspend fun syncTrips(authorization: String, cursor: String?, limit: Int): com.miracle.footmarks.data.remote.TripSyncPage = unsupported()
+    override suspend fun register(request: LoginRequest): Tokens = unsupported()
+    override suspend fun logout(authorization: String) = unsupported<Unit>()
+    override suspend fun getKnowledge(
+        authorization: String, query: String?
+    ): List<com.miracle.footmarks.data.remote.RemoteKnowledge> = emptyList()
+
+    override suspend fun getKnowledgeEntry(
+        authorization: String, entryId: Long
+    ): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+
+    override suspend fun getKnowledgeDistricts(
+        authorization: String, cityCode: String
+    ): List<com.miracle.footmarks.data.remote.KnowledgeDistrict> = emptyList()
+
+    override suspend fun createKnowledge(
+        authorization: String, request: com.miracle.footmarks.data.remote.KnowledgeRequest
+    ): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+
+    override suspend fun updateKnowledge(
+        authorization: String, entryId: Long,
+        request: com.miracle.footmarks.data.remote.KnowledgeRequest
+    ): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+
+    override suspend fun deleteKnowledge(authorization: String, entryId: Long) = Unit
+
     var chatCalls = 0
+    val sentClientMessageIds = mutableListOf<String?>()
+    var createConversationCalls = 0
+    private val storedConversations = conversations.toMutableList()
+    private val storedMessages = messages.mapValues { it.value.toMutableList() }.toMutableMap()
+    private val storedPreferences = mutableListOf<RemotePreference>()
+    private var nextRemoteMessageId =
+        storedMessages.values.flatten().maxOfOrNull { it.id + 1 } ?: 0L
 
     override suspend fun login(request: LoginRequest): Tokens = unsupported()
+
+    override suspend fun streamChat(
+        authorization: String,
+        request: com.miracle.footmarks.data.remote.AgentChatRequest
+    ): retrofit2.Response<okhttp3.ResponseBody> {
+        val answer = chat(authorization, request)
+        val body = "event: completed\ndata: " +
+            com.google.gson.Gson().toJson(answer) + "\n\n"
+        return retrofit2.Response.success(
+            (streamBody ?: body).toResponseBody("text/event-stream".toMediaType())
+        )
+    }
 
     override suspend fun chat(
         authorization: String,
         request: com.miracle.footmarks.data.remote.AgentChatRequest
     ): AgentChatResponse {
         chatCalls += 1
+        sentClientMessageIds += request.clientMessageId
         gate?.await()
+        request.conversationId?.let { conversationId ->
+            val items = storedMessages.getOrPut(conversationId) { mutableListOf() }
+            items += RemoteConversationMessage(
+                nextRemoteMessageId++, "user", request.message, "completed", ""
+            )
+        }
         failure?.let { throw it }
-        return result
+        request.conversationId?.let { conversationId ->
+            storedMessages.getValue(conversationId) += RemoteConversationMessage(
+                nextRemoteMessageId++, "assistant", result.answer, "completed", ""
+            )
+            storedConversations.replaceAll { conversation ->
+                if (conversation.id == conversationId) conversation.copy(
+                    messageCount = storedMessages.getValue(conversationId).size
+                ) else conversation
+            }
+        }
+        return result.copy(conversationId = request.conversationId)
+    }
+
+    override suspend fun createConversation(authorization: String): RemoteConversation {
+        createConversationCalls += 1
+        val conversation = RemoteConversation(
+            "conversation-${storedConversations.size + 1}", "新对话", "", "", 0
+        )
+        storedConversations.add(0, conversation)
+        return conversation
+    }
+
+    override suspend fun getConversations(authorization: String): List<RemoteConversation> =
+        storedConversations.toList()
+
+    override suspend fun getConversationMessages(
+        authorization: String,
+        conversationId: String,
+        limit: Int,
+        beforeId: Long?
+    ): List<RemoteConversationMessage> = storedMessages[conversationId]
+        .orEmpty()
+        .filter { beforeId == null || it.id < beforeId }
+        .takeLast(limit)
+
+    override suspend fun deleteConversation(authorization: String, conversationId: String) {
+        storedConversations.removeAll { it.id == conversationId }
+        storedMessages.remove(conversationId)
+    }
+
+    override suspend fun getPreferences(authorization: String): List<RemotePreference> =
+        storedPreferences.toList()
+
+    override suspend fun upsertPreference(
+        authorization: String,
+        category: String,
+        request: PreferenceRequest
+    ): RemotePreference {
+        val old = storedPreferences.firstOrNull { it.category == category }
+        val value = RemotePreference(old?.id ?: (storedPreferences.size + 1L), category, request.content, "", "")
+        storedPreferences.removeAll { it.category == category }
+        storedPreferences.add(value)
+        return value
+    }
+
+    override suspend fun deletePreference(authorization: String, category: String) {
+        storedPreferences.removeAll { it.category == category }
     }
 
     override suspend fun getTrips(authorization: String): List<RemoteTrip> = unsupported()

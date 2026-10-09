@@ -13,7 +13,7 @@ def budget_tool_layer() -> ToolLayer:
 def test_estimate_budget_returns_breakdown_and_range() -> None:
     result = budget_tool_layer().execute(
         "estimate_budget",
-        destination="南京",
+        city="南京",
         duration_days=3,
         travelers=2,
         accommodation_level="standard",
@@ -39,7 +39,7 @@ def test_estimate_budget_returns_breakdown_and_range() -> None:
 def test_estimate_budget_uses_explicit_defaults() -> None:
     result = budget_tool_layer().execute(
         "estimate_budget",
-        destination="杭州",
+        city="杭州",
         duration_days=1,
         travelers=1,
     )
@@ -56,19 +56,19 @@ def test_estimate_budget_uses_explicit_defaults() -> None:
 def test_estimate_budget_rejects_invalid_boundaries() -> None:
     invalid_duration = budget_tool_layer().execute(
         "estimate_budget",
-        destination="南京",
+        city="南京",
         duration_days=0,
         travelers=1,
     )
     invalid_travelers = budget_tool_layer().execute(
         "estimate_budget",
-        destination="南京",
+        city="南京",
         duration_days=1,
         travelers=0,
     )
     invalid_level = budget_tool_layer().execute(
         "estimate_budget",
-        destination="南京",
+        city="南京",
         duration_days=1,
         travelers=1,
         food_level="unknown",
@@ -77,7 +77,7 @@ def test_estimate_budget_rejects_invalid_boundaries() -> None:
     assert invalid_duration.status == "failed"
     assert invalid_travelers.status == "failed"
     assert invalid_level.status == "failed"
-    assert invalid_duration.error_code == "tool_execution_failed"
+    assert invalid_duration.error_code == "invalid_tool_arguments"
 
 
 def test_estimate_budget_keeps_missing_destination_explicit() -> None:
@@ -90,3 +90,24 @@ def test_estimate_budget_keeps_missing_destination_explicit() -> None:
 
     assert result.status == "completed"
     assert any("未指定目的地" in assumption for assumption in result.data.assumptions)
+
+
+def test_budget_rejects_legacy_or_unknown_parameter_names() -> None:
+    legacy_destination = budget_tool_layer().execute(
+        "estimate_budget", destination="南京", duration_days=2, travelers=1
+    )
+    unknown_level = budget_tool_layer().execute(
+        "estimate_budget", city="南京", duration_days=2, travelers=1, level="budget"
+    )
+
+    assert legacy_destination.error_code == "invalid_tool_arguments"
+    assert unknown_level.error_code == "invalid_tool_arguments"
+
+
+def test_budget_rejects_numeric_strings_without_coercion() -> None:
+    result = budget_tool_layer().execute(
+        "estimate_budget", city="南京", duration_days="3", travelers=2
+    )
+
+    assert result.error_code == "invalid_tool_arguments"
+    assert result.details["invalid_fields"] == ["duration_days"]

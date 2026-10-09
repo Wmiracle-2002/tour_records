@@ -1,0 +1,215 @@
+{
+  "annotation": "Codex人工标注，合成笔记，小型地域契约验收，不是独立盲测或整个Agent准确率",
+  "notes": [
+    {
+      "user_id": 1,
+      "city_code": "350100",
+      "tags": [],
+      "id": 1,
+      "title": "福州攻略",
+      "body": "长乐：清淡海鲜。\n鼓楼：三坊七巷散步。",
+      "category": "travel_guide",
+      "sections": [
+        {
+          "district_code": "350112",
+          "category": "food_guide",
+          "text": "长乐：清淡海鲜。"
+        },
+        {
+          "district_code": "350102",
+          "category": "attraction_guide",
+          "text": "鼓楼：三坊七巷散步。"
+        }
+      ]
+    },
+    {
+      "user_id": 1,
+      "city_code": "350100",
+      "tags": [],
+      "id": 2,
+      "title": "全城美食",
+      "body": "未标区县的福州美食。",
+      "category": "food_guide"
+    },
+    {
+      "user_id": 2,
+      "city_code": "350100",
+      "tags": [],
+      "id": 3,
+      "title": "另一个账号长乐美食",
+      "body": "他人长乐海鲜。",
+      "category": "food_guide",
+      "sections": [
+        {
+          "district_code": "350112",
+          "category": "food_guide",
+          "text": "他人长乐海鲜。"
+        }
+      ]
+    },
+    {
+      "user_id": 1,
+      "city_code": "350200",
+      "tags": [],
+      "id": 4,
+      "title": "厦门美食",
+      "body": "跨城同名长乐餐馆。",
+      "category": "food_guide"
+    }
+  ],
+  "cases": [
+    {
+      "id": "RG01",
+      "input": {
+        "city": "福州",
+        "kind": null,
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [
+        "1:0",
+        "1:9",
+        "2:0"
+      ],
+      "rationale": "城市广泛查询同时包括两个区县片段及旧未标注笔记"
+    },
+    {
+      "id": "RG02",
+      "input": {
+        "city": "福州",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [
+        "1:0",
+        "2:0"
+      ],
+      "rationale": "城市美食查询包括通用攻略里已标美食片段及旧美食笔记"
+    },
+    {
+      "id": "RG03",
+      "input": {
+        "city": "福州长乐",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [
+        "1:0"
+      ],
+      "rationale": "区县美食只使用长乐片段"
+    },
+    {
+      "id": "RG04",
+      "input": {
+        "city": "福州市长乐区",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [
+        "1:0"
+      ],
+      "rationale": "完整行政名称等价"
+    },
+    {
+      "id": "RG05",
+      "input": {
+        "city": "长乐区",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [
+        "1:0"
+      ],
+      "rationale": "名称唯一时解析所属城市"
+    },
+    {
+      "id": "RG06",
+      "input": {
+        "city": "福州鼓楼",
+        "kind": "attraction",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [
+        "1:9"
+      ],
+      "rationale": "多区攻略只返回鼓楼景点原文"
+    },
+    {
+      "id": "RG07",
+      "input": {
+        "city": "福州鼓楼",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [],
+      "rationale": "区县匹配但类别不符应空"
+    },
+    {
+      "id": "RG08",
+      "input": {
+        "city": "福州晋安",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [],
+      "rationale": "没有该区元数据不得扩大全城"
+    },
+    {
+      "id": "RG09",
+      "input": {
+        "city": "鼓楼区",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [],
+      "rationale": "多个城市同名区不能猜测"
+    },
+    {
+      "id": "RG10",
+      "input": {
+        "city": "厦门",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": []
+      },
+      "gold": [
+        "4:0"
+      ],
+      "rationale": "城市隔离"
+    },
+    {
+      "id": "RG11",
+      "input": {
+        "city": "福州长乐",
+        "kind": "food",
+        "user_id": 2,
+        "keywords": []
+      },
+      "gold": [
+        "3:0"
+      ],
+      "rationale": "账号2只能召回自己确认的长乐片段，不能读取账号1的笔记"
+    },
+    {
+      "id": "RG12",
+      "input": {
+        "city": "福州长乐",
+        "kind": "food",
+        "user_id": 1,
+        "keywords": [
+          "不存在的食物"
+        ]
+      },
+      "gold": [],
+      "rationale": "明确关键词未命中不得全城回退"
+    }
+  ]
+}

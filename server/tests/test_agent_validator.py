@@ -15,7 +15,7 @@ from app.agent.validator import ItineraryValidator, ValidatorConfig
 def base_requirement() -> TravelRequirement:
     return TravelRequirement(
         intent="trip_planning",
-        destination="南京",
+        city="南京",
         duration_days=1,
         budget=1000,
     )

@@ -8,17 +8,36 @@ from app.agent.collector import (
     ReActContext,
     ToolCall,
 )
-from app.agent.information import initialize_information_status
+from app.agent.information import ensure_information_need, initialize_information_status
 from app.agent.models import CollectedInfo, TravelRequirement
 from app.agent.state import TravelAgentState
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
+from agent_tool_test_utils import AgentTestInput, TEST_INFORMATION_NEEDS
+from app.agent.tools.amap import KeywordSearchInput, VerifiedPoiSearchInput
+
+
+def test_verified_poi_tool_uses_analyzed_city_instead_of_llm_city() -> None:
+    tool = FakeTool("keyword_search", [ToolResult.completed({"status": "1", "pois": []})])
+    tool.input_model = VerifiedPoiSearchInput
+    client = FakeDecisionClient([
+        ReActDecision(tool_call=ToolCall(
+            name="keyword_search",
+            arguments={"city": "上海", "kind": "attraction"},
+        ))
+    ])
+    ReActCollector(build_layer(tool), client).collect(
+        build_state(TravelRequirement(intent="poi_recommendation", city="南京"))
+    )
+    assert tool.calls == [{"city": "南京", "kind": "attraction"}]
 
 
 class FakeTool:
     description = "测试工具"
+    input_model = AgentTestInput
 
     def __init__(self, name: str, results: Iterable[ToolResult[Any]]) -> None:
         self.name = name
+        self.information_need = TEST_INFORMATION_NEEDS[name]
         self._results = iter(results)
         self.calls: list[dict[str, Any]] = []
 
@@ -103,6 +122,150 @@ def test_collector_executes_weather_tool_normalizes_and_stops() -> None:
     assert client.contexts[0].collected_info == CollectedInfo()
 
 
+def test_collector_records_normalized_tool_run_after_execution() -> None:
+    tool = FakeTool(
+        "weather",
+        [
+            ToolResult.completed(
+                {
+                    "status": "1",
+                    "lives": [
+                        {
+                            "city": "南京市",
+                            "weather": "晴",
+                            "reporttime": "2026-09-18 10:00:00",
+                        }
+                    ],
+                }
+            )
+        ],
+    )
+    snapshots = []
+    client = FakeDecisionClient(
+        [ReActDecision(tool_call=ToolCall(name="weather", arguments={"city": "南京"}))]
+    )
+
+    ReActCollector(
+        build_layer(tool), client, tool_run_recorder=snapshots.append
+    ).collect(build_state(TravelRequirement(intent="weather_query", city="南京")))
+
+    assert len(snapshots) == 1
+    assert snapshots[0].tool_name == "weather"
+    assert snapshots[0].executed_arguments == {"city": "南京"}
+    assert snapshots[0].status == "completed"
+    assert snapshots[0].result_json["status"] == "completed"
+    assert "晴" in snapshots[0].summary_text
+
+
+def test_unknown_tool_name_is_rejected_without_crashing_or_execution() -> None:
+    tool = FakeTool("weather", [ToolResult.completed({"status": "1"})])
+    client = FakeDecisionClient(
+        [ReActDecision(tool_call=ToolCall(name="unregistered_tool"))]
+    )
+    state = build_state(TravelRequirement(intent="weather_query", city="南京"))
+
+    result = ReActCollector(build_layer(tool), client, max_rounds=1).collect(state)
+
+    assert result["react_round"] == 1
+    assert result["information_status"].weather.status == "pending"
+    assert tool.calls == []
+
+
+def test_weather_forecast_uses_requested_date_instead_of_first_day() -> None:
+    tool = FakeTool(
+        "weather",
+        [
+            ToolResult.completed(
+                {
+                    "status": "1",
+                    "forecasts": [
+                        {
+                            "city": "南京市",
+                            "casts": [
+                                {
+                                    "date": "2026-09-23",
+                                    "dayweather": "晴",
+                                    "nightweather": "晴",
+                                    "daytemp": "31",
+                                    "nighttemp": "23",
+                                },
+                                {
+                                    "date": "2026-09-25",
+                                    "dayweather": "多云",
+                                    "nightweather": "小雨",
+                                    "daytemp": "28",
+                                    "nighttemp": "21",
+                                },
+                            ],
+                        }
+                    ],
+                }
+            )
+        ],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="weather", arguments={"city": "南京"})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="weather_query",
+            city="南京",
+            date_expression="中秋",
+            start_date="2026-09-25",
+        )
+    )
+
+    result = ReActCollector(build_layer(tool), client).collect(state)
+
+    assert tool.calls == [{"city": "南京", "forecast": True}]
+    assert result["collected_info"].weather.date == "2026-09-25"
+    assert result["collected_info"].weather.description == "多云 / 小雨"
+
+
+def test_weather_does_not_fall_back_to_today_when_requested_date_is_unresolved() -> None:
+    tool = FakeTool(
+        "weather",
+        [
+            ToolResult.completed(
+                {
+                    "status": "1",
+                    "lives": [
+                        {
+                            "city": "南京市",
+                            "weather": "晴",
+                            "reporttime": "2026-09-23 10:00:00",
+                        }
+                    ],
+                }
+            )
+        ],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="weather", arguments={"city": "南京"})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="weather_query",
+            city="南京",
+            date_expression="中秋",
+        )
+    )
+
+    result = ReActCollector(build_layer(tool), client, max_rounds=1).collect(state)
+
+    assert result["collected_info"].weather is None
+    assert result["information_status"].weather.status == "unavailable"
+    assert "中秋" in result["information_status"].weather.reason
+
+
 def test_collector_normalizes_internal_history_result() -> None:
     tool = FakeTool(
         "search_trip_history",
@@ -134,6 +297,64 @@ def test_collector_normalizes_internal_history_result() -> None:
 
     assert result["information_status"].history.status == "completed"
     assert result["collected_info"].history.visited_names == ["中山陵"]
+
+
+def test_collector_defaults_history_city_from_requirement_city() -> None:
+    tool = FakeTool(
+        "search_trip_history",
+        [ToolResult.completed([{"trip_id": 1, "city_name": "南京市", "records": []}])],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="search_trip_history", arguments={})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="history_query",
+            city="南京",
+            history_category="ATTRACTION",
+        )
+    )
+
+    ReActCollector(build_layer(tool), client).collect(state)
+
+    assert tool.calls == [{"city": "南京", "category": "ATTRACTION"}]
+
+
+def test_collector_skips_navigation_when_route_is_not_supported() -> None:
+    tool = FakeTool(
+        "walking_route",
+        [
+            ToolResult.completed(
+                {
+                    "route": {
+                        "paths": [{"distance": "1000", "duration": "600"}]
+                    }
+                }
+            )
+        ],
+    )
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="walking_route", arguments={})
+            )
+        ]
+    )
+    state = build_state(
+        TravelRequirement(
+            intent="route_query",
+            origin="南京站",
+            destination="中山陵",
+        )
+    )
+
+    ReActCollector(build_layer(tool), client).collect(state)
+
+    assert tool.calls == []
 
 
 def test_trip_planning_decisions_can_collect_multiple_needs_in_any_order() -> None:
@@ -202,7 +423,7 @@ def test_trip_planning_decisions_can_collect_multiple_needs_in_any_order() -> No
     assert result["collected_info"].budget.estimated_max == 1200
 
 
-def test_collector_normalizes_common_keyword_search_argument_alias() -> None:
+def test_collector_retries_keyword_alias_with_canonical_parameter() -> None:
     tool = FakeTool(
         "keyword_search",
         [
@@ -220,13 +441,19 @@ def test_collector_normalizes_common_keyword_search_argument_alias() -> None:
             )
         ],
     )
+    tool.input_model = KeywordSearchInput
     client = FakeDecisionClient(
         [
             ReActDecision(
                 tool_call=ToolCall(
                     name="keyword_search", arguments={"keyword": "历史建筑"}
                 )
-            )
+            ),
+            ReActDecision(
+                tool_call=ToolCall(
+                    name="keyword_search", arguments={"keywords": "历史建筑"}
+                )
+            ),
         ]
     )
 
@@ -236,6 +463,26 @@ def test_collector_normalizes_common_keyword_search_argument_alias() -> None:
 
     assert result["information_status"].pois.status == "completed"
     assert tool.calls == [{"keywords": "历史建筑"}]
+    assert client.contexts[1].tool_argument_error.invalid_fields == ["keyword"]
+    assert client.contexts[1].tool_argument_error.attempt == 1
+
+
+def test_collector_stops_after_one_invalid_argument_correction() -> None:
+    tool = FakeTool("keyword_search", [ToolResult.completed({"status": "1", "pois": []})])
+    tool.input_model = KeywordSearchInput
+    invalid_call = ReActDecision(
+        tool_call=ToolCall(name="keyword_search", arguments={"keyword": "历史建筑"})
+    )
+    client = FakeDecisionClient([invalid_call, invalid_call])
+
+    result = ReActCollector(build_layer(tool), client).collect(
+        build_state(TravelRequirement(intent="poi_recommendation"))
+    )
+
+    assert result["information_status"].pois.status == "failed"
+    assert result["information_status"].pois.attempts == 1
+    assert len(client.contexts) == 2
+    assert tool.calls == []
 
 
 def test_empty_result_retries_three_times_then_stops() -> None:
@@ -280,7 +527,44 @@ def test_error_result_retries_three_times_then_becomes_failed() -> None:
     assert result["information_status"].weather.reason == "provider error"
 
 
+def test_terminal_failed_need_is_removed_from_next_react_tool_choices() -> None:
+    history_tool = FakeTool(
+        "search_trip_history",
+        [ToolResult.failed("history unavailable", error_code="provider_error")],
+    )
+    pois_tool = FakeTool(
+        "keyword_search",
+        [ToolResult.completed([])],
+    )
+    requirement = TravelRequirement(intent="trip_planning")
+    state = build_state(requirement)
+    state["information_status"] = ensure_information_need(
+        state["information_status"], "history", critical=True
+    )
+    state["information_status"].history.status = "failed"
+    state["information_status"].history.reason = "history unavailable"
+    client = FakeDecisionClient(
+        [
+            ReActDecision(
+                tool_call=ToolCall(name="search_trip_history", arguments={})
+            ),
+            ReActDecision(
+                tool_call=ToolCall(name="keyword_search", arguments={"keywords": "南京"})
+            ),
+        ]
+    )
+
+    ReActCollector(
+        build_layer_for_tools(history_tool, pois_tool), client
+    ).collect(state)
+
+    assert [tool.name for tool in client.contexts[1].available_tools] == [
+        "keyword_search"
+    ]
+
+
 def test_no_tool_call_waits_for_pending_information_until_round_limit() -> None:
+    assert MAX_REACT_ROUNDS == 4
     client = FakeDecisionClient([ReActDecision() for _ in range(MAX_REACT_ROUNDS)])
     state = build_state(TravelRequirement(intent="weather_query"))
 

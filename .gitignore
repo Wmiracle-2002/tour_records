@@ -116,6 +116,8 @@ server/data/*
 server/**/*.db
 server/**/*.db-*
 server/.pytest-basetemp/
+server/tests/.test-data-*/
 
 # Deployment credentials
 .deploy/
+.memory/*

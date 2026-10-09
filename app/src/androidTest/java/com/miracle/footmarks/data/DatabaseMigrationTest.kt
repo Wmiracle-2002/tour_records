@@ -11,6 +11,7 @@ import com.miracle.footmarks.data.local.FootmarksDatabase
 import com.miracle.footmarks.data.local.MIGRATION_1_2
 import com.miracle.footmarks.data.local.MIGRATION_2_3
 import com.miracle.footmarks.data.local.MIGRATION_3_4
+import com.miracle.footmarks.data.local.MIGRATION_4_5
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -20,7 +21,7 @@ import org.junit.runner.RunWith
 class DatabaseMigrationTest {
 
     @Test
-    fun migrationFrom1To2PreservesEveryRecordAsSingleDayTrip() = runBlocking {
+    fun migrationFrom1To5ClearsAnonymousRecords() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "migration-1-2-test"
         context.deleteDatabase(databaseName)
@@ -35,25 +36,19 @@ class DatabaseMigrationTest {
         }
 
         val database = Room.databaseBuilder(context, FootmarksDatabase::class.java, databaseName)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
-        val record = database.recordDao().getById(7)!!
-        val trip = database.tripDao().getById(record.tripId)!!
-        assertEquals(1L, trip.cityId)
-        assertEquals(record.date, trip.startDate)
-        assertEquals(record.date, trip.endDate)
-        assertEquals("故宫", record.name)
-
-        assertEquals(null, trip.serverId)
-        assertEquals(null, record.serverId)
+        assertEquals(null, database.recordDao().getById(7))
+        assertEquals(null, database.tripDao().getById(7))
+        assertEquals("北京", database.cityDao().getById(1)?.name)
         database.close()
         context.deleteDatabase(databaseName)
         Unit
     }
 
     @Test
-    fun migrationFrom2To3PreservesLocalDataWithoutServerIds() = runBlocking {
+    fun migrationFrom2To5ClearsAnonymousTrips() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "migration-2-3-test"
         context.deleteDatabase(databaseName)
@@ -80,10 +75,10 @@ class DatabaseMigrationTest {
             }
         }
         val database = Room.databaseBuilder(context, FootmarksDatabase::class.java, databaseName)
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4).build()
-        assertEquals(null, database.tripDao().getById(3)?.serverId)
-        assertEquals(null, database.recordDao().getById(4)?.serverId)
-        assertEquals("烤鸭", database.recordDao().getById(4)?.name)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+        assertEquals(null, database.tripDao().getById(3))
+        assertEquals(null, database.recordDao().getById(4))
+        assertEquals("北京", database.cityDao().getById(1)?.name)
         database.close()
         context.deleteDatabase(databaseName)
         Unit

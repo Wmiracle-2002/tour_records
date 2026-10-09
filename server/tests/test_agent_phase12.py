@@ -16,12 +16,16 @@ from app.agent.models import (
 from app.agent.response import FinalResponseGenerator
 from app.agent.state import TravelAgentState
 from app.agent.tools.layer import ToolLayer, ToolRegistry, ToolResult
+from app.agent.tools.amap import WeatherInput
+from agent_tool_test_utils import AgentTestInput
 from app.core.config import Settings
 
 
 class EmptyHistoryTool:
     name = "search_trip_history"
     description = "查询历史旅行记录"
+    input_model = AgentTestInput
+    information_need = "history"
 
     def __init__(self) -> None:
         self.calls = 0
@@ -34,6 +38,8 @@ class EmptyHistoryTool:
 class FailingWeatherTool:
     name = "weather"
     description = "查询天气"
+    input_model = WeatherInput
+    information_need = "weather"
 
     def __init__(self) -> None:
         self.calls = 0
@@ -55,7 +61,7 @@ class FixedDecisionClient:
 
 class WeatherAnalyzer:
     def analyze(self, user_query: str) -> TravelRequirement:
-        return TravelRequirement(intent="weather_query", destination="南京")
+        return TravelRequirement(intent="weather_query", city="南京")
 
 
 class UnusedGenerator:
