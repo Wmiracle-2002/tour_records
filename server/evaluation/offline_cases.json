@@ -1,0 +1,7200 @@
+{
+  "version": 2,
+  "annotation": {
+    "author": "Codex",
+    "method": "人工根据用户需求编写；gold在运行待测程序前落盘冻结",
+    "user_verified": false,
+    "independent_expert": false,
+    "real_llm_calls": 0,
+    "split_note": "每模块01为调试，其余验收；同一作者编写，不是外部盲测集",
+    "corrections": [
+      {
+        "ids": [
+          "KD15",
+          "KR15"
+        ],
+        "before": [
+          2,
+          12
+        ],
+        "after": [
+          2,
+          12,
+          17
+        ],
+        "reason": "原始fixture17明确含清淡面条；首轮人工漏标。v1原结果和gold完整保留，非按待测预测改标。"
+      }
+    ]
+  },
+  "notes": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "title": "中山陵游览笔记",
+      "body": "中山陵适合上午参观。",
+      "category": "attraction_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 2,
+      "user_id": 1,
+      "title": "夫子庙清淡餐食",
+      "body": "夫子庙可选择清淡鸭血粉丝汤。",
+      "category": "food_guide",
+      "city_code": "320100",
+      "tags": [
+        "清淡",
+        "鸭血粉丝汤"
+      ]
+    },
+    {
+      "id": 3,
+      "user_id": 1,
+      "title": "玄武湖散步",
+      "body": "玄武湖沿湖步行。",
+      "category": "attraction_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 4,
+      "user_id": 1,
+      "title": "夫子庙清淡餐食",
+      "body": "上海账号的同名餐食。",
+      "category": "food_guide",
+      "city_code": "310000",
+      "tags": []
+    },
+    {
+      "id": 5,
+      "user_id": 2,
+      "title": "夫子庙清淡餐食",
+      "body": "另一个账号的私人餐食。",
+      "category": "food_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 6,
+      "user_id": 1,
+      "title": "夫子庙景点",
+      "body": "夫子庙景区可看夜景。",
+      "category": "attraction_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 7,
+      "user_id": 1,
+      "title": "夫子庙火锅",
+      "body": "夫子庙火锅有辣味。",
+      "category": "food_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 8,
+      "user_id": 1,
+      "title": "中山陵纪念品",
+      "body": "中山陵纪念品购物。",
+      "category": "note",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 9,
+      "user_id": 1,
+      "title": "鸡鸣寺参观",
+      "body": "鸡鸣寺可参观。",
+      "category": "attraction_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 10,
+      "user_id": 1,
+      "title": "南京早餐",
+      "body": "早餐吃豆浆和包子。",
+      "category": "food_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 11,
+      "user_id": 1,
+      "title": "夫子庙旧攻略",
+      "body": "历史记录：旧门票999元，不能当成当前价格。",
+      "category": "travel_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 12,
+      "user_id": 1,
+      "title": "玄武湖餐厅",
+      "body": "玄武湖附近有清淡午餐。",
+      "category": "food_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 13,
+      "user_id": 1,
+      "title": "夫子庙店的长乐包子",
+      "body": "南京的长乐包子店，与福州长乐区不同。",
+      "category": "food_guide",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 14,
+      "user_id": 1,
+      "title": "长乐海鲜笔记",
+      "body": "福州长乐区海鲜可供参考。",
+      "category": "food_guide",
+      "city_code": "350100",
+      "tags": []
+    },
+    {
+      "id": 15,
+      "user_id": 1,
+      "title": "长乐海滩",
+      "body": "福州长乐区海滩适合散步。",
+      "category": "attraction_guide",
+      "city_code": "350100",
+      "tags": []
+    },
+    {
+      "id": 16,
+      "user_id": 1,
+      "title": "南京购物",
+      "body": "南京购物商场信息。",
+      "category": "note",
+      "city_code": "320100",
+      "tags": []
+    },
+    {
+      "id": 17,
+      "user_id": 1,
+      "title": "中山陵长篇餐食",
+      "body": "背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。背景资料。关键餐食：清淡面条。",
+      "category": "food_guide",
+      "city_code": "320100",
+      "tags": []
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "我最早的南京旅行预算是2000元。",
+      "status": "completed"
+    },
+    {
+      "id": 2,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "把南京旅行预算改为3000元。",
+      "status": "completed"
+    },
+    {
+      "id": 3,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "我不吃辣，想吃清淡美食。",
+      "status": "completed"
+    },
+    {
+      "id": 4,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "机票预订凭证编号ABC123。",
+      "status": "completed"
+    },
+    {
+      "id": 5,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "秘密草稿预算50000元。",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "conversation_id": "other",
+      "role": "user",
+      "content": "机票预订凭证编号PRIVATE999。",
+      "status": "completed"
+    },
+    {
+      "id": 20,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊20：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 21,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊21：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 22,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊22：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 23,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊23：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 24,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊24：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 25,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊25：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 26,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊26：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 27,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊27：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 28,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊28：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 29,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊29：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 30,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊30：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 31,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊31：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 32,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊32：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 33,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊33：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 34,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊34：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 35,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊35：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 36,
+      "conversation_id": "own",
+      "role": "user",
+      "content": "无关闲聊36：你好。",
+      "status": "completed"
+    },
+    {
+      "id": 37,
+      "conversation_id": "own",
+      "role": "assistant",
+      "content": "无关闲聊37：你好。",
+      "status": "completed"
+    }
+  ],
+  "cases": [
+    {
+      "id": "KD01",
+      "module": "knowledge_direct",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙有哪些餐食笔记？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2,
+          7,
+          13
+        ]
+      },
+      "rationale": "同地点的餐食相关；景点、购物、其他城市及账号不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR01",
+      "module": "knowledge_runtime",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙有哪些餐食笔记？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2,
+          7,
+          13
+        ]
+      },
+      "rationale": "同地点的餐食相关；景点、购物、其他城市及账号不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD02",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙有哪些景点笔记？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          6
+        ]
+      },
+      "rationale": "仅召回夫子庙景点，餐食同名不能混入。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR02",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙有哪些景点笔记？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          6
+        ]
+      },
+      "rationale": "仅召回夫子庙景点，餐食同名不能混入。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD03",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "中山陵游览笔记",
+        "user_id": 1,
+        "city": "南京市",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "中山陵"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          1
+        ]
+      },
+      "rationale": "城市后缀等价；购物及餐食不同类别不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR03",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "中山陵游览笔记",
+        "user_id": 1,
+        "city": "南京市",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "中山陵"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          1
+        ]
+      },
+      "rationale": "城市后缀等价；购物及餐食不同类别不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD04",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "玄武湖附近吃什么？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "玄武湖"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          12
+        ]
+      },
+      "rationale": "附近餐食相关，散步笔记不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR04",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "玄武湖附近吃什么？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "玄武湖"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          12
+        ]
+      },
+      "rationale": "附近餐食相关，散步笔记不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD05",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙清淡餐食",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙",
+          "清淡"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2
+        ]
+      },
+      "rationale": "要求同时满足地点与清淡；其他清淡地点及火锅不满足。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR05",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙清淡餐食",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙",
+          "清淡"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2
+        ]
+      },
+      "rationale": "要求同时满足地点与清淡；其他清淡地点及火锅不满足。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD06",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "莫愁湖有哪些餐食笔记？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "莫愁湖"
+        ]
+      },
+      "gold": {
+        "relevant_ids": []
+      },
+      "rationale": "没有该地点笔记，应空召回；不能退回全城作为相关笔记。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR06",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "莫愁湖有哪些餐食笔记？",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "莫愁湖"
+        ]
+      },
+      "gold": {
+        "relevant_ids": []
+      },
+      "rationale": "没有该地点笔记，应空召回；不能退回全城作为相关笔记。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD07",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "上海夫子庙餐食笔记",
+        "user_id": 1,
+        "city": "上海",
+        "city_code": "310000",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          4
+        ]
+      },
+      "rationale": "同名地点以城市隔离。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR07",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "上海夫子庙餐食笔记",
+        "user_id": 1,
+        "city": "上海",
+        "city_code": "310000",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          4
+        ]
+      },
+      "rationale": "同名地点以城市隔离。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD08",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "福州长乐美食笔记",
+        "user_id": 1,
+        "city": "福州",
+        "city_code": "350100",
+        "category": "food_guide",
+        "keywords": [
+          "长乐"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          14
+        ]
+      },
+      "rationale": "福州长乐餐食；南京同名店及长乐景点不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR08",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "福州长乐美食笔记",
+        "user_id": 1,
+        "city": "福州",
+        "city_code": "350100",
+        "category": "food_guide",
+        "keywords": [
+          "长乐"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          14
+        ]
+      },
+      "rationale": "福州长乐餐食；南京同名店及长乐景点不相关。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD09",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "南京早餐笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "早餐"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          10
+        ]
+      },
+      "rationale": "具体餐次检索。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR09",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "南京早餐笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "早餐"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          10
+        ]
+      },
+      "rationale": "具体餐次检索。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD10",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "中山陵餐食长篇笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "中山陵"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          17
+        ],
+        "excerpt_facts": {
+          "17": [
+            "关键餐食：清淡面条"
+          ]
+        }
+      },
+      "rationale": "笔记ID命中仍需片段含关键餐食；事实在240字符之后。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR10",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "中山陵餐食长篇笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "中山陵"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          17
+        ],
+        "excerpt_facts": {
+          "17": [
+            "关键餐食：清淡面条"
+          ]
+        }
+      },
+      "rationale": "笔记ID命中仍需片段含关键餐食；事实在240字符之后。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD11",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "历史夫子庙旧攻略",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "travel_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          11
+        ]
+      },
+      "rationale": "询问历史时旧笔记相关；召回不等于承认旧价格现在有效。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR11",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "历史夫子庙旧攻略",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "travel_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          11
+        ]
+      },
+      "rationale": "询问历史时旧笔记相关；召回不等于承认旧价格现在有效。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD12",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "鸡鸣寺游览笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "鸡鸣寺"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          9
+        ]
+      },
+      "rationale": "明确景点检索。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR12",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "鸡鸣寺游览笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "鸡鸣寺"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          9
+        ]
+      },
+      "rationale": "明确景点检索。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD13",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙清淡餐食（另一账号）",
+        "user_id": 2,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          5
+        ]
+      },
+      "rationale": "账号2只能看到自己的记录。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR13",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "夫子庙清淡餐食（另一账号）",
+        "user_id": 2,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "夫子庙"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          5
+        ]
+      },
+      "rationale": "账号2只能看到自己的记录。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD14",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "南京鸭血粉丝汤笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "鸭血粉丝汤"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2
+        ]
+      },
+      "rationale": "正文和标签匹配。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR14",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "南京鸭血粉丝汤笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "鸭血粉丝汤"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2
+        ]
+      },
+      "rationale": "正文和标签匹配。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD15",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "南京不吃辣的笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "不吃辣"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2,
+          12,
+          17
+        ]
+      },
+      "rationale": "语义同义检索：清淡相关；当前词面检索可能漏召回，不能修改gold迎合实现。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KR15",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "南京不吃辣的笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "food_guide",
+        "keywords": [
+          "不吃辣"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          2,
+          12,
+          17
+        ]
+      },
+      "rationale": "语义同义检索：清淡相关；当前词面检索可能漏召回，不能修改gold迎合实现。 runtime入口的keywords被视为上游已正确提取的偏好；不测LLM提取能力。"
+    },
+    {
+      "id": "KD16",
+      "module": "knowledge_direct",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "查较早保存的中山陵游览笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "中山陵"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          1
+        ]
+      },
+      "rationale": "旧笔记相关；201条新无关笔记不能导致旧笔记不可检索。",
+      "extra_notes": [
+        {
+          "id": 100,
+          "user_id": 1,
+          "title": "购物填充100",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 101,
+          "user_id": 1,
+          "title": "购物填充101",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 102,
+          "user_id": 1,
+          "title": "购物填充102",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 103,
+          "user_id": 1,
+          "title": "购物填充103",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 104,
+          "user_id": 1,
+          "title": "购物填充104",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 105,
+          "user_id": 1,
+          "title": "购物填充105",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 106,
+          "user_id": 1,
+          "title": "购物填充106",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 107,
+          "user_id": 1,
+          "title": "购物填充107",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 108,
+          "user_id": 1,
+          "title": "购物填充108",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 109,
+          "user_id": 1,
+          "title": "购物填充109",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 110,
+          "user_id": 1,
+          "title": "购物填充110",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 111,
+          "user_id": 1,
+          "title": "购物填充111",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 112,
+          "user_id": 1,
+          "title": "购物填充112",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 113,
+          "user_id": 1,
+          "title": "购物填充113",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 114,
+          "user_id": 1,
+          "title": "购物填充114",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 115,
+          "user_id": 1,
+          "title": "购物填充115",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 116,
+          "user_id": 1,
+          "title": "购物填充116",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 117,
+          "user_id": 1,
+          "title": "购物填充117",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 118,
+          "user_id": 1,
+          "title": "购物填充118",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 119,
+          "user_id": 1,
+          "title": "购物填充119",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 120,
+          "user_id": 1,
+          "title": "购物填充120",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 121,
+          "user_id": 1,
+          "title": "购物填充121",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 122,
+          "user_id": 1,
+          "title": "购物填充122",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 123,
+          "user_id": 1,
+          "title": "购物填充123",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 124,
+          "user_id": 1,
+          "title": "购物填充124",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 125,
+          "user_id": 1,
+          "title": "购物填充125",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 126,
+          "user_id": 1,
+          "title": "购物填充126",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 127,
+          "user_id": 1,
+          "title": "购物填充127",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 128,
+          "user_id": 1,
+          "title": "购物填充128",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 129,
+          "user_id": 1,
+          "title": "购物填充129",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 130,
+          "user_id": 1,
+          "title": "购物填充130",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 131,
+          "user_id": 1,
+          "title": "购物填充131",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 132,
+          "user_id": 1,
+          "title": "购物填充132",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 133,
+          "user_id": 1,
+          "title": "购物填充133",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 134,
+          "user_id": 1,
+          "title": "购物填充134",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 135,
+          "user_id": 1,
+          "title": "购物填充135",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 136,
+          "user_id": 1,
+          "title": "购物填充136",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 137,
+          "user_id": 1,
+          "title": "购物填充137",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 138,
+          "user_id": 1,
+          "title": "购物填充138",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 139,
+          "user_id": 1,
+          "title": "购物填充139",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 140,
+          "user_id": 1,
+          "title": "购物填充140",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 141,
+          "user_id": 1,
+          "title": "购物填充141",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 142,
+          "user_id": 1,
+          "title": "购物填充142",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 143,
+          "user_id": 1,
+          "title": "购物填充143",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 144,
+          "user_id": 1,
+          "title": "购物填充144",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 145,
+          "user_id": 1,
+          "title": "购物填充145",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 146,
+          "user_id": 1,
+          "title": "购物填充146",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 147,
+          "user_id": 1,
+          "title": "购物填充147",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 148,
+          "user_id": 1,
+          "title": "购物填充148",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 149,
+          "user_id": 1,
+          "title": "购物填充149",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 150,
+          "user_id": 1,
+          "title": "购物填充150",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 151,
+          "user_id": 1,
+          "title": "购物填充151",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 152,
+          "user_id": 1,
+          "title": "购物填充152",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 153,
+          "user_id": 1,
+          "title": "购物填充153",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 154,
+          "user_id": 1,
+          "title": "购物填充154",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 155,
+          "user_id": 1,
+          "title": "购物填充155",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 156,
+          "user_id": 1,
+          "title": "购物填充156",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 157,
+          "user_id": 1,
+          "title": "购物填充157",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 158,
+          "user_id": 1,
+          "title": "购物填充158",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 159,
+          "user_id": 1,
+          "title": "购物填充159",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 160,
+          "user_id": 1,
+          "title": "购物填充160",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 161,
+          "user_id": 1,
+          "title": "购物填充161",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 162,
+          "user_id": 1,
+          "title": "购物填充162",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 163,
+          "user_id": 1,
+          "title": "购物填充163",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 164,
+          "user_id": 1,
+          "title": "购物填充164",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 165,
+          "user_id": 1,
+          "title": "购物填充165",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 166,
+          "user_id": 1,
+          "title": "购物填充166",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 167,
+          "user_id": 1,
+          "title": "购物填充167",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 168,
+          "user_id": 1,
+          "title": "购物填充168",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 169,
+          "user_id": 1,
+          "title": "购物填充169",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 170,
+          "user_id": 1,
+          "title": "购物填充170",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 171,
+          "user_id": 1,
+          "title": "购物填充171",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 172,
+          "user_id": 1,
+          "title": "购物填充172",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 173,
+          "user_id": 1,
+          "title": "购物填充173",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 174,
+          "user_id": 1,
+          "title": "购物填充174",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 175,
+          "user_id": 1,
+          "title": "购物填充175",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 176,
+          "user_id": 1,
+          "title": "购物填充176",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 177,
+          "user_id": 1,
+          "title": "购物填充177",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 178,
+          "user_id": 1,
+          "title": "购物填充178",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 179,
+          "user_id": 1,
+          "title": "购物填充179",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 180,
+          "user_id": 1,
+          "title": "购物填充180",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 181,
+          "user_id": 1,
+          "title": "购物填充181",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 182,
+          "user_id": 1,
+          "title": "购物填充182",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 183,
+          "user_id": 1,
+          "title": "购物填充183",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 184,
+          "user_id": 1,
+          "title": "购物填充184",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 185,
+          "user_id": 1,
+          "title": "购物填充185",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 186,
+          "user_id": 1,
+          "title": "购物填充186",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 187,
+          "user_id": 1,
+          "title": "购物填充187",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 188,
+          "user_id": 1,
+          "title": "购物填充188",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 189,
+          "user_id": 1,
+          "title": "购物填充189",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 190,
+          "user_id": 1,
+          "title": "购物填充190",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 191,
+          "user_id": 1,
+          "title": "购物填充191",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 192,
+          "user_id": 1,
+          "title": "购物填充192",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 193,
+          "user_id": 1,
+          "title": "购物填充193",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 194,
+          "user_id": 1,
+          "title": "购物填充194",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 195,
+          "user_id": 1,
+          "title": "购物填充195",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 196,
+          "user_id": 1,
+          "title": "购物填充196",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 197,
+          "user_id": 1,
+          "title": "购物填充197",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 198,
+          "user_id": 1,
+          "title": "购物填充198",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 199,
+          "user_id": 1,
+          "title": "购物填充199",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 200,
+          "user_id": 1,
+          "title": "购物填充200",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 201,
+          "user_id": 1,
+          "title": "购物填充201",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 202,
+          "user_id": 1,
+          "title": "购物填充202",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 203,
+          "user_id": 1,
+          "title": "购物填充203",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 204,
+          "user_id": 1,
+          "title": "购物填充204",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 205,
+          "user_id": 1,
+          "title": "购物填充205",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 206,
+          "user_id": 1,
+          "title": "购物填充206",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 207,
+          "user_id": 1,
+          "title": "购物填充207",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 208,
+          "user_id": 1,
+          "title": "购物填充208",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 209,
+          "user_id": 1,
+          "title": "购物填充209",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 210,
+          "user_id": 1,
+          "title": "购物填充210",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 211,
+          "user_id": 1,
+          "title": "购物填充211",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 212,
+          "user_id": 1,
+          "title": "购物填充212",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 213,
+          "user_id": 1,
+          "title": "购物填充213",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 214,
+          "user_id": 1,
+          "title": "购物填充214",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 215,
+          "user_id": 1,
+          "title": "购物填充215",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 216,
+          "user_id": 1,
+          "title": "购物填充216",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 217,
+          "user_id": 1,
+          "title": "购物填充217",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 218,
+          "user_id": 1,
+          "title": "购物填充218",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 219,
+          "user_id": 1,
+          "title": "购物填充219",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 220,
+          "user_id": 1,
+          "title": "购物填充220",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 221,
+          "user_id": 1,
+          "title": "购物填充221",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 222,
+          "user_id": 1,
+          "title": "购物填充222",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 223,
+          "user_id": 1,
+          "title": "购物填充223",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 224,
+          "user_id": 1,
+          "title": "购物填充224",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 225,
+          "user_id": 1,
+          "title": "购物填充225",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 226,
+          "user_id": 1,
+          "title": "购物填充226",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 227,
+          "user_id": 1,
+          "title": "购物填充227",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 228,
+          "user_id": 1,
+          "title": "购物填充228",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 229,
+          "user_id": 1,
+          "title": "购物填充229",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 230,
+          "user_id": 1,
+          "title": "购物填充230",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 231,
+          "user_id": 1,
+          "title": "购物填充231",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 232,
+          "user_id": 1,
+          "title": "购物填充232",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 233,
+          "user_id": 1,
+          "title": "购物填充233",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 234,
+          "user_id": 1,
+          "title": "购物填充234",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 235,
+          "user_id": 1,
+          "title": "购物填充235",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 236,
+          "user_id": 1,
+          "title": "购物填充236",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 237,
+          "user_id": 1,
+          "title": "购物填充237",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 238,
+          "user_id": 1,
+          "title": "购物填充238",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 239,
+          "user_id": 1,
+          "title": "购物填充239",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 240,
+          "user_id": 1,
+          "title": "购物填充240",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 241,
+          "user_id": 1,
+          "title": "购物填充241",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 242,
+          "user_id": 1,
+          "title": "购物填充242",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 243,
+          "user_id": 1,
+          "title": "购物填充243",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 244,
+          "user_id": 1,
+          "title": "购物填充244",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 245,
+          "user_id": 1,
+          "title": "购物填充245",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 246,
+          "user_id": 1,
+          "title": "购物填充246",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 247,
+          "user_id": 1,
+          "title": "购物填充247",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 248,
+          "user_id": 1,
+          "title": "购物填充248",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 249,
+          "user_id": 1,
+          "title": "购物填充249",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 250,
+          "user_id": 1,
+          "title": "购物填充250",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 251,
+          "user_id": 1,
+          "title": "购物填充251",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 252,
+          "user_id": 1,
+          "title": "购物填充252",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 253,
+          "user_id": 1,
+          "title": "购物填充253",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 254,
+          "user_id": 1,
+          "title": "购物填充254",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 255,
+          "user_id": 1,
+          "title": "购物填充255",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 256,
+          "user_id": 1,
+          "title": "购物填充256",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 257,
+          "user_id": 1,
+          "title": "购物填充257",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 258,
+          "user_id": 1,
+          "title": "购物填充258",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 259,
+          "user_id": 1,
+          "title": "购物填充259",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 260,
+          "user_id": 1,
+          "title": "购物填充260",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 261,
+          "user_id": 1,
+          "title": "购物填充261",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 262,
+          "user_id": 1,
+          "title": "购物填充262",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 263,
+          "user_id": 1,
+          "title": "购物填充263",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 264,
+          "user_id": 1,
+          "title": "购物填充264",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 265,
+          "user_id": 1,
+          "title": "购物填充265",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 266,
+          "user_id": 1,
+          "title": "购物填充266",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 267,
+          "user_id": 1,
+          "title": "购物填充267",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 268,
+          "user_id": 1,
+          "title": "购物填充268",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 269,
+          "user_id": 1,
+          "title": "购物填充269",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 270,
+          "user_id": 1,
+          "title": "购物填充270",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 271,
+          "user_id": 1,
+          "title": "购物填充271",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 272,
+          "user_id": 1,
+          "title": "购物填充272",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 273,
+          "user_id": 1,
+          "title": "购物填充273",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 274,
+          "user_id": 1,
+          "title": "购物填充274",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 275,
+          "user_id": 1,
+          "title": "购物填充275",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 276,
+          "user_id": 1,
+          "title": "购物填充276",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 277,
+          "user_id": 1,
+          "title": "购物填充277",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 278,
+          "user_id": 1,
+          "title": "购物填充278",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 279,
+          "user_id": 1,
+          "title": "购物填充279",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 280,
+          "user_id": 1,
+          "title": "购物填充280",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 281,
+          "user_id": 1,
+          "title": "购物填充281",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 282,
+          "user_id": 1,
+          "title": "购物填充282",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 283,
+          "user_id": 1,
+          "title": "购物填充283",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 284,
+          "user_id": 1,
+          "title": "购物填充284",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 285,
+          "user_id": 1,
+          "title": "购物填充285",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 286,
+          "user_id": 1,
+          "title": "购物填充286",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 287,
+          "user_id": 1,
+          "title": "购物填充287",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 288,
+          "user_id": 1,
+          "title": "购物填充288",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 289,
+          "user_id": 1,
+          "title": "购物填充289",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 290,
+          "user_id": 1,
+          "title": "购物填充290",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 291,
+          "user_id": 1,
+          "title": "购物填充291",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 292,
+          "user_id": 1,
+          "title": "购物填充292",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 293,
+          "user_id": 1,
+          "title": "购物填充293",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 294,
+          "user_id": 1,
+          "title": "购物填充294",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 295,
+          "user_id": 1,
+          "title": "购物填充295",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 296,
+          "user_id": 1,
+          "title": "购物填充296",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 297,
+          "user_id": 1,
+          "title": "购物填充297",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 298,
+          "user_id": 1,
+          "title": "购物填充298",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 299,
+          "user_id": 1,
+          "title": "购物填充299",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 300,
+          "user_id": 1,
+          "title": "购物填充300",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        }
+      ]
+    },
+    {
+      "id": "KR16",
+      "module": "knowledge_runtime",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "question": "查较早保存的中山陵游览笔记",
+        "user_id": 1,
+        "city": "南京",
+        "city_code": "320100",
+        "category": "attraction_guide",
+        "keywords": [
+          "中山陵"
+        ]
+      },
+      "gold": {
+        "relevant_ids": [
+          1
+        ]
+      },
+      "rationale": "旧笔记相关；201条新无关笔记不能导致旧笔记不可检索。",
+      "extra_notes": [
+        {
+          "id": 100,
+          "user_id": 1,
+          "title": "购物填充100",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 101,
+          "user_id": 1,
+          "title": "购物填充101",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 102,
+          "user_id": 1,
+          "title": "购物填充102",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 103,
+          "user_id": 1,
+          "title": "购物填充103",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 104,
+          "user_id": 1,
+          "title": "购物填充104",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 105,
+          "user_id": 1,
+          "title": "购物填充105",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 106,
+          "user_id": 1,
+          "title": "购物填充106",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 107,
+          "user_id": 1,
+          "title": "购物填充107",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 108,
+          "user_id": 1,
+          "title": "购物填充108",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 109,
+          "user_id": 1,
+          "title": "购物填充109",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 110,
+          "user_id": 1,
+          "title": "购物填充110",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 111,
+          "user_id": 1,
+          "title": "购物填充111",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 112,
+          "user_id": 1,
+          "title": "购物填充112",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 113,
+          "user_id": 1,
+          "title": "购物填充113",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 114,
+          "user_id": 1,
+          "title": "购物填充114",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 115,
+          "user_id": 1,
+          "title": "购物填充115",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 116,
+          "user_id": 1,
+          "title": "购物填充116",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 117,
+          "user_id": 1,
+          "title": "购物填充117",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 118,
+          "user_id": 1,
+          "title": "购物填充118",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 119,
+          "user_id": 1,
+          "title": "购物填充119",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 120,
+          "user_id": 1,
+          "title": "购物填充120",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 121,
+          "user_id": 1,
+          "title": "购物填充121",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 122,
+          "user_id": 1,
+          "title": "购物填充122",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 123,
+          "user_id": 1,
+          "title": "购物填充123",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 124,
+          "user_id": 1,
+          "title": "购物填充124",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 125,
+          "user_id": 1,
+          "title": "购物填充125",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 126,
+          "user_id": 1,
+          "title": "购物填充126",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 127,
+          "user_id": 1,
+          "title": "购物填充127",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 128,
+          "user_id": 1,
+          "title": "购物填充128",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 129,
+          "user_id": 1,
+          "title": "购物填充129",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 130,
+          "user_id": 1,
+          "title": "购物填充130",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 131,
+          "user_id": 1,
+          "title": "购物填充131",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 132,
+          "user_id": 1,
+          "title": "购物填充132",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 133,
+          "user_id": 1,
+          "title": "购物填充133",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 134,
+          "user_id": 1,
+          "title": "购物填充134",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 135,
+          "user_id": 1,
+          "title": "购物填充135",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 136,
+          "user_id": 1,
+          "title": "购物填充136",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 137,
+          "user_id": 1,
+          "title": "购物填充137",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 138,
+          "user_id": 1,
+          "title": "购物填充138",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 139,
+          "user_id": 1,
+          "title": "购物填充139",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 140,
+          "user_id": 1,
+          "title": "购物填充140",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 141,
+          "user_id": 1,
+          "title": "购物填充141",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 142,
+          "user_id": 1,
+          "title": "购物填充142",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 143,
+          "user_id": 1,
+          "title": "购物填充143",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 144,
+          "user_id": 1,
+          "title": "购物填充144",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 145,
+          "user_id": 1,
+          "title": "购物填充145",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 146,
+          "user_id": 1,
+          "title": "购物填充146",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 147,
+          "user_id": 1,
+          "title": "购物填充147",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 148,
+          "user_id": 1,
+          "title": "购物填充148",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 149,
+          "user_id": 1,
+          "title": "购物填充149",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 150,
+          "user_id": 1,
+          "title": "购物填充150",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 151,
+          "user_id": 1,
+          "title": "购物填充151",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 152,
+          "user_id": 1,
+          "title": "购物填充152",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 153,
+          "user_id": 1,
+          "title": "购物填充153",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 154,
+          "user_id": 1,
+          "title": "购物填充154",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 155,
+          "user_id": 1,
+          "title": "购物填充155",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 156,
+          "user_id": 1,
+          "title": "购物填充156",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 157,
+          "user_id": 1,
+          "title": "购物填充157",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 158,
+          "user_id": 1,
+          "title": "购物填充158",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 159,
+          "user_id": 1,
+          "title": "购物填充159",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 160,
+          "user_id": 1,
+          "title": "购物填充160",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 161,
+          "user_id": 1,
+          "title": "购物填充161",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 162,
+          "user_id": 1,
+          "title": "购物填充162",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 163,
+          "user_id": 1,
+          "title": "购物填充163",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 164,
+          "user_id": 1,
+          "title": "购物填充164",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 165,
+          "user_id": 1,
+          "title": "购物填充165",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 166,
+          "user_id": 1,
+          "title": "购物填充166",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 167,
+          "user_id": 1,
+          "title": "购物填充167",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 168,
+          "user_id": 1,
+          "title": "购物填充168",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 169,
+          "user_id": 1,
+          "title": "购物填充169",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 170,
+          "user_id": 1,
+          "title": "购物填充170",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 171,
+          "user_id": 1,
+          "title": "购物填充171",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 172,
+          "user_id": 1,
+          "title": "购物填充172",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 173,
+          "user_id": 1,
+          "title": "购物填充173",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 174,
+          "user_id": 1,
+          "title": "购物填充174",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 175,
+          "user_id": 1,
+          "title": "购物填充175",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 176,
+          "user_id": 1,
+          "title": "购物填充176",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 177,
+          "user_id": 1,
+          "title": "购物填充177",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 178,
+          "user_id": 1,
+          "title": "购物填充178",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 179,
+          "user_id": 1,
+          "title": "购物填充179",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 180,
+          "user_id": 1,
+          "title": "购物填充180",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 181,
+          "user_id": 1,
+          "title": "购物填充181",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 182,
+          "user_id": 1,
+          "title": "购物填充182",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 183,
+          "user_id": 1,
+          "title": "购物填充183",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 184,
+          "user_id": 1,
+          "title": "购物填充184",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 185,
+          "user_id": 1,
+          "title": "购物填充185",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 186,
+          "user_id": 1,
+          "title": "购物填充186",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 187,
+          "user_id": 1,
+          "title": "购物填充187",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 188,
+          "user_id": 1,
+          "title": "购物填充188",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 189,
+          "user_id": 1,
+          "title": "购物填充189",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 190,
+          "user_id": 1,
+          "title": "购物填充190",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 191,
+          "user_id": 1,
+          "title": "购物填充191",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 192,
+          "user_id": 1,
+          "title": "购物填充192",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 193,
+          "user_id": 1,
+          "title": "购物填充193",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 194,
+          "user_id": 1,
+          "title": "购物填充194",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 195,
+          "user_id": 1,
+          "title": "购物填充195",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 196,
+          "user_id": 1,
+          "title": "购物填充196",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 197,
+          "user_id": 1,
+          "title": "购物填充197",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 198,
+          "user_id": 1,
+          "title": "购物填充198",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 199,
+          "user_id": 1,
+          "title": "购物填充199",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 200,
+          "user_id": 1,
+          "title": "购物填充200",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 201,
+          "user_id": 1,
+          "title": "购物填充201",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 202,
+          "user_id": 1,
+          "title": "购物填充202",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 203,
+          "user_id": 1,
+          "title": "购物填充203",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 204,
+          "user_id": 1,
+          "title": "购物填充204",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 205,
+          "user_id": 1,
+          "title": "购物填充205",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 206,
+          "user_id": 1,
+          "title": "购物填充206",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 207,
+          "user_id": 1,
+          "title": "购物填充207",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 208,
+          "user_id": 1,
+          "title": "购物填充208",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 209,
+          "user_id": 1,
+          "title": "购物填充209",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 210,
+          "user_id": 1,
+          "title": "购物填充210",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 211,
+          "user_id": 1,
+          "title": "购物填充211",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 212,
+          "user_id": 1,
+          "title": "购物填充212",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 213,
+          "user_id": 1,
+          "title": "购物填充213",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 214,
+          "user_id": 1,
+          "title": "购物填充214",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 215,
+          "user_id": 1,
+          "title": "购物填充215",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 216,
+          "user_id": 1,
+          "title": "购物填充216",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 217,
+          "user_id": 1,
+          "title": "购物填充217",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 218,
+          "user_id": 1,
+          "title": "购物填充218",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 219,
+          "user_id": 1,
+          "title": "购物填充219",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 220,
+          "user_id": 1,
+          "title": "购物填充220",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 221,
+          "user_id": 1,
+          "title": "购物填充221",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 222,
+          "user_id": 1,
+          "title": "购物填充222",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 223,
+          "user_id": 1,
+          "title": "购物填充223",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 224,
+          "user_id": 1,
+          "title": "购物填充224",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 225,
+          "user_id": 1,
+          "title": "购物填充225",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 226,
+          "user_id": 1,
+          "title": "购物填充226",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 227,
+          "user_id": 1,
+          "title": "购物填充227",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 228,
+          "user_id": 1,
+          "title": "购物填充228",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 229,
+          "user_id": 1,
+          "title": "购物填充229",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 230,
+          "user_id": 1,
+          "title": "购物填充230",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 231,
+          "user_id": 1,
+          "title": "购物填充231",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 232,
+          "user_id": 1,
+          "title": "购物填充232",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 233,
+          "user_id": 1,
+          "title": "购物填充233",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 234,
+          "user_id": 1,
+          "title": "购物填充234",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 235,
+          "user_id": 1,
+          "title": "购物填充235",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 236,
+          "user_id": 1,
+          "title": "购物填充236",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 237,
+          "user_id": 1,
+          "title": "购物填充237",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 238,
+          "user_id": 1,
+          "title": "购物填充238",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 239,
+          "user_id": 1,
+          "title": "购物填充239",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 240,
+          "user_id": 1,
+          "title": "购物填充240",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 241,
+          "user_id": 1,
+          "title": "购物填充241",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 242,
+          "user_id": 1,
+          "title": "购物填充242",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 243,
+          "user_id": 1,
+          "title": "购物填充243",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 244,
+          "user_id": 1,
+          "title": "购物填充244",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 245,
+          "user_id": 1,
+          "title": "购物填充245",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 246,
+          "user_id": 1,
+          "title": "购物填充246",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 247,
+          "user_id": 1,
+          "title": "购物填充247",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 248,
+          "user_id": 1,
+          "title": "购物填充248",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 249,
+          "user_id": 1,
+          "title": "购物填充249",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 250,
+          "user_id": 1,
+          "title": "购物填充250",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 251,
+          "user_id": 1,
+          "title": "购物填充251",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 252,
+          "user_id": 1,
+          "title": "购物填充252",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 253,
+          "user_id": 1,
+          "title": "购物填充253",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 254,
+          "user_id": 1,
+          "title": "购物填充254",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 255,
+          "user_id": 1,
+          "title": "购物填充255",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 256,
+          "user_id": 1,
+          "title": "购物填充256",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 257,
+          "user_id": 1,
+          "title": "购物填充257",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 258,
+          "user_id": 1,
+          "title": "购物填充258",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 259,
+          "user_id": 1,
+          "title": "购物填充259",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 260,
+          "user_id": 1,
+          "title": "购物填充260",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 261,
+          "user_id": 1,
+          "title": "购物填充261",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 262,
+          "user_id": 1,
+          "title": "购物填充262",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 263,
+          "user_id": 1,
+          "title": "购物填充263",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 264,
+          "user_id": 1,
+          "title": "购物填充264",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 265,
+          "user_id": 1,
+          "title": "购物填充265",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 266,
+          "user_id": 1,
+          "title": "购物填充266",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 267,
+          "user_id": 1,
+          "title": "购物填充267",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 268,
+          "user_id": 1,
+          "title": "购物填充268",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 269,
+          "user_id": 1,
+          "title": "购物填充269",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 270,
+          "user_id": 1,
+          "title": "购物填充270",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 271,
+          "user_id": 1,
+          "title": "购物填充271",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 272,
+          "user_id": 1,
+          "title": "购物填充272",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 273,
+          "user_id": 1,
+          "title": "购物填充273",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 274,
+          "user_id": 1,
+          "title": "购物填充274",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 275,
+          "user_id": 1,
+          "title": "购物填充275",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 276,
+          "user_id": 1,
+          "title": "购物填充276",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 277,
+          "user_id": 1,
+          "title": "购物填充277",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 278,
+          "user_id": 1,
+          "title": "购物填充278",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 279,
+          "user_id": 1,
+          "title": "购物填充279",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 280,
+          "user_id": 1,
+          "title": "购物填充280",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 281,
+          "user_id": 1,
+          "title": "购物填充281",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 282,
+          "user_id": 1,
+          "title": "购物填充282",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 283,
+          "user_id": 1,
+          "title": "购物填充283",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 284,
+          "user_id": 1,
+          "title": "购物填充284",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 285,
+          "user_id": 1,
+          "title": "购物填充285",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 286,
+          "user_id": 1,
+          "title": "购物填充286",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 287,
+          "user_id": 1,
+          "title": "购物填充287",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 288,
+          "user_id": 1,
+          "title": "购物填充288",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 289,
+          "user_id": 1,
+          "title": "购物填充289",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 290,
+          "user_id": 1,
+          "title": "购物填充290",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 291,
+          "user_id": 1,
+          "title": "购物填充291",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 292,
+          "user_id": 1,
+          "title": "购物填充292",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 293,
+          "user_id": 1,
+          "title": "购物填充293",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 294,
+          "user_id": 1,
+          "title": "购物填充294",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 295,
+          "user_id": 1,
+          "title": "购物填充295",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 296,
+          "user_id": 1,
+          "title": "购物填充296",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 297,
+          "user_id": 1,
+          "title": "购物填充297",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 298,
+          "user_id": 1,
+          "title": "购物填充298",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 299,
+          "user_id": 1,
+          "title": "购物填充299",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        },
+        {
+          "id": 300,
+          "user_id": 1,
+          "title": "购物填充300",
+          "body": "仅购物内容，不是中山陵游览。",
+          "category": "attraction_guide",
+          "city_code": "320100",
+          "tags": []
+        }
+      ]
+    },
+    {
+      "id": "PA01",
+      "module": "parameters",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "weather_query",
+          "city": "南京",
+          "weather_time_kind": "realtime"
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "当前天气合法"
+    },
+    {
+      "id": "PA02",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "duration_days": 0
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "天数0非法"
+    },
+    {
+      "id": "PA03",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "duration_days": "3"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "严格整数拒绝字符串"
+    },
+    {
+      "id": "PA04",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "duration_days": true
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "布尔不是天数"
+    },
+    {
+      "id": "PA05",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "budget": -1
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "负预算非法"
+    },
+    {
+      "id": "PA06",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "start_date": "2026-02-29"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "无效日期"
+    },
+    {
+      "id": "PA07",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "start_date": "2026-10-10",
+          "end_date": "2026-10-09"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "倒序日期"
+    },
+    {
+      "id": "PA08",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "weather_query",
+          "location": "南京"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "禁止旧别名字段"
+    },
+    {
+      "id": "PA09",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "history_query",
+          "poi_kind": "food"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "跨意图字段非法"
+    },
+    {
+      "id": "PA10",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "budget": 0,
+          "travelers": 1
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "零预算与单人边界合法"
+    },
+    {
+      "id": "PA11",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "poi",
+        "arguments": {
+          "city": "南京",
+          "kind": "food"
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "餐食检索合法"
+    },
+    {
+      "id": "PA12",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "poi",
+        "arguments": {
+          "city": "福州长乐",
+          "kind": "attraction"
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "明确行政区合法"
+    },
+    {
+      "id": "PA13",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "poi",
+        "arguments": {
+          "city": "118.8,32.0",
+          "kind": "food"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "坐标不能作为城市"
+    },
+    {
+      "id": "PA14",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "poi",
+        "arguments": {
+          "city": "不存在的城市",
+          "kind": "food"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "不能确认城市必须拒绝"
+    },
+    {
+      "id": "PA15",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "poi",
+        "arguments": {
+          "city": "南京",
+          "kind": "place"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "指定地点缺名称"
+    },
+    {
+      "id": "PA16",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "poi",
+        "arguments": {
+          "city": "南京",
+          "kind": "place",
+          "place_name": "中山陵|夫子庙"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "多地点注入非法"
+    },
+    {
+      "id": "PA17",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "keyword",
+        "arguments": {
+          "keywords": "美食",
+          "city": "南京",
+          "offset": 25
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "每页25上界合法"
+    },
+    {
+      "id": "PA18",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "keyword",
+        "arguments": {
+          "keywords": "美食",
+          "city": "南京",
+          "offset": 26
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "超过上界非法"
+    },
+    {
+      "id": "PA19",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "keyword",
+        "arguments": {
+          "keywords": " ",
+          "city": "南京"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "空关键词非法"
+    },
+    {
+      "id": "PA20",
+      "module": "parameters",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "model": "requirement",
+        "arguments": {
+          "intent": "trip_planning",
+          "budget": "__NaN__"
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "非有限预算不能入业务模型"
+    },
+    {
+      "id": "PR01",
+      "module": "parameter_repair",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "call": {
+          "name": "keyword_search",
+          "arguments": {
+            "city": "上海",
+            "keywords": "景点"
+          }
+        },
+        "requirement": {
+          "intent": "poi_recommendation",
+          "city": "南京",
+          "poi_kind": "attraction"
+        }
+      },
+      "gold": {
+        "arguments": {
+          "city": "南京",
+          "keywords": "景点"
+        }
+      },
+      "rationale": "需求明确城市覆盖错误工具城市"
+    },
+    {
+      "id": "PR02",
+      "module": "parameter_repair",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "call": {
+          "name": "search_records",
+          "arguments": {
+            "category": "ATTRACTION"
+          }
+        },
+        "requirement": {
+          "intent": "history_query",
+          "city": "南京",
+          "history_category": "FOOD"
+        }
+      },
+      "gold": {
+        "arguments": {
+          "city": "南京",
+          "category": "FOOD"
+        }
+      },
+      "rationale": "历史美食类别覆盖景点类别"
+    },
+    {
+      "id": "PR03",
+      "module": "parameter_repair",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "call": {
+          "name": "estimate_budget",
+          "arguments": {}
+        },
+        "requirement": {
+          "intent": "budget_query",
+          "city": "南京",
+          "duration_days": 3,
+          "travelers": 2
+        }
+      },
+      "gold": {
+        "arguments": {
+          "city": "南京",
+          "duration_days": 3,
+          "travelers": 2
+        }
+      },
+      "rationale": "仅补明确的城市人数天数"
+    },
+    {
+      "id": "PR04",
+      "module": "parameter_repair",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "call": {
+          "name": "estimate_budget",
+          "arguments": {}
+        },
+        "requirement": {
+          "intent": "budget_query"
+        }
+      },
+      "gold": {
+        "arguments": {}
+      },
+      "rationale": "缺失需求不能猜补值"
+    },
+    {
+      "id": "NO01",
+      "module": "normalizer",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": "0"
+        }
+      },
+      "gold": {
+        "rejected": false,
+        "distance": 0
+      },
+      "rationale": "零距离合法"
+    },
+    {
+      "id": "NO02",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "results": [
+            {
+              "distance": "1000"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": false,
+        "distance": 1000
+      },
+      "rationale": "API数值字符串转换"
+    },
+    {
+      "id": "NO03",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": -1
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "负距离"
+    },
+    {
+      "id": "NO04",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": 1.5
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "非整数米"
+    },
+    {
+      "id": "NO05",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": "NaN"
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "非有限值"
+    },
+    {
+      "id": "NO06",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": "Infinity"
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "无穷"
+    },
+    {
+      "id": "NO07",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "results": []
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "空结果不能虚构0"
+    },
+    {
+      "id": "NO08",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "results": {}
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "数组被对象替代"
+    },
+    {
+      "id": "NO09",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": true
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "布尔不是距离"
+    },
+    {
+      "id": "NO10",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": null
+        }
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "必填空值"
+    },
+    {
+      "id": "NO11",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {
+          "distance": "1000.0"
+        }
+      },
+      "gold": {
+        "rejected": false,
+        "distance": 1000
+      },
+      "rationale": "整数值小数字符串"
+    },
+    {
+      "id": "NO12",
+      "module": "normalizer",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "raw": {}
+      },
+      "gold": {
+        "rejected": true,
+        "distance": null
+      },
+      "rationale": "缺字段"
+    },
+    {
+      "id": "VA01",
+      "module": "validator",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "已确认景点与时段合法 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA02",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "X",
+                  "poi_name": "未知景点",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "未知POI必须拒绝 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA03",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "假玄武湖",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "名称与已确认候选不一致 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA04",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                },
+                {
+                  "poi_id": "B",
+                  "poi_name": "中山陵",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "同一个时段两个活动 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA05",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                },
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "afternoon",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "同一天重复景点 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA06",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "F",
+                  "poi_name": "清淡面馆",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "餐食作为上午景点 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA07",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "lunch",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "景点作为午餐 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA08",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1,
+          "constraints": [
+            "不去寺庙"
+          ]
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "T",
+                  "poi_name": "鸡鸣寺",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "明确排除寺庙 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA09",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": []
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "完整旅行计划不能没有任何天 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA10",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": []
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "完整行程不能空白 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA11",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 3
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "用户要求三日却只有一日 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA12",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 2,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "一日游编号应从1开始 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "VA13",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "F",
+                  "poi_name": "清淡面馆",
+                  "period": "lunch",
+                  "activity_type": "FOOD"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            },
+            {
+              "poi_id": "F",
+              "name": "清淡面馆",
+              "location": "118.8,32.0",
+              "category": "餐饮服务"
+            },
+            {
+              "poi_id": "T",
+              "name": "鸡鸣寺",
+              "location": "118.8,32.0",
+              "category": "风景名胜"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "合法午餐 此处验收完整行程；信息未知不当成确定错误。"
+    },
+    {
+      "id": "ME01",
+      "module": "memory",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "user_id": 1,
+        "conversation_id": "own",
+        "query": "之前南京旅行预算是多少？"
+      },
+      "gold": {
+        "relevant_ids": [
+          1,
+          2
+        ]
+      },
+      "rationale": "旧预算和修正都作为原文证据；最终事实选择另测"
+    },
+    {
+      "id": "ME02",
+      "module": "memory",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "user_id": 1,
+        "conversation_id": "own",
+        "query": "之前机票预订凭证编号是什么？"
+      },
+      "gold": {
+        "relevant_ids": [
+          4
+        ]
+      },
+      "rationale": "从8轮窗口外找回具体事实"
+    },
+    {
+      "id": "ME03",
+      "module": "memory",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "user_id": 1,
+        "conversation_id": "own",
+        "query": "之前我不吃辣的要求是什么？"
+      },
+      "gold": {
+        "relevant_ids": [
+          3
+        ]
+      },
+      "rationale": "召回明确忌口"
+    },
+    {
+      "id": "ME04",
+      "module": "memory",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "user_id": 1,
+        "conversation_id": "own",
+        "query": "之前有没有秘密草稿预算？"
+      },
+      "gold": {
+        "relevant_ids": []
+      },
+      "rationale": "pending未提交草稿不能进入上下文"
+    },
+    {
+      "id": "ME05",
+      "module": "memory",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "user_id": 1,
+        "conversation_id": "own",
+        "query": "之前有住宿酒店笔记吗？"
+      },
+      "gold": {
+        "relevant_ids": []
+      },
+      "rationale": "无证据应空召回"
+    },
+    {
+      "id": "ME06",
+      "module": "memory",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "user_id": 2,
+        "conversation_id": "own",
+        "query": "之前机票编号？"
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "账号2不能读取账号1会话"
+    },
+    {
+      "id": "ST01",
+      "module": "routing",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning"
+        },
+        "route": "collection",
+        "round": 0,
+        "information_status": {
+          "pois": {
+            "status": "pending"
+          }
+        }
+      },
+      "gold": {
+        "route": "information_incomplete"
+      },
+      "rationale": "未完成继续收集"
+    },
+    {
+      "id": "ST02",
+      "module": "routing",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning"
+        },
+        "route": "collection",
+        "round": 4,
+        "information_status": {
+          "pois": {
+            "status": "pending"
+          }
+        }
+      },
+      "gold": {
+        "route": "information_exhausted"
+      },
+      "rationale": "达到步数上限必须停止"
+    },
+    {
+      "id": "ST03",
+      "module": "routing",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning"
+        },
+        "route": "collection",
+        "round": 3,
+        "information_status": {
+          "pois": {
+            "status": "completed"
+          }
+        }
+      },
+      "gold": {
+        "route": "information_complete"
+      },
+      "rationale": "完成提前终止"
+    },
+    {
+      "id": "ST04",
+      "module": "routing",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning"
+        },
+        "route": "validation",
+        "round": 0,
+        "validation": {
+          "valid": false,
+          "issues": [
+            {
+              "type": "constraint",
+              "status": "fail",
+              "message": "重复"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "route": "validation_fail"
+      },
+      "rationale": "明确失败允许修复"
+    },
+    {
+      "id": "ST05",
+      "module": "routing",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning"
+        },
+        "route": "validation",
+        "round": 2,
+        "validation": {
+          "valid": false,
+          "issues": [
+            {
+              "type": "constraint",
+              "status": "fail",
+              "message": "重复"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "route": "validation_finish"
+      },
+      "rationale": "达到修复上限终止"
+    },
+    {
+      "id": "ST06",
+      "module": "routing",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning"
+        },
+        "route": "validation",
+        "round": 0,
+        "validation": {
+          "valid": true,
+          "issues": [
+            {
+              "type": "opening_hours",
+              "status": "unknown",
+              "message": "未知"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "route": "validation_finish"
+      },
+      "rationale": "未知不无限重试"
+    },
+    {
+      "id": "GR01",
+      "module": "answer_grader",
+      "split": "dev",
+      "group": "challenge",
+      "input": {
+        "answer": "南京景点：中山陵。",
+        "contract": {
+          "required": [
+            "南京景点",
+            "中山陵"
+          ],
+          "forbidden": [
+            "都位于上海"
+          ]
+        }
+      },
+      "gold": {
+        "status": "pass"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR02",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "南京景点：中山陵。以上都位于上海。",
+        "contract": {
+          "required": [
+            "南京景点",
+            "中山陵"
+          ],
+          "forbidden": [
+            "都位于上海"
+          ]
+        }
+      },
+      "gold": {
+        "status": "fail"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR03",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "推荐金陵的著名陵园。",
+        "contract": {
+          "required": [
+            "南京景点",
+            "中山陵"
+          ],
+          "forbidden": [
+            "都位于上海"
+          ]
+        }
+      },
+      "gold": {
+        "status": "review"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR04",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "你此前说过总预算2000元。",
+        "contract": {
+          "required": [
+            "你此前说过总预算2000元"
+          ],
+          "forbidden": [
+            "没有说过.*2000"
+          ]
+        }
+      },
+      "gold": {
+        "status": "pass"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR05",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "你没有说过总预算2000元，也没说不想去寺庙。",
+        "contract": {
+          "required": [
+            "你此前说过总预算2000元"
+          ],
+          "forbidden": [
+            "没有说过.*2000"
+          ]
+        }
+      },
+      "gold": {
+        "status": "fail"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR06",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "预算约两千，或许。",
+        "contract": {
+          "required": [
+            "你此前说过总预算2000元"
+          ],
+          "forbidden": [
+            "没有说过.*2000"
+          ]
+        }
+      },
+      "gold": {
+        "status": "review"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR07",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "12月1日超出近期天气预报范围。",
+        "contract": {
+          "required": [
+            "超出近期天气预报范围"
+          ],
+          "forbidden": [
+            "覆盖全年",
+            "12月1日可以查询"
+          ]
+        }
+      },
+      "gold": {
+        "status": "pass"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR08",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "12月1日可以查询，近期天气预报范围覆盖全年。",
+        "contract": {
+          "required": [
+            "超出近期天气预报范围"
+          ],
+          "forbidden": [
+            "覆盖全年",
+            "12月1日可以查询"
+          ]
+        }
+      },
+      "gold": {
+        "status": "fail"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR09",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "那个日期可能查不了。",
+        "contract": {
+          "required": [
+            "超出近期天气预报范围"
+          ],
+          "forbidden": [
+            "覆盖全年",
+            "12月1日可以查询"
+          ]
+        }
+      },
+      "gold": {
+        "status": "review"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR10",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "历史笔记原文：门票999元。非当前价格，请核实。",
+        "contract": {
+          "required": [
+            "历史笔记",
+            "非当前价格"
+          ],
+          "forbidden": [
+            "当前门票999元"
+          ]
+        }
+      },
+      "gold": {
+        "status": "pass"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR11",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "当前门票999元。",
+        "contract": {
+          "required": [
+            "历史笔记",
+            "非当前价格"
+          ],
+          "forbidden": [
+            "当前门票999元"
+          ]
+        }
+      },
+      "gold": {
+        "status": "fail"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR12",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "参考笔记《夫子庙清淡餐食》。",
+        "contract": {
+          "required": [
+            "参考笔记《夫子庙清淡餐食》"
+          ],
+          "forbidden": []
+        }
+      },
+      "gold": {
+        "status": "pass"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "GR13",
+      "module": "answer_grader",
+      "split": "evaluation",
+      "group": "challenge",
+      "input": {
+        "answer": "适合吃清淡餐食。",
+        "contract": {
+          "required": [
+            "参考笔记《夫子庙清淡餐食》"
+          ],
+          "forbidden": []
+        }
+      },
+      "gold": {
+        "status": "review"
+      },
+      "rationale": "显式合同探针：明确矛盾fail；满足已列必要条件pass；语义不确定review。不是通用答案正确率。"
+    },
+    {
+      "id": "EX01",
+      "module": "tool_execution",
+      "split": "dev",
+      "group": "fault",
+      "input": {
+        "behavior": "success",
+        "tool_name": "probe",
+        "arguments": {}
+      },
+      "gold": {
+        "status": "completed",
+        "error_code": null
+      },
+      "rationale": "使用真实ToolLayer，注入固定故障；验证状态与错误码传播，不测外部API可用性。"
+    },
+    {
+      "id": "EX02",
+      "module": "tool_execution",
+      "split": "evaluation",
+      "group": "fault",
+      "input": {
+        "behavior": "exception",
+        "tool_name": "probe",
+        "arguments": {}
+      },
+      "gold": {
+        "status": "failed",
+        "error_code": "tool_execution_error"
+      },
+      "rationale": "使用真实ToolLayer，注入固定故障；验证状态与错误码传播，不测外部API可用性。"
+    },
+    {
+      "id": "EX03",
+      "module": "tool_execution",
+      "split": "evaluation",
+      "group": "fault",
+      "input": {
+        "behavior": "unavailable",
+        "tool_name": "probe",
+        "arguments": {}
+      },
+      "gold": {
+        "status": "unavailable",
+        "error_code": "tool_unavailable"
+      },
+      "rationale": "使用真实ToolLayer，注入固定故障；验证状态与错误码传播，不测外部API可用性。"
+    },
+    {
+      "id": "EX04",
+      "module": "tool_execution",
+      "split": "evaluation",
+      "group": "fault",
+      "input": {
+        "behavior": "invalid_result",
+        "tool_name": "probe",
+        "arguments": {}
+      },
+      "gold": {
+        "status": "failed",
+        "error_code": "invalid_tool_result"
+      },
+      "rationale": "使用真实ToolLayer，注入固定故障；验证状态与错误码传播，不测外部API可用性。"
+    },
+    {
+      "id": "EX05",
+      "module": "tool_execution",
+      "split": "evaluation",
+      "group": "fault",
+      "input": {
+        "behavior": "success",
+        "tool_name": "missing",
+        "arguments": {}
+      },
+      "gold": {
+        "status": "failed",
+        "error_code": "tool_not_found"
+      },
+      "rationale": "使用真实ToolLayer，注入固定故障；验证状态与错误码传播，不测外部API可用性。"
+    },
+    {
+      "id": "EX06",
+      "module": "tool_execution",
+      "split": "evaluation",
+      "group": "fault",
+      "input": {
+        "behavior": "success",
+        "tool_name": "probe",
+        "arguments": {
+          "extra": 1
+        }
+      },
+      "gold": {
+        "status": "failed",
+        "error_code": "invalid_tool_arguments"
+      },
+      "rationale": "使用真实ToolLayer，注入固定故障；验证状态与错误码传播，不测外部API可用性。"
+    },
+    {
+      "id": "OU01",
+      "module": "output",
+      "split": "evaluation",
+      "group": "normal",
+      "input": {
+        "requirement": {
+          "intent": "budget_query"
+        },
+        "collected_info": {
+          "budget": {
+            "estimated_min": 100,
+            "estimated_max": 200,
+            "breakdown": {
+              "food": 150,
+              "transport": 60,
+              "accommodation": 0,
+              "poi_tickets": 0
+            }
+          }
+        },
+        "itinerary": null
+      },
+      "gold": {
+        "required": [
+          "餐饮",
+          "交通",
+          "住宿",
+          "景点门票"
+        ],
+        "forbidden": [
+          "accommodation",
+          "poi_tickets",
+          "food 150"
+        ]
+      },
+      "rationale": "真实格式化器字段覆盖；只检查列明内容和中文显示，不代表完整自然语言质量。"
+    },
+    {
+      "id": "OU02",
+      "module": "output",
+      "split": "evaluation",
+      "group": "normal",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "collected_info": {},
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "period": "morning",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "gold": {
+        "required": [
+          "第1天",
+          "上午：玄武湖"
+        ],
+        "forbidden": [
+          "None",
+          "morning"
+        ]
+      },
+      "rationale": "真实格式化器字段覆盖；只检查列明内容和中文显示，不代表完整自然语言质量。"
+    },
+    {
+      "id": "MS01",
+      "module": "memory_state",
+      "split": "evaluation",
+      "group": "normal",
+      "input": {
+        "turns": [
+          {
+            "message": "规划南京三日游，2000元，不吃辣",
+            "requirement": {
+              "intent": "trip_planning",
+              "city": "南京",
+              "duration_days": 3,
+              "budget": 2000,
+              "constraints": [
+                "不吃辣"
+              ]
+            }
+          }
+        ]
+      },
+      "gold": {
+        "city": "南京",
+        "duration_days": 3,
+        "budget": 2000.0,
+        "constraints": [
+          "不吃辣"
+        ]
+      },
+      "rationale": "结构化事实落盘，字段不得丢失 只测输入已正确提取时的状态存储，不测LLM事实提取。"
+    },
+    {
+      "id": "MS02",
+      "module": "memory_state",
+      "split": "evaluation",
+      "group": "normal",
+      "input": {
+        "turns": [
+          {
+            "message": "规划南京三日游，2000元，不吃辣",
+            "requirement": {
+              "intent": "trip_planning",
+              "city": "南京",
+              "duration_days": 3,
+              "budget": 2000,
+              "constraints": [
+                "不吃辣"
+              ]
+            }
+          },
+          {
+            "message": "那美食呢？",
+            "requirement": {
+              "intent": "poi_recommendation",
+              "poi_kind": "food"
+            }
+          }
+        ]
+      },
+      "gold": {
+        "city": "南京",
+        "duration_days": 3,
+        "budget": 2000.0,
+        "constraints": [
+          "不吃辣"
+        ]
+      },
+      "rationale": "追问继承明确旅行主题及约束 只测输入已正确提取时的状态存储，不测LLM事实提取。"
+    },
+    {
+      "id": "MS03",
+      "module": "memory_state",
+      "split": "evaluation",
+      "group": "normal",
+      "input": {
+        "turns": [
+          {
+            "message": "规划南京三日游",
+            "requirement": {
+              "intent": "trip_planning",
+              "city": "南京",
+              "duration_days": 3,
+              "budget": 2000,
+              "constraints": [
+                "不吃辣"
+              ]
+            }
+          },
+          {
+            "message": "换个话题，上海现在天气",
+            "requirement": {
+              "intent": "weather_query",
+              "city": "上海",
+              "weather_time_kind": "realtime"
+            }
+          }
+        ]
+      },
+      "gold": {
+        "city": "上海",
+        "duration_days": null,
+        "budget": null,
+        "constraints": []
+      },
+      "rationale": "话题切换清除旧旅行预算约束 只测输入已正确提取时的状态存储，不测LLM事实提取。"
+    },
+    {
+      "id": "MC01",
+      "module": "memory_compression",
+      "split": "evaluation",
+      "group": "boundary",
+      "input": {
+        "summary_failure": false
+      },
+      "gold": {
+        "compressed": true,
+        "within_budget": true,
+        "raw_preserved": true,
+        "valid_pointers": true
+      },
+      "rationale": "40条长消息压力触发70%阈值，固定摘要或注入摘要异常；只测预算和原文指针存储，不测摘要语义准确率。"
+    },
+    {
+      "id": "MC02",
+      "module": "memory_compression",
+      "split": "evaluation",
+      "group": "boundary",
+      "input": {
+        "summary_failure": true
+      },
+      "gold": {
+        "compressed": false,
+        "within_budget": true,
+        "raw_preserved": true,
+        "valid_pointers": false
+      },
+      "rationale": "40条长消息压力触发70%阈值，固定摘要或注入摘要异常；只测预算和原文指针存储，不测摘要语义准确率。"
+    },
+    {
+      "id": "VA14",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "boundary",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "start_time": "09:00",
+                  "end_time": "10:00",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "开放时刻边界合法"
+    },
+    {
+      "id": "VA15",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "boundary",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "start_time": "09:00",
+                  "end_time": "10:00",
+                  "activity_type": "ATTRACTION"
+                },
+                {
+                  "poi_id": "B",
+                  "poi_name": "中山陵",
+                  "start_time": "10:00",
+                  "end_time": "11:00",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "首尾相接不算时间重叠；同坐标无需移动时间"
+    },
+    {
+      "id": "VA16",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "boundary",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "start_time": "09:00",
+                  "end_time": "10:30",
+                  "activity_type": "ATTRACTION"
+                },
+                {
+                  "poi_id": "B",
+                  "poi_name": "中山陵",
+                  "start_time": "10:00",
+                  "end_time": "11:00",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "时间真实重叠"
+    },
+    {
+      "id": "VA17",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "boundary",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "start_time": "16:00",
+                  "end_time": "17:00",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": false
+      },
+      "rationale": "关闭时刻边界合法"
+    },
+    {
+      "id": "VA18",
+      "module": "validator",
+      "split": "evaluation",
+      "group": "boundary",
+      "input": {
+        "requirement": {
+          "intent": "trip_planning",
+          "duration_days": 1
+        },
+        "itinerary": {
+          "days": [
+            {
+              "day_number": 1,
+              "items": [
+                {
+                  "poi_id": "A",
+                  "poi_name": "玄武湖",
+                  "start_time": "16:30",
+                  "end_time": "17:30",
+                  "activity_type": "ATTRACTION"
+                }
+              ]
+            }
+          ]
+        },
+        "collected_info": {
+          "pois": [
+            {
+              "poi_id": "A",
+              "name": "玄武湖",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            },
+            {
+              "poi_id": "B",
+              "name": "中山陵",
+              "location": "118.8,32.0",
+              "category": "风景名胜",
+              "opening_hours": "09:00-17:00"
+            }
+          ]
+        }
+      },
+      "gold": {
+        "rejected": true
+      },
+      "rationale": "超出开放窗口"
+    }
+  ]
+}

@@ -37,6 +37,7 @@ from app.agent.memory import ToolRunSnapshot
 from app.agent.tools.budget import EstimateBudgetTool
 from app.agent.tools.amap import AmapApiError, AmapWebClient
 from app.agent.tools.layer import ToolUnavailableError
+from app.agent.utils import is_food_category, note_supports_food, stale_note, poi_conflicts
 
 
 CollectionRoute = Literal[
@@ -95,7 +96,8 @@ def build_agent_graph(
     factual_answerer: FactualAnswerer | None = None,
     planning_poi_client: AmapWebClient | None = None,
     tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
-    knowledge_searcher: Callable[[str, list[str]], list[KnowledgeInfo]] | None = None,
+    knowledge_searcher: Callable[[str, list[str], str | None], list[KnowledgeInfo]] | None = None,
+    memory_answerer: Callable[[TravelAgentState], str] | None = None,
 ):
     """Build and compile the V1 graph from already-tested node dependencies."""
     if max_validation_rounds < 0:
@@ -110,6 +112,8 @@ def build_agent_graph(
         ),
     )
     builder.add_node("react_collector", _collector_node(collector))
+    if memory_answerer is not None:
+        builder.add_node("memory_answer", _memory_answer_node(memory_answerer, observer))
     if factual_answerer is not None:
         builder.add_node("factual_answer", _factual_answer_node(factual_answerer, observer))
     builder.add_node("intent_router", _empty_node)
@@ -129,10 +133,12 @@ def build_agent_graph(
 
     builder.add_edge(START, "requirement_analyzer")
     builder.add_edge("requirement_analyzer", "initialize_information")
-    if factual_answerer is None and planning_poi_client is None:
+    if factual_answerer is None and planning_poi_client is None and memory_answerer is None:
         builder.add_edge("initialize_information", "react_collector")
     else:
         initial_routes = {"collect": "react_collector"}
+        if memory_answerer is not None:
+            initial_routes["memory"] = "memory_answer"
         if factual_answerer is not None:
             initial_routes["direct"] = "factual_answer"
         if planning_poi_client is not None:
@@ -140,7 +146,7 @@ def build_agent_graph(
             initial_routes["planning_unavailable"] = "final_response"
         builder.add_conditional_edges(
             "initialize_information",
-            lambda state: _initial_route(
+            lambda state: "memory" if memory_answerer is not None and state["requirement"].intent == "memory_query" else _initial_route(
                 state,
                 factual_enabled=factual_answerer is not None,
                 planning_enabled=planning_poi_client is not None,
@@ -149,6 +155,8 @@ def build_agent_graph(
         )
         if factual_answerer is not None:
             builder.add_edge("factual_answer", END)
+        if memory_answerer is not None:
+            builder.add_edge("memory_answer", END)
     builder.add_conditional_edges(
         "react_collector",
         lambda state: _collection_route(state, collector.max_rounds),
@@ -204,6 +212,19 @@ def _factual_answer_node(
         )
         return {"final_response": answer}
 
+    return run
+
+
+def _memory_answer_node(answerer, observer):
+    def run(state):
+        started_at = monotonic()
+        _emit_graph_event(observer, "stage_started", state,
+                          node_name="memory_answer", stage_name="memory_answer")
+        answer = answerer(state)
+        _emit_graph_event(observer, "stage_completed", state,
+                          node_name="memory_answer", stage_name="memory_answer",
+                          stage_duration_ms=(monotonic() - started_at) * 1000, stage_status="success")
+        return {"final_response": answer}
     return run
 
 
@@ -273,13 +294,13 @@ def _initialize_information_node(
     state: TravelAgentState,
     planning_poi_client: AmapWebClient | None = None,
     tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
-    knowledge_searcher: Callable[[str, list[str]], list[KnowledgeInfo]] | None = None,
+    knowledge_searcher: Callable[[str, list[str], str | None], list[KnowledgeInfo]] | None = None,
 ) -> dict[str, Any]:
     requirement = state["requirement"]
     status = initialize_information_status(requirement)
     collected = CollectedInfo()
     if requirement.intent == "trip_planning" and requirement.city and knowledge_searcher:
-        collected.knowledge = knowledge_searcher(requirement.city, requirement.preferences)
+        collected.knowledge = knowledge_searcher(requirement.city, requirement.preferences, None)
     if requirement.intent == "trip_planning" and requirement.duration_days is not None:
         budget_result = EstimateBudgetTool().run(
             city=requirement.city,
@@ -323,6 +344,8 @@ def _initialize_information_node(
                     errors.append(str(error))
                     continue
                 for poi in pois:
+                    if poi_conflicts(poi, requirement):
+                        continue
                     if poi.poi_id not in seen_ids:
                         collected.pois.append(poi)
                         seen_ids.add(poi.poi_id)
@@ -332,9 +355,12 @@ def _initialize_information_node(
                 reason="；".join(errors) if errors else None,
             )
             if collected.knowledge:
-                notes = " ".join(item.title + " " + item.excerpt for item in collected.knowledge)
                 collected.pois.sort(
-                    key=lambda poi: len(poi.name) >= 2 and poi.name in notes,
+                    key=lambda poi: any(
+                        note_supports_food(note, poi.name) if is_food_category(poi.category)
+                        else not stale_note(note) and len(poi.name) >= 2 and poi.name in note.title + note.excerpt
+                        for note in collected.knowledge
+                    ),
                     reverse=True,
                 )
     return {

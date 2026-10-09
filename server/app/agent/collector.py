@@ -166,10 +166,12 @@ def _normalize_tool_arguments(
     arguments = dict(call.arguments)
 
     if call.name in {"search_trip_history", "search_records"}:
-        if "city" not in arguments and requirement.city:
+        if requirement.city:
             arguments["city"] = requirement.city
-        if "category" not in arguments and requirement.history_category:
+        if requirement.history_category in {"ATTRACTION", "FOOD"}:
             arguments["category"] = requirement.history_category
+        elif requirement.intent == "history_query":
+            arguments.pop("category", None)
 
     if call.name == "weather":
         if "city" not in arguments and requirement.city:
@@ -307,6 +309,16 @@ class ReActCollector:
             return working
 
         call = decision.tool_call
+        if working["requirement"].intent == "history_query" and working["requirement"].history_view in {"trips", "ratings"}:
+            requirement = working["requirement"]
+            name = "search_trip_history" if requirement.history_view == "trips" else "search_records"
+            definition = next((item for item in self._tool_layer.definitions() if item.name == name), None)
+            if definition is not None:
+                arguments = {key: value for key, value in call.arguments.items()
+                             if key in definition.input_model.model_fields}
+                if requirement.city:
+                    arguments["city"] = requirement.city
+                call = ToolCall(name=name, arguments=arguments)
         try:
             need = self._tool_layer.information_need(call.name)
         except ToolNotFoundError:

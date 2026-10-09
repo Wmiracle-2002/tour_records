@@ -17,6 +17,7 @@ TravelIntent = Literal[
     "weather_query",
     "budget_query",
     "history_query",
+    "memory_query",
     "general_query",
 ]
 # 用户当前想让 Agent 完成的任务类型。
@@ -79,7 +80,9 @@ class TravelRequirement(BaseModel):
     destination: str | None = Field(default=None, description="路线或距离查询的终点")
     distance_mode: DistanceMode | None = None
     weather_time_kind: WeatherTimeKind | None = None
-    history_category: HistoryRecordCategory | None = None
+    history_category: HistoryRecordCategory | Literal["BOTH"] | None = None
+    history_view: Literal["places", "trips", "ratings"] = "places"
+    history_record_name: str | None = None
     poi_kind: RecommendationKind | None = None
     date_expression: str | None = None
     start_date: str | None = None
@@ -153,6 +156,9 @@ class TravelHistoryInfo(BaseModel):
     visited_cities: list[str] = Field(default_factory=list)
     visited_names: list[str] = Field(default_factory=list)
     visited_poi_ids: list[str] = Field(default_factory=list)
+    records_by_city: dict[str, dict[HistoryRecordCategory, list[str]]] = Field(default_factory=dict)
+    trip_periods_by_city: dict[str, list[tuple[str, str]]] = Field(default_factory=dict)
+    ratings_by_city: dict[str, dict[str, list[float | None]]] = Field(default_factory=dict)
 
 
 class POIInfo(BaseModel):
@@ -213,6 +219,8 @@ class KnowledgeInfo(BaseModel):
     tags: list[str] = Field(default_factory=list)
     excerpt: str
     updated_at: str
+    district_code: str | None = None
+    source_start: int | None = None
 
 
 class CollectedInfo(BaseModel):

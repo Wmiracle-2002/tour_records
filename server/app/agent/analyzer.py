@@ -37,6 +37,17 @@ _DISTANCE_QUESTION_PATTERN = re.compile(r"多远|距离|相距|(?:多少|几)(?:
 _CURRENT_WEATHER_WORDS = ("现在", "当前", "此刻", "目前", "实时")
 
 
+def _explicit_city(query: str) -> str | None:
+    names = _known_city_names()[0]
+    matches = {name: next(iter(codes)) for name, codes in names.items()
+               if name in query and re.search(re.escape(name) + r"(?=$|[^\u4e00-\u9fff]|市|到|天气|现在|当前|旅游|旅行|玩|美食|景点|几次|的|呢|一日|两日|三日|四日|五日)", query)
+               and len(codes) == 1 and len(name) >= 2
+               and (len(next(iter(codes))) == 4 or next(iter(codes)) in {"11", "12", "31", "50"})}
+    if len(set(matches.values())) == 1:
+        return max(matches, key=len)
+    return None
+
+
 def _current_weather_word(query: str) -> str | None:
     if any(word in query for word in ("明天", "后天", "今晚", "未来", "中秋", "国庆", "到", "至")):
         return None
@@ -74,7 +85,10 @@ def _explicit_poi_district(query: str, city: str | None) -> str | None:
 
 def _infer_history_city(user_query: str) -> str | None:
     match = _HISTORY_DESTINATION_PATTERN.search(user_query)
-    return match.group(1) if match else None
+    city = match.group(1) if match else None
+    if city and not city.startswith(("哪", "什么")):
+        return city
+    return None
 
 
 class RequirementAnalyzer:
@@ -153,12 +167,50 @@ class RequirementAnalyzer:
                 output_model=TravelRequirement,
             )
         requirement = TravelRequirement.model_validate(output)
+        updates: dict[str, Any] = {}
+        city_query = query
+        for endpoint in (requirement.origin, requirement.destination):
+            if endpoint:
+                city_query = city_query.replace(endpoint, "")
+        explicit_city = _explicit_city(city_query)
+        if explicit_city and requirement.intent != "memory_query":
+            updates["city"] = explicit_city
+        trip_days = re.search(r"([一二三四五六七八九十两\d]+)(?:日|天)游", query)
+        if trip_days and requirement.intent in {"trip_planning", "poi_recommendation", "general_query"}:
+            number = trip_days.group(1)
+            days = int(number) if number.isdigit() else {
+                "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,
+                "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+            }.get(number)
+            if days and days > 0:
+                updates.update(intent="trip_planning", duration_days=days, poi_kind=None)
+        city_reply = bool(explicit_city) and query.strip(" ？?。！!").removeprefix("那") in {
+            explicit_city, explicit_city + "的", explicit_city + "呢", explicit_city + "市",
+        }
+        if city_reply and structured_state.last_intent == "poi_recommendation":
+            updates.update(intent="poi_recommendation", poi_kind=structured_state.poi_kind)
+        if not re.search(r"规划|安排|推荐|估算", query) and any(word in query for word in ("之前说", "最早", "前面说", "刚才说")) and any(
+            word in query for word in ("预算", "要求", "限制", "不想去", "偏好", "计划")
+        ):
+            updates.update(intent="memory_query", poi_kind=None, distance_mode=None,
+                           weather_time_kind=None, destination=None)
+        if updates:
+            requirement = requirement.model_copy(update=updates)
         if long_term_preferences:
             requirement = _apply_long_term_preferences(
                 requirement, long_term_preferences, query
             )
         if requirement.intent == "route_query" and _DISTANCE_QUESTION_PATTERN.search(query):
             requirement = requirement.model_copy(update={"intent": "distance_query"})
+        if requirement.intent == "distance_query":
+            modes = {mode for mode, words in {
+                "walking": ("步行", "走路"), "driving": ("驾车", "开车"),
+                "straight": ("直线",),
+            }.items() if any(word in query for word in words)}
+            if len(modes) == 1:
+                requirement = requirement.model_copy(update={"distance_mode": modes.pop()})
+            if re.search(r"到(?:那里|那儿|哪儿|哪里)", query) and not conversation_context:
+                requirement = requirement.model_copy(update={"destination": None})
         if requirement.intent == "poi_recommendation":
             kind = _explicit_poi_kind(query)
             if kind is not None:
@@ -175,6 +227,25 @@ class RequirementAnalyzer:
                     "start_date": None,
                     "end_date": None,
                 })
+        if requirement.intent == "history_query":
+            if any(word in query for word in ("几次", "多少次", "分别是什么时候", "出行时间")):
+                requirement = requirement.model_copy(update={"history_view": "trips"})
+            elif "评分" in query:
+                record = re.search(r"(?:去过|去|在)([^，。？！?]{2,30}?)(?:那次|的)?评分", query)
+                requirement = requirement.model_copy(update={
+                    "history_view": "ratings",
+                    "history_record_name": requirement.history_record_name or (record.group(1) if record else None),
+                })
+            food = any(word in query for word in ("美食", "吃过", "小吃", "餐厅"))
+            places = any(word in query for word in ("景点", "景区", "地方", "地点"))
+            if food and places:
+                requirement = requirement.model_copy(update={"history_category": "BOTH"})
+            elif food != places:
+                requirement = requirement.model_copy(update={
+                    "history_category": "FOOD" if food else "ATTRACTION",
+                })
+            elif "城市" in query and not food and not places:
+                requirement = requirement.model_copy(update={"history_category": None})
         if requirement.intent == "history_query" and not requirement.city:
             city = _infer_history_city(query)
             if city:

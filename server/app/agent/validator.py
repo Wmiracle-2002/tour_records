@@ -15,7 +15,7 @@ from app.agent.models import (
     ValidationIssue,
     ValidationResult,
 )
-from app.agent.utils import avoids_previous_places, is_food_category, time_to_minutes
+from app.agent.utils import avoids_previous_places, food_conflicts, is_food_category, meal_matches, time_to_minutes, poi_conflicts, unique_attractions_required
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,28 @@ class ItineraryValidator:
     ) -> ValidationResult:
         issues: list[ValidationIssue] = []
         issues.extend(self._coarse_integrity_issues(itinerary, collected_info))
+        known_pois = {poi.poi_id: poi for poi in collected_info.pois}
+        attraction_ids: set[str] = set()
+        for day_number, day in enumerate(itinerary.days, start=1):
+            for item in day.items:
+                poi = known_pois.get(item.poi_id)
+                if poi and (poi_conflicts(poi, requirement) or (
+                    unique_attractions_required(requirement) and not is_food_category(poi.category)
+                    and poi.poi_id in attraction_ids
+                )):
+                    issues.append(_issue("constraint", "fail", day_number, [poi.poi_id],
+                                         f"第{day_number}天 {poi.name} 与排除类型或跨天去重要求冲突。",
+                                         "更换符合约束的已验证候选。"))
+                if poi and not is_food_category(poi.category):
+                    attraction_ids.add(poi.poi_id)
+                if poi and item.period in {"breakfast", "lunch", "dinner"} and (
+                    not meal_matches(poi.name, item.period) or food_conflicts(poi.name, requirement)
+                ):
+                    issues.append(_issue(
+                        "constraint", "fail", day_number, [item.poi_id],
+                        f"第{day_number}天 {poi.name} 与餐食时段或忌口约束冲突。",
+                        "更换适配餐食时段且无明确忌口冲突的已验证候选。",
+                    ))
         issues.extend(self._time_conflict_issues(itinerary))
         issues.extend(self._travel_time_issues(itinerary, collected_info))
         issues.extend(self._opening_hours_issues(itinerary, collected_info))

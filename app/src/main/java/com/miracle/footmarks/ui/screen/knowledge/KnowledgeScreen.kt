@@ -33,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.miracle.footmarks.data.remote.KnowledgeRequest
+import com.miracle.footmarks.data.remote.KnowledgeDistrict
+import com.miracle.footmarks.data.remote.KnowledgeSection
 import com.miracle.footmarks.data.remote.RemoteKnowledge
 import com.miracle.footmarks.data.repository.AdministrativeLocation
 
@@ -148,6 +150,8 @@ fun KnowledgeScreen(
             isSaving = state.isSaving,
             error = state.error,
             searchCities = viewModel::searchCities,
+            districts = state.districts,
+            loadDistricts = viewModel::loadDistricts,
             onDismiss = { showEditor = false },
             onSave = { request ->
                 viewModel.save(editing?.id, request)
@@ -163,6 +167,8 @@ private fun KnowledgeEditor(
     isSaving: Boolean,
     error: String?,
     searchCities: (String) -> List<AdministrativeLocation>,
+    districts: List<KnowledgeDistrict>,
+    loadDistricts: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: (KnowledgeRequest) -> Unit
 ) {
@@ -174,6 +180,8 @@ private fun KnowledgeEditor(
     var cityQuery by remember(original?.id) { mutableStateOf(original?.cityName ?: "") }
     var cityCode by remember(original?.id) { mutableStateOf(original?.cityCode ?: "") }
     var cityName by remember(original?.id) { mutableStateOf(original?.cityName ?: "") }
+    var sections by remember(original?.id) { mutableStateOf(original?.sections.orEmpty()) }
+    LaunchedEffect(cityCode) { loadDistricts(cityCode) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (original == null) "添加旅行收藏" else "编辑旅行收藏") },
@@ -193,6 +201,7 @@ private fun KnowledgeEditor(
                 if (cityCode.isEmpty()) {
                     searchCities(cityQuery).forEach { city ->
                         TextButton(onClick = {
+                            if (cityCode != city.code) sections = sections.map { it.copy(districtCode = null) }
                             cityCode = city.code
                             cityName = city.name
                             cityQuery = city.breadcrumb
@@ -200,6 +209,33 @@ private fun KnowledgeEditor(
                     }
                 } else Text("已选：$cityName")
                 OutlinedTextField(body, { body = it }, label = { Text("正文") }, minLines = 4)
+                Text("范围片段（选填）：指定区县的查询只使用已标注片段。")
+                sections.forEachIndexed { index, section ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            var districtQuery by remember(index, cityCode) { mutableStateOf("") }
+                            Text("片段 ${index + 1} · ${districts.firstOrNull { it.code == section.districtCode }?.name ?: "全市／未标区县"}")
+                            OutlinedTextField(districtQuery, { districtQuery = it }, label = { Text("查找区县") }, singleLine = true)
+                            districts.filter { districtQuery.isNotBlank() && it.name.contains(districtQuery) }.take(8).forEach { district ->
+                                TextButton(onClick = {
+                                    sections = sections.mapIndexed { i, value -> if (i == index) value.copy(districtCode = district.code) else value }
+                                    districtQuery = ""
+                                }) { Text(district.name) }
+                            }
+                            TextButton(onClick = { sections = sections.mapIndexed { i, value -> if (i == index) value.copy(districtCode = null) else value } }) { Text("不限定区县") }
+                            categories.forEach { (value, label) ->
+                                FilterChip(selected = (section.category ?: category) == value, onClick = {
+                                    sections = sections.mapIndexed { i, item -> if (i == index) item.copy(category = value) else item }
+                                }, label = { Text(label) })
+                            }
+                            OutlinedTextField(section.text, { text ->
+                                sections = sections.mapIndexed { i, value -> if (i == index) value.copy(text = text) else value }
+                            }, label = { Text("对应正文（复制原文片段）") }, minLines = 2)
+                            TextButton(onClick = { sections = sections.filterIndexed { i, _ -> i != index } }) { Text("移除片段") }
+                        }
+                    }
+                }
+                TextButton(onClick = { sections = sections + KnowledgeSection() }, enabled = sections.size < 32 && cityCode.isNotBlank()) { Text("＋ 添加范围片段") }
                 OutlinedTextField(tags, { tags = it }, label = { Text("标签，用逗号分隔") })
                 OutlinedTextField(source, { source = it }, label = { Text("来源说明（可选）") })
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -207,12 +243,13 @@ private fun KnowledgeEditor(
         },
         confirmButton = {
             Button(
-                enabled = !isSaving && title.isNotBlank() && body.isNotBlank() && cityCode.isNotBlank(),
+                enabled = !isSaving && title.isNotBlank() && body.isNotBlank() && cityCode.isNotBlank()
+                    && sections.all { it.text.isNotBlank() && body.trim().contains(it.text) },
                 onClick = {
                     onSave(KnowledgeRequest(
                         category, title.trim(), body.trim(), cityCode, cityName,
                         tags.split('，', ',').map { it.trim() }.filter { it.isNotEmpty() },
-                        source.trim().ifEmpty { null }
+                        source.trim().ifEmpty { null }, sections
                     ))
                 }
             ) { Text("保存") }

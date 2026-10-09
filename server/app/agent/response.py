@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.agent.utils import dietary_notice, is_food_category, note_supports_food, stale_note
+
 from app.agent.models import (
     CollectedInfo,
     InformationStatus,
@@ -99,6 +101,7 @@ class FinalResponseGenerator:
     ) -> str:
         if requirement.intent == "trip_planning":
             return self._trip_planning(
+                requirement,
                 collected_info,
                 information_status,
                 itinerary,
@@ -122,6 +125,7 @@ class FinalResponseGenerator:
 
     def _trip_planning(
         self,
+        requirement: TravelRequirement,
         collected_info: CollectedInfo,
         information_status: InformationStatus,
         itinerary: Itinerary | None,
@@ -148,14 +152,29 @@ class FinalResponseGenerator:
             item.poi_name for day in itinerary.days for item in day.items
             if len(item.poi_name) >= 2
         }
+        food_names = {poi.name for poi in collected_info.pois if is_food_category(poi.category)}
         cited = [
             note for note in collected_info.knowledge
-            if any(name in (note.title + note.excerpt) for name in selected_names)
+            if not stale_note(note) and any(
+                note_supports_food(note, name) if name in food_names
+                else name in (note.title + note.excerpt)
+                for name in selected_names
+            )
         ]
         if cited:
             lines.append("参考收藏：" + "、".join(
                 f"[收藏#{note.id}] {note.title}" for note in cited
-            ))
+            ) + "（餐食与兴趣参考，店铺仍以本轮地点查询为准）。")
+        outdated = [note for note in collected_info.knowledge if stale_note(note)]
+        if outdated:
+            for note in outdated:
+                lines.append(f"旧笔记原文（过时，非当前事实）：[收藏#{note.id}] {note.title}：\n“{note.excerpt}”")
+            lines.append("过时笔记说明：" + "、".join(
+                f"[收藏#{note.id}] {note.title}" for note in outdated
+            ) + "已标明过时，不作为当前事实依据；本轮未核实其中的当前门票、价格和开放时间。")
+        notice = dietary_notice(requirement)
+        if notice:
+            lines.append(notice)
         if coarse:
             lines.append("开放时间和实际费用请在出行前核实。")
         return "\n".join(lines)
@@ -346,27 +365,54 @@ class FinalResponseGenerator:
             if not matched_city:
                 return f"没有找到在{destination}的历史旅行记录。"
 
-            parts = [
-                f"历史记录：在{destination}记录了 {history.trip_count} 次旅行。"
-            ]
-            if history.visited_names:
-                category_label = {
-                    "ATTRACTION": "景点",
-                    "FOOD": "美食",
-                }.get(requirement.history_category, "景点或美食")
-                parts.append(
-                    f"去过的{category_label}：{'、'.join(history.visited_names)}。"
+        cities = [
+            city for city in history.visited_cities
+            if not destination or destination in city or city in destination
+        ]
+        if not cities:
+            return "没有找到历史旅行记录。"
+        if requirement.history_view == "trips":
+            lines = []
+            for city in cities:
+                periods = history.trip_periods_by_city.get(city, [])
+                if not periods:
+                    lines.append(f"{city}：暂无可核实的出行次数和日期区间")
+                    continue
+                dates = "、".join(
+                    f"{start or '日期未知'} 至 {end or '日期未知'}"
+                    for start, end in periods
                 )
-            else:
-                parts.append("该城市没有具体的景点或美食记录。")
-            return "".join(parts)
-
-        parts = [f"历史记录：共记录 {history.trip_count} 次旅行。"]
-        if history.visited_cities:
-            parts.append(f"去过的城市：{'、'.join(history.visited_cities)}。")
-        if history.visited_names:
-            parts.append(f"去过的地点：{'、'.join(history.visited_names)}。")
-        return "".join(parts)
+                lines.append(f"{city}：共{len(periods)}次，日期区间：{dates}")
+            return "；\n".join(lines) + "。"
+        if requirement.history_view == "ratings":
+            lines = []
+            for city in cities:
+                for name, ratings in history.ratings_by_city.get(city, {}).items():
+                    if requirement.history_record_name is not None and name != requirement.history_record_name:
+                        continue
+                    if not ratings:
+                        continue
+                    values = "、".join(
+                        "未评分" if rating is None else f"{_number_text(rating)}分"
+                        for rating in ratings
+                    )
+                    lines.append(f"{city}，{name}：{values}")
+            return "；\n".join(lines) + "。" if lines else "没有找到符合条件的历史评分记录。"
+        if requirement.history_category is None:
+            return f"去过的城市：{'、'.join(cities)}。"
+        label = "吃过的美食" if requirement.history_category == "FOOD" else "去过的地点"
+        lines = []
+        for index, city in enumerate(cities, start=1):
+            if requirement.history_category == "BOTH":
+                categories = history.records_by_city.get(city, {})
+                places = "、".join(categories.get("ATTRACTION", [])) or "暂无相关记录"
+                foods = "、".join(categories.get("FOOD", [])) or "暂无相关记录"
+                lines.append(f"去过的城市{index}：{city}，去过的地点：{places}，吃过的美食：{foods}")
+                continue
+            names = history.records_by_city.get(city, {}).get(requirement.history_category, [])
+            value = "、".join(names) or "暂无相关记录"
+            lines.append(f"去过的城市{index}：{city}，{label}：{value}")
+        return "；\n".join(lines) + "。"
 
     def _budget(
         self,

@@ -242,6 +242,46 @@ class SmartPlanningViewModelTest {
     }
 
     @Test
+    fun progressTracksActualOutcomesAndDisappearsAfterAnswer() = runTest(dispatcher) {
+        val body = "event: stage\ndata: {\"stage\":\"itinerary_generator\",\"status\":\"running\",\"message\":\"正在规划行程\"}\n\n" +
+            "event: stage\ndata: {\"stage\":\"itinerary_generator\",\"status\":\"degraded\",\"message\":\"正在规划行程\"}\n\n" +
+            "event: stage\ndata: {\"stage\":\"validator\",\"status\":\"success\",\"message\":\"正在校验行程\"}\n\n" +
+            "event: content\ndata: {\"text\":\"规划完成\"}\n\n" +
+            "event: completed\ndata: {\"answer\":\"规划完成\",\"conversation_id\":\"conversation-1\"}\n\n"
+        val viewModel = viewModel(FakeFootmarksApi(streamBody = body))
+        viewModel.updateDraft("南京一日游")
+        viewModel.send()
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isSending)
+        assertTrue(state.progressStartedAtMillis != null)
+        assertEquals(listOf("degraded", "success"), state.progressSteps.map { it.status })
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.progressSteps.isEmpty())
+        assertEquals(null, viewModel.uiState.value.progressStartedAtMillis)
+    }
+
+    @Test
+    fun failedStreamRetainsFailedStageAndNextRequestResetsIt() = runTest(dispatcher) {
+        val body = "event: stage\ndata: {\"message\":\"正在规划行程\"}\n\n" +
+            "event: error\ndata: {\"code\":504,\"message\":\"响应超时\"}\n\n"
+        val viewModel = viewModel(FakeFootmarksApi(streamBody = body))
+        viewModel.updateDraft("南京三日游")
+        viewModel.send()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isSending)
+        assertEquals("failed", viewModel.uiState.value.progressSteps.last().status)
+        assertEquals("正在规划行程", viewModel.uiState.value.progressSteps.last().label)
+        viewModel.send()
+        assertEquals(listOf("connection"), viewModel.uiState.value.progressSteps.map { it.id })
+        assertEquals("running", viewModel.uiState.value.progressSteps.single().status)
+        advanceUntilIdle()
+        viewModel.dismissError()
+        assertTrue(viewModel.uiState.value.progressSteps.isEmpty())
+    }
+
+    @Test
     fun responseDoesNotClearTextTypedWhilePreviousRequestIsInFlight() = runTest(dispatcher) {
         val gate = CompletableDeferred<Unit>()
         val viewModel = viewModel(FakeFootmarksApi(gate = gate))
@@ -521,6 +561,10 @@ private class FakeFootmarksApi(
     override suspend fun getKnowledgeEntry(
         authorization: String, entryId: Long
     ): com.miracle.footmarks.data.remote.RemoteKnowledge = unsupported()
+
+    override suspend fun getKnowledgeDistricts(
+        authorization: String, cityCode: String
+    ): List<com.miracle.footmarks.data.remote.KnowledgeDistrict> = emptyList()
 
     override suspend fun createKnowledge(
         authorization: String, request: com.miracle.footmarks.data.remote.KnowledgeRequest

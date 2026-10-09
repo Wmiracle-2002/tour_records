@@ -85,6 +85,30 @@ def test_stream_timeout_uses_error_event_with_clear_message(client):
     assert "upstream private timeout" not in response.text
 
 
+def test_stream_reports_public_stage_outcomes_without_private_details(client):
+    class Runtime:
+        def run(self, *_args, **_kwargs):
+            sink = current_stream_event_sink()
+            for status in ("success", "degraded", "failed"):
+                sink(AgentEvent(
+                    event="stage_completed", request_id="progress-test",
+                    node_name="itinerary_generator", stage_status=status,
+                    error_message="private provider details",
+                ))
+            sink(AgentEvent(event="tool_started", request_id="progress-test", tool_name="private_tool"))
+            return AgentRunResult(request_id="progress-test", answer="最终回答")
+
+    client.app.state.agent_runtime = Runtime()
+    response = client.post("/api/v1/agent/chat/stream", json={"message": "南京一日游"})
+    progress = [item for name, item in events(response) if name == "stage"]
+    assert progress[0]["stage"] == "requirement_analyzer"
+    assert progress[0]["status"] == "running"
+    assert [item["status"] for item in progress[1:]] == ["success", "degraded", "failed"]
+    assert all(item["stage"] == "itinerary_generator" for item in progress[1:])
+    assert "private provider details" not in response.text
+    assert "private_tool" not in response.text
+
+
 def test_stream_forwards_public_agent_stage_and_deduplicates_completed_request(client, db_session):
     calls = []
 

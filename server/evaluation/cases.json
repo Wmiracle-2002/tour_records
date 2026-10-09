@@ -1,0 +1,2084 @@
+{
+  "version": "core-v1",
+  "created_on": "2026-10-08",
+  "default_track": "A",
+  "repetitions": 3,
+  "default_api_mode": "sse",
+  "category_counts": {
+    "history": 8,
+    "recommendation": 7,
+    "weather": 5,
+    "distance": 4,
+    "budget": 3,
+    "planning": 6,
+    "memory": 5,
+    "robustness": 2
+  },
+  "cases": [
+    {
+      "id": "H01",
+      "category": "history",
+      "title": "去过的城市",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我之前去过哪些城市？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "answer_facts",
+              "value": {
+                "cities": [
+                  "南京市",
+                  "苏州市",
+                  "上海市"
+                ],
+                "matching": "exact_city_set"
+              },
+              "evidence": "answer_and_database"
+            }
+          ],
+          "forbidden": [
+          "不得编造未去过的城市",
+          "只回答城市，不附带旅行次数、景点或美食清单"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H02",
+      "category": "history",
+      "title": "南京景点分类",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我去过南京哪些景点？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query",
+                "city": "南京",
+                "history_category": "ATTRACTION"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "answer_includes_entities",
+              "value": [
+                "中山陵",
+                "夫子庙",
+                "玄武湖景区"
+              ],
+              "evidence": "answer"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "city": "南京",
+                "category": "ATTRACTION"
+              },
+              "evidence": "tool_trace"
+            }
+          ],
+          "forbidden": [
+            "不得混入美食或其他城市记录"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H03",
+      "category": "history",
+      "title": "南京美食分类",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我在南京吃过什么美食？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query",
+                "city": "南京",
+                "history_category": "FOOD"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "answer_includes_entities",
+              "value": [
+                "鸭血粉丝汤"
+              ],
+              "evidence": "answer"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "city": "南京",
+                "category": "FOOD"
+              },
+              "evidence": "tool_trace"
+            }
+          ],
+          "forbidden": [
+            "不得用城市清单代答",
+            "不得把景点作为美食"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H04",
+      "category": "history",
+      "title": "没去过的城市",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我去过哈尔滨哪些景点？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query",
+                "city": "哈尔滨"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "explicit_no_history",
+              "value": true,
+              "evidence": "answer"
+            }
+          ],
+          "forbidden": [
+            "不得使用Bob的中央大街记录",
+            "不得用南京记录代答"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H05",
+      "category": "history",
+      "title": "单城全部记录",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我在苏州去过哪些地方、吃过哪些东西？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query",
+                "city": "苏州"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "answer_includes_entities",
+              "value": [
+                "拙政园",
+                "松鼠桂鱼"
+              ],
+              "evidence": "answer"
+            },
+            {
+              "rule": "answer_facts",
+              "value": {
+                "city": "苏州市",
+                "matching": "only_matching_city"
+              },
+              "evidence": "answer_and_database"
+            }
+          ],
+          "forbidden": [
+            "不得混入南京或上海记录"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H06",
+      "category": "history",
+      "title": "同城多次出行",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我去了南京几次？分别是什么时候？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query",
+                "city": "南京"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "answer_facts",
+              "value": {
+                "trip_count": 2,
+                "date_ranges": [
+                  [
+                    "2026-08-01",
+                    "2026-08-02"
+                  ],
+                  [
+                    "2026-09-20",
+                    "2026-09-20"
+                  ]
+                ]
+              },
+              "evidence": "answer_and_database"
+            }
+          ],
+          "forbidden": [
+            "不得把两次合并为一次",
+            "不得按子记录数计算出行次数"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H07",
+      "category": "history",
+      "title": "空评分处理",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我去夫子庙那次评分是多少？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "no_rating_not_zero",
+              "value": true,
+              "evidence": "answer"
+            }
+          ],
+          "forbidden": [
+            "不得把空评分说成0分或补造评分"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H08",
+      "category": "history",
+      "title": "账号隔离",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "bob"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "bob",
+          "conversation": "main",
+          "message": "我去过哪些城市？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "answer_facts",
+              "value": {
+                "cities": [
+                  "哈尔滨市"
+                ],
+                "matching": "exact_city_set"
+              },
+              "evidence": "answer_and_database"
+            }
+          ],
+          "forbidden": [
+            "不得出现Alice的南京、苏州、上海历史"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R01",
+      "category": "recommendation",
+      "title": "南京景点",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐几个南京景点",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京",
+                "poi_kind": "attraction"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "poi_answer",
+              "value": {
+                "city_code": "320100",
+                "kind": "ATTRACTION",
+                "min_items": 1
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得混入餐馆或错城POI"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R02",
+      "category": "recommendation",
+      "title": "南京美食回归",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐南京美食",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京",
+                "poi_kind": "food"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "city": "南京",
+                "kind": "food"
+              },
+              "evidence": "tool_trace"
+            },
+            {
+              "rule": "poi_answer",
+              "value": {
+                "city_code": "320100",
+                "kind": "FOOD",
+                "min_items": 1
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得用南京景点关键词代替美食",
+            "不得输出景点清单"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R03",
+      "category": "recommendation",
+      "title": "限定长乐区",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "poi_pool": [
+          "C1",
+          "C2",
+          "X1"
+        ]
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "福州长乐有哪些好看的风景推荐？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "poi_answer",
+              "value": {
+                "adcode": "350112",
+                "kind": "ATTRACTION",
+                "min_items": 1
+              },
+              "evidence": "answer_and_tool_results"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "adcode": "350112"
+              },
+              "evidence": "tool_trace"
+            }
+          ],
+          "forbidden": [
+            "不得扩大到整个福州",
+            "不得推荐X1鼓楼反例"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R04",
+      "category": "recommendation",
+      "title": "景点和美食",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京有哪些景点和美食推荐？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京",
+                "poi_kind": "both"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "poi_answer",
+              "value": {
+                "city_code": "320100",
+                "kinds": [
+                  "ATTRACTION",
+                  "FOOD"
+                ],
+                "min_each": 1
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得只返回一种类别"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R05",
+      "category": "recommendation",
+      "title": "缺少城市澄清",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐几个好吃的店",
+          "required": [
+            {
+              "rule": "clarification",
+              "value": {
+                "missing": "city"
+              },
+              "evidence": "answer"
+            },
+            {
+              "rule": "no_arbitrary_city_search",
+              "value": true,
+              "evidence": "tool_trace"
+            }
+          ],
+          "forbidden": [
+            "不得擅自继承其他会话或选择南京"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R06",
+      "category": "recommendation",
+      "title": "不辣偏好",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "preferences": [
+          "no_spicy"
+        ]
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐南京适合我的美食",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京",
+                "poi_kind": "food"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "preference_applied",
+              "value": "不吃辣",
+              "evidence": "answer_and_memory"
+            },
+            {
+              "rule": "poi_answer",
+              "value": {
+                "city_code": "320100",
+                "kind": "FOOD",
+                "min_items": 1
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得把未知辣度说成已确认",
+            "不得向Bob写入偏好"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R07",
+      "category": "recommendation",
+      "title": "错城候选过滤",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "poi_pool": [
+          "F1",
+          "F2",
+          "X2"
+        ]
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐南京美食",
+          "required": [
+            {
+              "rule": "poi_answer",
+              "value": {
+                "city_code": "320100",
+                "kind": "FOOD",
+                "min_items": 1
+              },
+              "evidence": "answer_and_tool_results"
+            },
+            {
+              "rule": "excluded_poi_refs",
+              "value": [
+                "X2"
+              ],
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得推荐上海餐饮反例"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "W01",
+      "category": "weather",
+      "title": "现在天气",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京现在天气怎么样？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "weather_query",
+                "city": "南京",
+                "weather_time_kind": "realtime"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "weather_extensions": "base"
+              },
+              "evidence": "tool_trace"
+            },
+            {
+              "rule": "weather_answer",
+              "value": {
+                "kind": "realtime",
+                "weather": "多云",
+                "temperature": 23
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得追问具体日期",
+            "不得改用明天预报"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "W02",
+      "category": "weather",
+      "title": "当前天气同义表达",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京此刻冷不冷，天气如何？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "weather_query",
+                "weather_time_kind": "realtime"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "weather_extensions": "base"
+              },
+              "evidence": "tool_trace"
+            },
+            {
+              "rule": "weather_answer",
+              "value": {
+                "kind": "realtime",
+                "temperature": 23
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得要求用户必须说现在两个字"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "W03",
+      "category": "weather",
+      "title": "明天日期",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京明天天气怎么样？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "weather_query",
+                "start_date": "2026-10-09"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "weather_extensions": "all",
+                "target_date": "2026-10-09"
+              },
+              "evidence": "tool_trace"
+            },
+            {
+              "rule": "weather_answer",
+              "value": {
+                "date": "2026-10-09",
+                "dayweather": "小雨"
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得返回当天多云作为明天天气"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "W04",
+      "category": "weather",
+      "title": "后天日期",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京后天适合出门吗？先告诉我天气",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "weather_query",
+                "start_date": "2026-10-10"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "weather_extensions": "all",
+                "target_date": "2026-10-10"
+              },
+              "evidence": "tool_trace"
+            },
+            {
+              "rule": "weather_answer",
+              "value": {
+                "date": "2026-10-10",
+                "dayweather": "晴"
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得用第一条预报代替后天"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "W05",
+      "category": "weather",
+      "title": "超出预报范围",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京2026年12月1日天气怎么样？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "weather_query",
+                "start_date": "2026-12-01"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "forecast_unavailable_explained",
+              "value": true,
+              "evidence": "answer"
+            }
+          ],
+          "forbidden": [
+            "不得编造远期实况",
+            "不得回退为今天的天气"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "D01",
+      "category": "distance",
+      "title": "同城直线距离",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京中山陵到夫子庙有多远？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "distance_query",
+                "city": "南京",
+                "origin": "中山陵",
+                "destination": "夫子庙"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "coordinate_endpoints": true,
+                "mode": "straight",
+                "forbid_geocode_for_poi_name": true
+              },
+              "evidence": "tool_trace"
+            },
+            {
+              "rule": "distance_answer",
+              "value": {
+                "meters": 5200,
+                "mode": "straight",
+                "relative_tolerance": 0.01
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得调用导航路线代答",
+            "不得显示上千公里"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "D02",
+      "category": "distance",
+      "title": "步行距离",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京中山陵到夫子庙步行距离是多少？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "distance_query",
+                "distance_mode": "walking"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "distance_answer",
+              "value": {
+                "meters": 8100,
+                "mode": "walking",
+                "relative_tolerance": 0.01
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得将直线距离写成步行距离"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "D03",
+      "category": "distance",
+      "title": "驾车距离",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京中山陵到夫子庙开车多远？只要距离",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "distance_query",
+                "distance_mode": "driving"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "distance_answer",
+              "value": {
+                "meters": 9600,
+                "mode": "driving",
+                "relative_tolerance": 0.01
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得将驾车距离混同直线距离",
+            "不得编造逐路段导航"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "D04",
+      "category": "distance",
+      "title": "缺少终点",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京中山陵到那里有多远？",
+          "required": [
+            {
+              "rule": "clarification",
+              "value": {
+                "missing": "destination"
+              },
+              "evidence": "answer"
+            },
+            {
+              "rule": "no_arbitrary_destination",
+              "value": true,
+              "evidence": "tool_trace"
+            }
+          ],
+          "forbidden": [
+            "不得自行把那里解释为夫子庙"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B01",
+      "category": "budget",
+      "title": "预算口径与明细",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "两个人南京玩三天大概要多少钱？按人民币估算并列明细",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "budget_query",
+                "city": "南京",
+                "travelers": 2,
+                "duration_days": 3
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "budget_consistency",
+              "value": {
+                "currency": "CNY",
+                "travelers": 2,
+                "days": 3,
+                "chinese_labels": true,
+                "estimate_disclaimer": true
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得把估算描述为实时价格",
+            "不得漏算人数"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "category": "budget",
+      "title": "不住宿条件",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "一个人在南京玩一天，不住宿，大概要花多少钱？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "budget_query",
+                "city": "南京",
+                "travelers": 1,
+                "duration_days": 1
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "budget_consistency",
+              "value": {
+                "currency": "CNY",
+                "travelers": 1,
+                "days": 1,
+                "accommodation": 0,
+                "estimate_disclaimer": true
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得强加住宿费",
+            "不得输出负费用"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "category": "budget",
+      "title": "非法人数",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "给0个人估算南京三日游的费用",
+          "required": [
+            {
+              "rule": "invalid_request_handled",
+              "value": {
+                "field": "travelers",
+                "value": 0
+              },
+              "evidence": "answer"
+            },
+            {
+              "rule": "no_invalid_budget_call",
+              "value": true,
+              "evidence": "tool_trace"
+            }
+          ],
+          "forbidden": [
+            "不得默默改成1人并给出确定预算",
+            "不得返回内部异常"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P01",
+      "category": "planning",
+      "title": "一日游三餐覆盖",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "给我规划南京一日游，包含早中晚三餐和上午下午晚上安排",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "trip_planning",
+                "city": "南京",
+                "duration_days": 1
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 1,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2
+              },
+              "evidence": "itinerary_and_tool_results"
+            },
+            {
+              "rule": "budget_consistency",
+              "value": {
+                "currency": "CNY",
+                "chinese_labels": true,
+                "estimate_disclaimer": true
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得三餐全写暂无推荐",
+            "不得虚构确定门票和开放时间"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P02",
+      "category": "planning",
+      "title": "明确日期两日游",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "规划2026年10月9日至10日南京两日游，包含三餐",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "trip_planning",
+                "duration_days": 2,
+                "start_date": "2026-10-09",
+                "end_date": "2026-10-10"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 2,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2,
+                "dates": [
+                  "2026-10-09",
+                  "2026-10-10"
+                ]
+              },
+              "evidence": "itinerary_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得日期倒序或天数不符"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P03",
+      "category": "planning",
+      "title": "三天不重复景点",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京三日游，每天至少两个景点和三餐，景点不要重复",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "trip_planning",
+                "duration_days": 3
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 3,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2,
+                "unique_attractions": true
+              },
+              "evidence": "itinerary_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得以重复同一景点填满三天",
+            "不得遗漏餐饮查询"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P04",
+      "category": "planning",
+      "title": "排除寺庙",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京两日游，不去寺庙，给我安排景点和三餐",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "trip_planning",
+                "duration_days": 2
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 2,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2,
+                "excluded_tags": [
+                  "寺庙"
+                ]
+              },
+              "evidence": "itinerary_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得安排古鸡鸣寺",
+            "不得把不去寺庙理解为偏好寺庙"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P05",
+      "category": "planning",
+      "title": "个人收藏与隔离",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "knowledge": [
+          "K1",
+          "K2"
+        ]
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京一日游，午餐想吃鸭血粉丝汤，参考我的收藏",
+          "required": [
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 1,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2,
+                "lunch_poi_refs": [
+                  "F1"
+                ]
+              },
+              "evidence": "itinerary_and_tool_results"
+            },
+            {
+              "rule": "knowledge_citation",
+              "value": {
+                "ref": "K1",
+                "required_if_adopted": true
+              },
+              "evidence": "answer_and_knowledge_trace"
+            },
+            {
+              "rule": "no_cross_account_knowledge",
+              "value": true,
+              "evidence": "knowledge_trace"
+            }
+          ],
+          "forbidden": [
+            "不得引用BOB_PRIVATE_NOTE或BOB_PRIVATE_8341",
+            "不得把收藏当实时高德结果"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P06",
+      "category": "planning",
+      "title": "过时收藏不当事实",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "knowledge": [
+          "K3"
+        ]
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "参考我的旧景点票价笔记，规划南京一日游，并告诉我中山陵门票和开放时间",
+          "required": [
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 1,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2
+              },
+              "evidence": "itinerary_and_tool_results"
+            },
+            {
+              "rule": "unknown_facts_disclosed",
+              "value": {
+                "fields": [
+                  "price",
+                  "opening_hours"
+                ]
+              },
+              "evidence": "answer"
+            }
+          ],
+          "forbidden": [
+            "不得声称已确认门票999元",
+            "不得把旧笔记全天开放写成现行事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M01",
+      "category": "memory",
+      "title": "同城追问美食",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐南京景点",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京",
+                "poi_kind": "attraction"
+              },
+              "evidence": "requirement"
+            }
+          ],
+          "forbidden": [
+            "不得编造工具未支持的事实"
+          ]
+        },
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "美食呢？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京",
+                "poi_kind": "food"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "tool_scope",
+              "value": {
+                "city": "南京",
+                "kind": "food"
+              },
+              "evidence": "tool_trace"
+            }
+          ],
+          "forbidden": [
+            "不得丢失南京",
+            "不得重复景点清单"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M02",
+      "category": "memory",
+      "title": "更正天数保留限制",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "规划南京三日游，不去寺庙",
+          "required": [
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 3,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2,
+                "excluded_tags": [
+                  "寺庙"
+                ]
+              },
+              "evidence": "itinerary_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得编造工具未支持的事实"
+          ]
+        },
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "改成两天，其他要求不变",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "trip_planning",
+                "city": "南京",
+                "duration_days": 2
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "itinerary_constraints",
+              "value": {
+                "days": 2,
+                "city_code": "320100",
+                "periods": [
+                  "breakfast",
+                  "morning",
+                  "lunch",
+                  "afternoon",
+                  "dinner",
+                  "evening"
+                ],
+                "verified_pois_only": true,
+                "min_food_slots_per_day": 3,
+                "min_attraction_slots_per_day": 2,
+                "excluded_tags": [
+                  "寺庙"
+                ]
+              },
+              "evidence": "itinerary_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得继续输出三天",
+            "不得丢失排除寺庙条件"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M03",
+      "category": "memory",
+      "title": "换话题不污染测距",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "上海现在天气怎么样？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "weather_query",
+                "city": "上海",
+                "weather_time_kind": "realtime"
+              },
+              "evidence": "requirement"
+            }
+          ],
+          "forbidden": [
+            "不得编造工具未支持的事实"
+          ]
+        },
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "我去过苏州哪些景点？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "history_query",
+                "city": "苏州"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "answer_includes_entities",
+              "value": [
+                "拙政园"
+              ],
+              "evidence": "answer"
+            }
+          ],
+          "forbidden": [
+            "不得编造工具未支持的事实"
+          ]
+        },
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "南京中山陵到夫子庙有多远？",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "distance_query",
+                "city": "南京"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "distance_answer",
+              "value": {
+                "meters": 5200,
+                "mode": "straight",
+                "relative_tolerance": 0.01
+              },
+              "evidence": "answer_and_tool_results"
+            }
+          ],
+          "forbidden": [
+            "不得使用上海或苏州测距"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M04",
+      "category": "memory",
+      "title": "新会话保留偏好隔离话题",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "请记住，我不吃辣",
+          "required": [
+            {
+              "rule": "preference_saved",
+              "value": {
+                "category": "food_restriction",
+                "content": "不吃辣"
+              },
+              "evidence": "database"
+            }
+          ],
+          "forbidden": [
+            "不得编造工具未支持的事实"
+          ]
+        },
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐南京景点",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京"
+              },
+              "evidence": "requirement"
+            }
+          ],
+          "forbidden": [
+            "不得编造工具未支持的事实"
+          ]
+        },
+        {
+          "action": "new_conversation",
+          "account": "alice",
+          "conversation": "second"
+        },
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "second",
+          "message": "推荐适合我的美食",
+          "required": [
+            {
+              "rule": "clarification",
+              "value": {
+                "missing": "city"
+              },
+              "evidence": "answer"
+            },
+            {
+              "rule": "preference_retained",
+              "value": "不吃辣",
+              "evidence": "database"
+            }
+          ],
+          "forbidden": [
+            "不得从另一会话继承南京"
+          ]
+        },
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "second",
+          "message": "南京的",
+          "required": [
+            {
+              "rule": "requirement_fields",
+              "value": {
+                "intent": "poi_recommendation",
+                "city": "南京",
+                "poi_kind": "food"
+              },
+              "evidence": "requirement"
+            },
+            {
+              "rule": "preference_applied",
+              "value": "不吃辣",
+              "evidence": "answer_and_memory"
+            }
+          ],
+          "forbidden": [
+            "不得忽略明确长期偏好"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M05",
+      "category": "memory",
+      "title": "压缩后回查早期条件",
+      "suite": "normal",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "history": "long_raw"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "long",
+          "message": "回到最早的南京计划：我之前说的总预算和不想去的类型是什么？",
+          "required": [
+            {
+              "rule": "answer_facts",
+              "value": {
+                "budget": 2000,
+                "excluded": "寺庙"
+              },
+              "evidence": "answer_and_memory"
+            },
+            {
+              "rule": "compression_observed",
+              "value": {
+                "trigger": true,
+                "raw_messages_retained": true
+              },
+              "evidence": "memory_trace"
+            }
+          ],
+          "forbidden": [
+            "不得将预算改成其他值",
+            "不得删除压缩前原始消息"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E01",
+      "category": "robustness",
+      "title": "POI超时降级",
+      "suite": "fault",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "fault": "poi_timeout"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "推荐南京美食",
+          "required": [
+            {
+              "rule": "safe_tool_failure",
+              "value": {
+                "reason": "timeout",
+                "no_fabrication": true,
+                "bounded_attempts": true
+              },
+              "evidence": "answer_and_tool_trace"
+            },
+            {
+              "rule": "no_unhandled_exception",
+              "value": true,
+              "evidence": "http_and_events"
+            }
+          ],
+          "forbidden": [
+            "不得伪装查询成功",
+            "不得无限重试"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "category": "robustness",
+      "title": "额度耗尽",
+      "suite": "fault",
+      "tracks": [
+        "A"
+      ],
+      "setup": {
+        "account": "alice",
+        "fault": "quota_zero"
+      },
+      "steps": [
+        {
+          "action": "message",
+          "account": "alice",
+          "conversation": "main",
+          "message": "规划南京三日游",
+          "required": [
+            {
+              "rule": "quota_denied",
+              "value": true,
+              "evidence": "http_and_events"
+            },
+            {
+              "rule": "llm_call_count",
+              "value": 0,
+              "evidence": "llm_trace"
+            },
+            {
+              "rule": "no_partial_assistant_saved",
+              "value": true,
+              "evidence": "database"
+            }
+          ],
+          "forbidden": [
+            "不得仍向上游发起请求",
+            "不得保存半截成功答案"
+          ]
+        }
+      ]
+    }
+  ]
+}

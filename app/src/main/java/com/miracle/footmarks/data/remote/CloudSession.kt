@@ -29,7 +29,9 @@ data class AgentStreamEvent(
     val message: String? = null,
     val text: String? = null,
     val answer: String? = null,
-    @SerializedName("conversation_id") val conversationId: String? = null
+    @SerializedName("conversation_id") val conversationId: String? = null,
+    val stage: String? = null,
+    val status: String? = null
 )
 
 private data class StreamPayload(
@@ -37,7 +39,9 @@ private data class StreamPayload(
     val message: String? = null,
     val text: String? = null,
     val answer: String? = null,
-    @SerializedName("conversation_id") val conversationId: String? = null
+    @SerializedName("conversation_id") val conversationId: String? = null,
+    val stage: String? = null,
+    val status: String? = null
 )
 
 class PreferencesTokenStore @Inject constructor(
@@ -232,7 +236,7 @@ class CloudSession @Inject constructor(
                                 val payload = gson.fromJson(data, StreamPayload::class.java)
                                 val event = AgentStreamEvent(
                                     name, payload.requestId, payload.message, payload.text,
-                                    payload.answer, payload.conversationId
+                                    payload.answer, payload.conversationId, payload.stage, payload.status
                                 )
                                 withContext(callerContext) { onEvent(event) }
                                 when (name) {
@@ -292,6 +296,9 @@ class CloudSession @Inject constructor(
 
     suspend fun getKnowledgeEntry(entryId: Long): RemoteKnowledge =
         authorized { api.getKnowledgeEntry(it, entryId) }
+
+    suspend fun getKnowledgeDistricts(cityCode: String): List<KnowledgeDistrict> =
+        authorized { api.getKnowledgeDistricts(it, cityCode) }
 
     suspend fun createKnowledge(request: KnowledgeRequest): RemoteKnowledge =
         authorized { api.createKnowledge(it, request) }

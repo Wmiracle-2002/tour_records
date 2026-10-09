@@ -91,6 +91,7 @@ class ConversationSessionState(BaseModel):
     topic: str | None = Field(default=None, max_length=240)
     subtopic: str | None = Field(default=None, max_length=240)
     last_intent: str | None = Field(default=None, max_length=40)
+    poi_kind: Literal["attraction", "food", "both"] | None = None
     city: str | None = Field(default=None, max_length=100)
     start_date: str | None = Field(default=None, max_length=10)
     end_date: str | None = Field(default=None, max_length=10)
@@ -260,6 +261,7 @@ class ConversationMemoryService:
                 ),
                 "subtopic": user_query.strip()[:240] if follow_up else None,
                 "last_intent": requirement.intent,
+                "poi_kind": requirement.poi_kind,
                 "city": requirement.city or (previous.city if follow_up else None),
                 "start_date": requirement.start_date
                 or (previous.start_date if follow_up and not requirement.date_expression else None),

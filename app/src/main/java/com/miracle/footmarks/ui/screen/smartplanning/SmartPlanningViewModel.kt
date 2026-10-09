@@ -31,6 +31,8 @@ data class ChatMessage(
     val status: String = "completed"
 )
 
+data class AgentProgressStep(val id: String, val label: String, val status: String)
+
 data class SmartPlanningUiState(
     val messages: List<ChatMessage> = emptyList(),
     val conversations: List<RemoteConversation> = emptyList(),
@@ -43,6 +45,8 @@ data class SmartPlanningUiState(
     val isSending: Boolean = false,
     val streamingStage: String? = null,
     val streamingText: String = "",
+    val progressSteps: List<AgentProgressStep> = emptyList(),
+    val progressStartedAtMillis: Long? = null,
     val isCreatingConversation: Boolean = false,
     val error: String? = null
 ) {
@@ -88,6 +92,8 @@ class SmartPlanningViewModel @Inject constructor(
             isSending = true,
             streamingStage = "正在连接智能规划…",
             streamingText = "",
+            progressSteps = listOf(AgentProgressStep("connection", "正在连接智能规划…", "running")),
+            progressStartedAtMillis = System.currentTimeMillis(),
             error = null
         )
         viewModelScope.launch {
@@ -126,7 +132,18 @@ class SmartPlanningViewModel @Inject constructor(
                     val current = _uiState.value
                     if (current.currentConversationId == conversationId) {
                         when (event.name) {
-                            "stage" -> _uiState.value = current.copy(streamingStage = event.message)
+                            "stage" -> {
+                                val label = event.message ?: return@streamAgent
+                                val id = event.stage ?: label
+                                val status = event.status?.takeIf {
+                                    it in setOf("running", "success", "degraded", "failed")
+                                } ?: "running"
+                                val steps = current.progressSteps.filterNot { it.id == "connection" }.toMutableList()
+                                val index = steps.indexOfFirst { it.id == id }
+                                val step = AgentProgressStep(id, label, status)
+                                if (index < 0) steps.add(step) else steps[index] = step
+                                _uiState.value = current.copy(streamingStage = label, progressSteps = steps)
+                            }
                             "preview" -> {
                                 previewActive = true
                                 receivedText = event.text ?: ""
@@ -150,7 +167,8 @@ class SmartPlanningViewModel @Inject constructor(
                 }
                 refreshConversations(selectConversation = false)
                 _uiState.value = _uiState.value.copy(
-                    isSending = false, streamingStage = null, streamingText = ""
+                    isSending = false, streamingStage = null, streamingText = "",
+                    progressSteps = emptyList(), progressStartedAtMillis = null
                 )
             } catch (error: Exception) {
                 revealJob?.cancel()
@@ -165,6 +183,12 @@ class SmartPlanningViewModel @Inject constructor(
                     isSending = false,
                     streamingStage = null,
                     streamingText = "",
+                    progressSteps = current.progressSteps.map {
+                        if (it.status == "running") it.copy(status = "failed") else it
+                    }.let { steps ->
+                        if (steps.any { it.status == "failed" }) steps
+                        else steps + AgentProgressStep("response", "接收回答", "failed")
+                    },
                     error = userMessage(error)
                 )
             }
@@ -247,6 +271,7 @@ class SmartPlanningViewModel @Inject constructor(
             isLoadingOlderMessages = false,
             streamingStage = null,
             streamingText = "",
+            progressSteps = emptyList(), progressStartedAtMillis = null,
             error = null
         )
         viewModelScope.launch {
@@ -362,7 +387,11 @@ class SmartPlanningViewModel @Inject constructor(
     }
 
     fun dismissError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            progressSteps = if (_uiState.value.isSending) _uiState.value.progressSteps else emptyList(),
+            progressStartedAtMillis = if (_uiState.value.isSending) _uiState.value.progressStartedAtMillis else null
+        )
     }
 
     private fun nextId(): Long = nextMessageId--

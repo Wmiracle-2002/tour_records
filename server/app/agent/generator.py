@@ -11,7 +11,11 @@ from typing import Any, Callable, Protocol
 from app.agent.budget import AgentBudget
 from app.agent.models import CollectedInfo, Itinerary, ItineraryDay, ItineraryItem, TravelRequirement
 from app.agent.response import format_itinerary_day
-from app.agent.utils import avoids_previous_places, is_food_category, time_to_minutes
+from app.agent.utils import (
+    avoids_previous_places, excluded_periods, food_conflicts, is_food_category, meal_candidates,
+    meal_matches, time_to_minutes,
+    poi_conflicts, unique_attractions_required,
+)
 from app.agent.validator import ItineraryValidator
 
 
@@ -55,10 +59,11 @@ def fallback_itinerary(
     visited = set(
         collected_info.history.visited_poi_ids if collected_info.history else []
     ) if avoids_previous_places(requirement.constraints) else set()
+    excluded = excluded_periods(requirement)
     attractions = []
     foods = []
     for poi in collected_info.pois:
-        if poi.poi_id in visited:
+        if poi.poi_id in visited or poi_conflicts(poi, requirement):
             continue
         category = (poi.category or "").lower()
         if is_food_category(category):
@@ -79,8 +84,17 @@ def fallback_itinerary(
             ("dinner", foods, "FOOD"),
             ("evening", attractions, "ATTRACTION"),
         ):
-            if pool:
-                poi = pool.pop(0)
+            if period in excluded:
+                continue
+            eligible = meal_candidates(pool, requirement, collected_info.knowledge, period) if activity == "FOOD" else pool
+            if activity == "FOOD":
+                eligible.sort(key=lambda poi: any(word in poi.name for word in {
+                    "breakfast": ("早餐", "早饭", "早点"),
+                    "lunch": ("午餐", "午饭"), "dinner": ("晚餐", "晚饭", "夜宵"),
+                }[period]), reverse=True)
+            if eligible:
+                poi = eligible[0]
+                pool.remove(poi)
                 items.append(ItineraryItem(
                     poi_id=poi.poi_id, poi_name=poi.name,
                     period=period, activity_type=activity,
@@ -106,8 +120,11 @@ CollectedInfo.knowledge 是用户私有笔记摘录，只能作为兴趣与排�
 - 每个行程项必须使用候选 POI 的 poi_id，并填写对应的 poi_name；
 - 如果 TravelRequirement.duration_days 有值，days 必须恰好包含 duration_days 天，不得省略、合并或追加；
 - 遵守用户的 preferences 和 constraints；
+- 餐食必须适配时段：名称明确为早餐的店不安排午餐或晚餐，明确为晚餐/夜宵的店不安排早餐。忌辣时排除名称明确含麻辣、香辣、酸辣、辣椒或剁椒的候选，不能根据名称推断其他店已满足忌口。
+- 优先参考未标过时的收藏中与已验证 POI 对应的正向餐食推荐及适用时段；不推荐、避雷等负向描述不可当作推荐，旧笔记的价格/开放时间不可当当前事实。
 - day_number 从 1 连续编号；仅当 TravelRequirement.start_date 是具体 YYYY-MM-DD 日期时填写逐日 date，否则 date 为 null，不猜测日期；
 - 景点用 morning/afternoon/evening 和 ATTRACTION，美食用 breakfast/lunch/dinner 和 FOOD；每个时段最多一个地点，同一天不得重复 POI；候选不足时省略对应时段，不编造地点；
+- 默认每天覆盖早中晚三餐和上午、下午、晚上；用户明确排除的时段不得安排，其余时段候选充足不得遗漏。“不安排早餐”排除早餐，“晚上休息”排除晚上景点但不排除晚餐，“只安排上午和下午”仅保留这两个时段。用户明确要求景点不重复时，跨天也不能重复；不去寺庙时排除寺庙候选。用户指定的餐食与餐别优先，收藏中的对应推荐可作参考。
 - 不生成 HH:MM 精确时间、价格或导航路线；
 - 只返回符合 Itinerary 的结构化数据，不要输出自然语言旅行攻略。
 """.strip()
@@ -178,6 +195,7 @@ class StructuredItineraryGenerator:
                             self._validate_itinerary(
                                 candidate, partial_requirement, collected_info
                             )
+                            self._validate_requested_periods(candidate, partial_requirement, collected_info)
                             validation = ItineraryValidator().validate(
                                 partial_requirement, candidate, collected_info
                             )
@@ -213,12 +231,51 @@ class StructuredItineraryGenerator:
                 self._validate_itinerary(itinerary, requirement, collected_info)
                 itinerary = self._fill_missing_meals(itinerary, requirement, collected_info)
                 self._validate_itinerary(itinerary, requirement, collected_info)
+                self._validate_requested_periods(itinerary, requirement, collected_info)
                 return itinerary
             except ValueError as error:
                 last_error = error
                 if attempt == MAX_ITINERARY_GENERATION_ATTEMPTS - 1:
                     raise
         raise ValueError("Itinerary generation failed validation")
+
+    @staticmethod
+    def _validate_requested_periods(
+        itinerary: Itinerary, requirement: TravelRequirement, collected_info: CollectedInfo,
+    ) -> None:
+        requested = " ".join(requirement.preferences + requirement.constraints)
+        excluded = excluded_periods(requirement)
+        visited = set(collected_info.history.visited_poi_ids if collected_info.history else [])
+        eligible = [poi for poi in collected_info.pois if not (
+            avoids_previous_places(requirement.constraints) and poi.poi_id in visited
+        )]
+        pools = {
+            "FOOD": {poi.poi_id for poi in eligible if is_food_category(poi.category)},
+            "ATTRACTION": {poi.poi_id for poi in eligible if any(word in (poi.category or "").lower()
+                           for word in ("风景名胜", "景点", "历史文化", "博物馆", "公园", "attraction"))},
+        }
+        for day in itinerary.days:
+            if day.day_number is None:
+                continue
+            present = {item.period for item in day.items}
+            for period, words, category in (
+                ("breakfast", ("早餐", "早中晚三餐"), "FOOD"),
+                ("lunch", ("午餐", "早中晚三餐"), "FOOD"),
+                ("dinner", ("晚餐", "早中晚三餐"), "FOOD"),
+                ("morning", ("上午",), "ATTRACTION"),
+                ("afternoon", ("下午",), "ATTRACTION"),
+                ("evening", ("晚上", "晚间"), "ATTRACTION"),
+            ):
+                if period in excluded:
+                    continue
+                suitable = category != "FOOD" or bool(meal_candidates(
+                    eligible, requirement, collected_info.knowledge, period
+                ))
+                enough_candidates = len(pools[category]) >= 3 * (requirement.duration_days or len(itinerary.days))
+                if suitable and period not in present and enough_candidates and (
+                    requirement.duration_days is not None or any(word in requested for word in words)
+                ):
+                    raise ValueError(f"Missing explicitly requested period: {period}; use verified candidates")
 
     @staticmethod
     def _fill_missing_meals(
@@ -231,19 +288,22 @@ class StructuredItineraryGenerator:
         used_ids = {item.poi_id for day in itinerary.days for item in day.items}
         if avoids_previous_places(requirement.constraints) and collected_info.history:
             used_ids.update(collected_info.history.visited_poi_ids)
-        foods = iter(
+        foods = list(
             poi for poi in collected_info.pois
             if is_food_category(poi.category) and poi.poi_id not in used_ids
         )
         result = itinerary.model_copy(deep=True)
+        excluded = excluded_periods(requirement)
         for day in result.days:
             periods = {item.period for item in day.items}
-            for period in ("lunch", "dinner"):
-                if period in periods:
+            for period in ("lunch", "dinner", "breakfast"):
+                if period in periods or period in excluded:
                     continue
-                poi = next(foods, None)
-                if poi is None:
-                    break
+                eligible = meal_candidates(foods, requirement, collected_info.knowledge, period)
+                if not eligible:
+                    continue
+                poi = eligible[0]
+                foods.remove(poi)
                 day.items.append(ItineraryItem(
                     poi_id=poi.poi_id, poi_name=poi.name,
                     period=period, activity_type="FOOD",
@@ -288,8 +348,10 @@ class StructuredItineraryGenerator:
             else []
         )
         should_avoid_previous_places = avoids_previous_places(requirement.constraints)
+        excluded = excluded_periods(requirement)
 
         planned_dates = []
+        attraction_ids: set[str] = set()
         for day_number, day in enumerate(itinerary.days, start=1):
             if day.day_number is not None and day.day_number != day_number:
                 raise ValueError("Itinerary day_number must be consecutive")
@@ -304,6 +366,8 @@ class StructuredItineraryGenerator:
             used_periods: set[str] = set()
             used_pois: set[str] = set()
             for item in day.items:
+                if item.period in excluded:
+                    raise ValueError(f"Itinerary contains excluded period: {item.period}")
                 if item.period is None:
                     time_to_minutes(item.start_time)
                     time_to_minutes(item.end_time)
@@ -318,12 +382,22 @@ class StructuredItineraryGenerator:
                     raise ValueError(
                         f"itinerary contains previously visited poi_id: {item.poi_id}"
                     )
+                if poi_conflicts(poi, requirement):
+                    raise ValueError(f"constraint/diet conflict: {item.poi_id}")
+                if not is_food_category(poi.category) and unique_attractions_required(requirement):
+                    if item.poi_id in attraction_ids:
+                        raise ValueError(f"repeated attraction: {item.poi_id}")
+                    attraction_ids.add(item.poi_id)
                 if item.period is not None:
                     if item.period in used_periods or item.poi_id in used_pois:
                         raise ValueError("duplicate period or poi_id within a day")
                     used_periods.add(item.period)
                     used_pois.add(item.poi_id)
                     food = item.period in {"breakfast", "lunch", "dinner"}
+                    if food and not meal_matches(poi.name, item.period):
+                        raise ValueError(f"meal does not match period: {item.poi_id}")
+                    if food and food_conflicts(poi.name, requirement):
+                        raise ValueError(f"diet conflict: {item.poi_id}")
                     category = (poi.category or "").lower()
                     poi_is_food = is_food_category(category)
                     if not category or poi_is_food != food or item.activity_type != (

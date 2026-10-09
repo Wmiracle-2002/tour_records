@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -53,6 +54,7 @@ def parse_preference_command(
     message: str,
 ) -> tuple[Literal["save", "delete"], PreferenceCategory, str] | None:
     text = message.strip()
+    text = re.sub(r"^((?:以后)?(?:请)?(?:记住|忘记))[，,：:\s]+(?=我)", r"\1", text)
     action: Literal["save", "delete"]
     if text.startswith(("请记住我", "记住我", "以后记住我", "以后请记住我")):
         action = "save"

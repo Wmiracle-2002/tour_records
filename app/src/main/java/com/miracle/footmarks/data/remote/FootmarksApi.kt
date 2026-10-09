@@ -89,6 +89,14 @@ data class RemotePreference(
     @SerializedName("updated_at") val updatedAt: String
 )
 
+data class KnowledgeDistrict(val code: String, val name: String)
+
+data class KnowledgeSection(
+    @SerializedName("district_code") val districtCode: String? = null,
+    val category: String? = null,
+    val text: String = ""
+)
+
 data class KnowledgeRequest(
     val category: String,
     val title: String,
@@ -96,7 +104,8 @@ data class KnowledgeRequest(
     @SerializedName("city_code") val cityCode: String,
     @SerializedName("city_name") val cityName: String,
     val tags: List<String>,
-    val source: String?
+    val source: String?,
+    val sections: List<KnowledgeSection> = emptyList()
 )
 
 data class RemoteKnowledge(
@@ -109,7 +118,8 @@ data class RemoteKnowledge(
     val tags: List<String>,
     val source: String?,
     @SerializedName("created_at") val createdAt: String,
-    @SerializedName("updated_at") val updatedAt: String
+    @SerializedName("updated_at") val updatedAt: String,
+    val sections: List<KnowledgeSection> = emptyList()
 )
 
 data class Tokens(
@@ -315,6 +325,12 @@ interface FootmarksApi {
         @Header("Authorization") authorization: String,
         @Path("entryId") entryId: Long
     ): RemoteKnowledge
+
+    @GET("api/v1/agent/knowledge/districts")
+    suspend fun getKnowledgeDistricts(
+        @Header("Authorization") authorization: String,
+        @Query("city_code") cityCode: String
+    ): List<KnowledgeDistrict>
 
     @POST("api/v1/agent/knowledge")
     suspend fun createKnowledge(

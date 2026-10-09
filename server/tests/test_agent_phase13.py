@@ -223,7 +223,8 @@ def test_phase13_case_2_history_query() -> None:
 
     assert result["information_status"].history.status == "completed"
     assert result["collected_info"].history.visited_cities == ["杭州"]
-    assert "西湖" in result["final_response"]
+    assert "去过的城市：杭州" in result["final_response"]
+    assert "西湖" not in result["final_response"]
 
 
 def test_phase13_case_3_poi_recommendation() -> None:

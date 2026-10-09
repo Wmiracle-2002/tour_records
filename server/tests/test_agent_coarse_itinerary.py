@@ -73,8 +73,36 @@ def test_one_day_plan_fills_missing_meals_from_verified_food_candidates() -> Non
     assert by_period["lunch"].activity_type == "FOOD"
     assert by_period["dinner"].activity_type == "FOOD"
     assert by_period["lunch"].poi_id != by_period["dinner"].poi_id
-    assert "breakfast" not in by_period
+    assert by_period["breakfast"].activity_type == "FOOD"
     assert ItineraryValidator().validate(requirement, itinerary, info).valid
+
+
+def test_explicit_evening_request_retries_incomplete_plan_when_candidates_exist() -> None:
+    info = candidates()
+    info.pois.extend([
+        POIInfo(poi_id="A2", name="玄武湖", location="118.80,32.05", category="风景名胜"),
+        POIInfo(poi_id="A3", name="老门东", location="118.81,32.05", category="风景名胜"),
+    ])
+    class Client:
+        calls = 0
+
+        def complete_structured(self, **kwargs):
+            self.calls += 1
+            items = [
+                {"poi_id": "A1", "poi_name": "中山陵", "period": "morning", "activity_type": "ATTRACTION"},
+                {"poi_id": "A2", "poi_name": "玄武湖", "period": "afternoon", "activity_type": "ATTRACTION"},
+            ]
+            if self.calls > 1:
+                assert "evening" in kwargs["user_prompt"]
+                items.append({"poi_id": "A3", "poi_name": "老门东", "period": "evening", "activity_type": "ATTRACTION"})
+            return {"days": [{"day_number": 1, "items": items}]}
+
+    client = Client()
+    plan = StructuredItineraryGenerator(client).generate(
+        TravelRequirement(intent="trip_planning", duration_days=1, preferences=["上午安排", "下午安排", "晚上安排"]), info,
+    )
+    assert client.calls == 2
+    assert "evening" in {item.period for item in plan.days[0].items}
 
 
 def test_meal_fill_respects_existing_meal_and_visited_pois() -> None:

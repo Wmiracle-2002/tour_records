@@ -25,6 +25,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,7 @@ import com.miracle.footmarks.ui.theme.AccentMintContainer
 import com.miracle.footmarks.ui.theme.AccentOrangeContainer
 import com.miracle.footmarks.ui.theme.ChatAssistantGreen
 import com.miracle.footmarks.ui.theme.ChatUserBlue
+import kotlinx.coroutines.delay
 
 @Composable
 fun SmartPlanningScreen(
@@ -194,19 +196,14 @@ fun SmartPlanningContent(
                 items(uiState.messages, key = { it.id }) { message ->
                     ChatBubble(message, onOpenKnowledge)
                 }
-                if (uiState.isSending) {
+                if (uiState.isSending || uiState.progressSteps.isNotEmpty()) {
                     item {
-                        if (uiState.streamingText.isNotEmpty()) {
-                            ChatBubble(
-                                ChatMessage(-1, ChatRole.AGENT, uiState.streamingText, "pending"),
-                                onOpenKnowledge
-                            )
-                        } else {
-                            Surface(color = AccentMintContainer, shape = RoundedCornerShape(16.dp)) {
-                                Text(
-                                    text = uiState.streamingStage ?: "正在整理你的旅行灵感…",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AgentProgressCard(uiState)
+                            if (uiState.streamingText.isNotEmpty()) {
+                                ChatBubble(
+                                    ChatMessage(-1, ChatRole.AGENT, uiState.streamingText, "pending"),
+                                    onOpenKnowledge
                                 )
                             }
                         }
@@ -340,6 +337,59 @@ fun SmartPlanningContent(
                 TextButton(onClick = { conversationToDelete = null }) { Text("取消") }
             }
         )
+    }
+}
+
+@Composable
+private fun AgentProgressCard(state: SmartPlanningUiState) {
+    var elapsedSeconds by remember(state.progressStartedAtMillis) { mutableStateOf(0L) }
+    LaunchedEffect(state.progressStartedAtMillis, state.isSending) {
+        val startedAt = state.progressStartedAtMillis ?: return@LaunchedEffect
+        do {
+            elapsedSeconds = ((System.currentTimeMillis() - startedAt) / 1000).coerceAtLeast(0)
+            if (!state.isSending) break
+            delay(1000)
+        } while (true)
+    }
+    val hasText = state.streamingText.isNotEmpty()
+    Surface(
+        modifier = Modifier.fillMaxWidth(0.92f),
+        color = AccentMintContainer,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (state.isSending) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                }
+                Text(
+                    when {
+                        !state.isSending -> "本次请求未完成"
+                        hasText -> "正在输出回答"
+                        else -> "正在准备你的旅行回答"
+                    } + " · ${elapsedSeconds}秒",
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+            if (!hasText || !state.isSending) {
+                state.progressSteps.forEach { step ->
+                    Text(
+                        when (step.status) {
+                            "success" -> "✓ ${step.label.removePrefix("正在")} · 已完成"
+                            "degraded" -> "△ ${step.label.removePrefix("正在")} · 已生成简化结果"
+                            "failed" -> "! ${step.label.removePrefix("正在")} · 未完成"
+                            else -> "● ${step.label}"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (step.status == "failed") MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
     }
 }
 

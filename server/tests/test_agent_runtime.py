@@ -154,7 +154,7 @@ def test_runtime_builds_user_scoped_tools_and_returns_final_response(
     assert tool_run.conversation_id == conversation.id
     assert tool_run.source_message_id == user_message.id
     assert tool_run.tool_name == "search_records"
-    assert tool_run.arguments_json == {"city": "南京"}
+    assert tool_run.arguments_json == {"city": "南京", "category": "ATTRACTION"}
     assert tool_run.status == "completed"
     assert db_session.get(AgentToolResult, tool_run.id) is not None
     saved_state = db_session.get(AgentConversationMemory, conversation.id)

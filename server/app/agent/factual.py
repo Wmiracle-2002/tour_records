@@ -8,10 +8,12 @@ from time import monotonic
 from typing import Callable
 
 from app.agent.memory import ToolRunSnapshot
-from app.agent.models import TravelRequirement
+from app.agent.models import KnowledgeInfo, TravelRequirement
+from app.agent.utils import dietary_notice, food_conflicts, note_supports_food
 from app.agent.tools.amap import AmapApiError, AmapWebClient
 from app.agent.tools.budget import EstimateBudgetTool
 from app.agent.tools.layer import ToolUnavailableError
+from app.agent.response import _budget_details
 
 
 def china_today() -> date:
@@ -48,10 +50,12 @@ class FactualAnswerer:
         *,
         today_provider: Callable[[], date] = china_today,
         tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
+        knowledge_searcher: Callable[[str, list[str], str | None], list[KnowledgeInfo]] | None = None,
     ) -> None:
         self._amap = amap
         self._today_provider = today_provider
         self._tool_run_recorder = tool_run_recorder
+        self._knowledge_searcher = knowledge_searcher
 
     def answer(self, requirement: TravelRequirement) -> str:
         try:
@@ -80,14 +84,33 @@ class FactualAnswerer:
             return "请说明想推荐景点、美食，还是两者都要。"
         kinds = ("attraction", "food") if requirement.poi_kind == "both" else (requirement.poi_kind,)
         lines: list[str] = []
+        notes = self._knowledge_searcher(requirement.city, requirement.preferences, "food") if (
+            self._knowledge_searcher and "food" in kinds
+        ) else []
         for kind in kinds:
             label = "景点" if kind == "attraction" else "美食"
             pois = self._amap.search_verified_pois(city=requirement.city, kind=kind)["pois"]
+            if kind == "food":
+                pois = [poi for poi in pois if not food_conflicts(poi["name"], requirement)]
+                pois.sort(key=lambda poi: any(
+                    note_supports_food(note, poi["name"]) for note in notes
+                ), reverse=True)
             names = "、".join(poi["name"] for poi in pois)
             lines.append(
                 f"{requirement.city}{label}推荐：{names}。" if names
                 else f"{requirement.city}暂无可靠的{label}推荐。"
             )
+            if kind == "food":
+                cited = [note for note in notes if any(
+                    note_supports_food(note, poi["name"]) for poi in pois
+                )]
+                if cited:
+                    lines.append("排序参考个人收藏：" + "、".join(
+                        f"[收藏#{note.id}] {note.title}" for note in cited
+                    ) + "；仅作个人经验参考，非当前菜品或营业信息验证。")
+                notice = dietary_notice(requirement)
+                if notice:
+                    lines.append(notice)
         return "\n".join(lines)
 
     def _budget(self, requirement: TravelRequirement) -> str:
@@ -124,6 +147,7 @@ class FactualAnswerer:
         answer = (
             f"人民币粗略估算：{travelers} 人、{requirement.duration_days} 天，"
             f"约 {estimate.estimated_min:g}～{estimate.estimated_max:g} 元。"
+            f"费用明细：{_budget_details(estimate.breakdown)}。"
             "不含未提供的景点门票和城际交通，实际价格请核实。"
         )
         if requirement.budget is not None and estimate.estimated_max > requirement.budget:
@@ -213,7 +237,7 @@ class FactualAnswerer:
         if end < start:
             return "天气预报的结束日期不能早于开始日期。"
         if start < today or end > today + timedelta(days=3):
-            return "指定日期超出高德近期天气预报范围，暂时无法查询。"
+            return "指定日期超出近期天气预报范围，暂时无法查询。"
 
         adcode = self._amap.resolve_adcode(requirement.city)
         payload = self._amap.weather_adcode(adcode, forecast=True)
@@ -232,7 +256,7 @@ class FactualAnswerer:
         }
         dates = [start + timedelta(days=offset) for offset in range((end - start).days + 1)]
         if any(day.isoformat() not in casts for day in dates):
-            return "高德返回的预报不包含所问日期，暂时无法回答。"
+            return "当前天气预报不包含所问日期，暂时无法回答。"
         night_only = bool(
             requirement.date_expression
             and any(word in requirement.date_expression for word in ("今晚", "夜间", "晚上"))

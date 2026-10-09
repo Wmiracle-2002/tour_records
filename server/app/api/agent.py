@@ -532,15 +532,21 @@ async def stream_chat(
         loop = asyncio.get_running_loop()
 
         def on_agent_event(event: AgentEvent) -> None:
-            if event.event != "stage_started":
+            if event.event not in {"stage_started", "stage_completed"}:
                 return
             label = _STAGE_LABELS.get(event.node_name or "")
-            if label is None or label == "正在整理需求":
+            if label is None:
+                return
+            status = "running" if event.event == "stage_started" else event.stage_status
+            if status not in {"running", "success", "degraded", "failed"}:
                 return
 
             def enqueue() -> None:
                 if not queue.full():
-                    queue.put_nowait(("stage", {"request_id": request_id, "message": label}))
+                    queue.put_nowait(("stage", {
+                        "request_id": request_id, "message": label,
+                        "stage": event.node_name, "status": status,
+                    }))
 
             loop.call_soon_threadsafe(enqueue)
 
@@ -578,7 +584,8 @@ async def stream_chat(
         completed = False
         try:
             yield _stream_frame("started", request_id=request_id)
-            yield _stream_frame("stage", request_id=request_id, message="正在整理需求")
+            yield _stream_frame("stage", request_id=request_id, message="正在整理需求",
+                                stage="requirement_analyzer", status="running")
             while True:
                 try:
                     name, data = await asyncio.wait_for(queue.get(), timeout=15)

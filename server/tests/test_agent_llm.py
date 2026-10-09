@@ -81,7 +81,25 @@ def test_structured_client_sends_json_schema_and_validates_result() -> None:
     assert result == Answer(answer="hello")
 
 
-def test_structured_client_streams_json_fragments_before_completion() -> None:
+def test_json_object_mode_includes_schema_in_prompt_and_validates_result() -> None:
+    result, requests = run_client(
+        lambda request: response_with_content('{"answer":"hello"}'),
+        llm_structured_output_mode="json_object",
+    )
+    payload = json.loads(requests[0].content)
+    assert payload["response_format"] == {"type": "json_object"}
+    assert '"required": ["answer"]' in payload["messages"][0]["content"]
+    assert result.answer == "hello"
+
+
+def test_json_object_mode_does_not_accept_schema_invalid_result() -> None:
+    with pytest.raises(LLMInvalidResponseError):
+        run_client(lambda request: response_with_content('{"answer":null}'),
+                   llm_structured_output_mode="json_object", llm_max_retries=0)
+
+
+@pytest.mark.parametrize("mode", ["json_schema", "json_object"])
+def test_structured_client_streams_json_fragments_before_completion(mode: str) -> None:
     received: list[str] = []
     requests: list[httpx.Request] = []
 
@@ -96,7 +114,7 @@ def test_structured_client_streams_json_fragments_before_completion() -> None:
         return httpx.Response(200, text=chunks, headers={"Content-Type": "text/event-stream"})
 
     transport = OpenAICompatibleTransport(
-        settings(), http_transport=httpx.MockTransport(handler),
+        settings(llm_structured_output_mode=mode), http_transport=httpx.MockTransport(handler),
     )
     result = StructuredLLMClient(transport).complete_structured_stream(
         system_prompt="Return JSON", user_prompt="Say hello",
@@ -104,6 +122,7 @@ def test_structured_client_streams_json_fragments_before_completion() -> None:
     )
 
     assert json.loads(requests[0].content)["stream"] is True
+    assert json.loads(requests[0].content)["response_format"]["type"] == mode
     assert received == ['{"answer":"he', 'llo"}']
     assert result == Answer(answer="hello")
 

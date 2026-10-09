@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator, model_v
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.agent.knowledge import selectable_cities
+from app.agent.knowledge import city_districts, selectable_cities
 from app.api.auth import current_user
 from app.database import get_db
 from app.models import KnowledgeEntry, User
@@ -16,6 +16,13 @@ from app.models import KnowledgeEntry, User
 
 router = APIRouter(prefix="/agent/knowledge", tags=["agent knowledge"])
 KnowledgeCategory = Literal["note", "travel_guide", "food_guide", "attraction_guide"]
+
+
+class KnowledgeSection(BaseModel):
+    model_config = {"extra": "forbid"}
+    district_code: str | None = Field(default=None, pattern=r"^\d{6}$")
+    category: KnowledgeCategory | None = None
+    text: str = Field(min_length=1, max_length=8000)
 
 
 class KnowledgePayload(BaseModel):
@@ -26,6 +33,7 @@ class KnowledgePayload(BaseModel):
     city_name: str = Field(min_length=1, max_length=100)
     tags: list[str] = Field(default_factory=list, max_length=8)
     source: str | None = Field(default=None, max_length=300)
+    sections: list[KnowledgeSection] = Field(default_factory=list, max_length=32)
 
     @field_validator("title", "body", "city_name")
     @classmethod
@@ -52,6 +60,19 @@ class KnowledgePayload(BaseModel):
     def valid_city(self) -> "KnowledgePayload":
         if selectable_cities().get(self.city_code) != self.city_name:
             raise ValueError("city_code and city_name must identify a selectable city")
+        ranges = []
+        for section in self.sections:
+            if section.district_code and section.district_code not in city_districts().get(self.city_code, {}):
+                raise ValueError("district_code must belong to the selected city")
+            if not section.text.strip() or section.text not in self.body:
+                raise ValueError("section text must be a nonblank exact excerpt of body")
+            if self.body.count(section.text) != 1:
+                raise ValueError("section text must identify one unique source location; include more context")
+            start = self.body.index(section.text)
+            end = start + len(section.text)
+            if any(start < previous_end and previous_start < end for previous_start, previous_end in ranges):
+                raise ValueError("sections must not overlap; split each region into its own excerpt")
+            ranges.append((start, end))
         return self
 
 
@@ -63,6 +84,7 @@ class KnowledgePatch(BaseModel):
     city_name: str | None = None
     tags: list[str] | None = None
     source: str | None = None
+    sections: list[KnowledgeSection] | None = None
 
 
 class KnowledgeOut(KnowledgePayload):
@@ -116,6 +138,13 @@ def list_knowledge(
         ))
     rows = db.scalars(statement.order_by(KnowledgeEntry.id.desc()).limit(100)).all()
     return [KnowledgeOut.model_validate(row) for row in rows]
+
+
+@router.get("/districts")
+def list_districts(city_code: str, user: User = Depends(current_user)) -> list[dict[str, str]]:
+    if city_code not in selectable_cities():
+        raise HTTPException(status_code=422, detail="Unknown city")
+    return [{"code": code, "name": name} for code, name in city_districts().get(city_code, {}).items()]
 
 
 @router.get("/{entry_id}", response_model=KnowledgeOut)

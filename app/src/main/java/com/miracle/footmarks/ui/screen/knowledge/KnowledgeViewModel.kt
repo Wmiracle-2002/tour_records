@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.miracle.footmarks.data.remote.CloudSession
 import com.miracle.footmarks.data.remote.KnowledgeRequest
+import com.miracle.footmarks.data.remote.KnowledgeDistrict
 import com.miracle.footmarks.data.remote.RemoteKnowledge
 import com.miracle.footmarks.data.repository.AdministrativeDivisionRepository
 import com.miracle.footmarks.data.repository.AdministrativeLocation
@@ -19,7 +20,8 @@ data class KnowledgeUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val savedCount: Int = 0,
-    val error: String? = null
+    val error: String? = null,
+    val districts: List<KnowledgeDistrict> = emptyList()
 )
 
 @HiltViewModel
@@ -37,6 +39,22 @@ class KnowledgeViewModel @Inject constructor(
 
     fun searchCities(query: String): List<AdministrativeLocation> =
         if (query.isBlank()) emptyList() else divisions.search(query).take(8)
+
+    private var districtCityCode: String = ""
+
+    fun loadDistricts(cityCode: String) {
+        districtCityCode = cityCode
+        _uiState.value = _uiState.value.copy(districts = emptyList())
+        if (cityCode.isBlank()) return
+        viewModelScope.launch {
+            try {
+                val rows = session.getKnowledgeDistricts(cityCode)
+                if (districtCityCode == cityCode) _uiState.value = _uiState.value.copy(districts = rows)
+            } catch (error: Exception) {
+                if (districtCityCode == cityCode) _uiState.value = _uiState.value.copy(error = "读取区县失败，请重试")
+            }
+        }
+    }
 
     fun refresh(query: String? = null) {
         if (!session.isCloudMode) return

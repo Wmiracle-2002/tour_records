@@ -270,7 +270,7 @@ def test_planning_cites_owned_note_then_stops_after_edit_and_delete(
         ),
         (
             TravelRequirement(intent="weather_query", city="南京", date_expression="明天", weather_time_kind="forecast_date"),
-            "南京明天天气怎么样？", "empty_forecast", "高德返回的预报不包含所问日期",
+            "南京明天天气怎么样？", "empty_forecast", "当前天气预报不包含所问日期",
         ),
         (
             TravelRequirement(intent="budget_query", city="南京"),

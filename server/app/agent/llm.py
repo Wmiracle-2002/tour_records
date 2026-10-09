@@ -58,6 +58,7 @@ class OpenAICompatibleTransport:
         self._base_url = (current_settings.llm_base_url or "").rstrip("/")
         self._api_key = current_settings.llm_api_key
         self._model = current_settings.llm_model
+        self._structured_output_mode = current_settings.llm_structured_output_mode
         self._timeout_seconds = current_settings.llm_timeout_seconds
         self._max_retries = current_settings.llm_max_retries
         self._max_output_tokens = current_settings.llm_max_output_tokens
@@ -82,6 +83,7 @@ class OpenAICompatibleTransport:
         output_model: type[T],
     ) -> dict[str, Any]:
         self._ensure_configured()
+        system_prompt, response_format = self._structured_format(system_prompt, output_model)
         request_payload = {
             "model": self._model,
             "temperature": 0,
@@ -89,14 +91,7 @@ class OpenAICompatibleTransport:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": output_model.__name__,
-                    "strict": True,
-                    "schema": output_model.model_json_schema(),
-                },
-            },
+            "response_format": response_format,
         }
 
         if self._quota is not None:
@@ -229,6 +224,7 @@ class OpenAICompatibleTransport:
         output_model: type[T], on_delta: Callable[[str], None],
     ) -> dict[str, Any]:
         self._ensure_configured()
+        system_prompt, response_format = self._structured_format(system_prompt, output_model)
         request_payload = {
             "model": self._model,
             "temperature": 0,
@@ -237,13 +233,7 @@ class OpenAICompatibleTransport:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": output_model.__name__, "strict": True,
-                    "schema": output_model.model_json_schema(),
-                },
-            },
+            "response_format": response_format,
         }
         if self._model.startswith("qwen3.7-"):
             request_payload["enable_thinking"] = False
@@ -375,6 +365,18 @@ class OpenAICompatibleTransport:
     def max_retries(self) -> int:
         """Return the configured retry count for transient or invalid output."""
         return self._max_retries
+
+    def _structured_format(self, system_prompt: str, output_model: type[T]) -> tuple[str, dict[str, Any]]:
+        schema = output_model.model_json_schema()
+        if self._structured_output_mode == "json_object":
+            return (
+                system_prompt + "\n\n只输出符合以下 JSON Schema 的 JSON 对象：\n"
+                + json.dumps(schema, ensure_ascii=False),
+                {"type": "json_object"},
+            )
+        return system_prompt, {"type": "json_schema", "json_schema": {
+            "name": output_model.__name__, "strict": True, "schema": schema,
+        }}
 
     def _ensure_configured(self) -> None:
         if not self._base_url or not self._api_key or not self._model:
