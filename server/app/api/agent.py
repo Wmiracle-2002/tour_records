@@ -496,6 +496,7 @@ def _stream_frame(name: str, **data: object) -> str:
 _STAGE_LABELS = {
     "requirement_analyzer": "正在整理需求",
     "react_collector": "正在查找旅行信息",
+    "react_decision": "正在选择查询方式",
     "factual_answer": "正在整理查询结果",
     "itinerary_generator": "正在规划行程",
     "validator": "正在校验行程",
@@ -534,7 +535,8 @@ async def stream_chat(
         def on_agent_event(event: AgentEvent) -> None:
             if event.event not in {"stage_started", "stage_completed"}:
                 return
-            label = _STAGE_LABELS.get(event.node_name or "")
+            stage = "react_decision" if event.stage_name == "react_decision" else event.node_name
+            label = _STAGE_LABELS.get(stage or "")
             if label is None:
                 return
             status = "running" if event.event == "stage_started" else event.stage_status
@@ -545,7 +547,7 @@ async def stream_chat(
                 if not queue.full():
                     queue.put_nowait(("stage", {
                         "request_id": request_id, "message": label,
-                        "stage": event.node_name, "status": status,
+                        "stage": stage, "status": status,
                     }))
 
             loop.call_soon_threadsafe(enqueue)

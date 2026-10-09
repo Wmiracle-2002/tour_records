@@ -24,6 +24,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.miracle.footmarks.ui.screen.smartplanning.ChatMessage
 import com.miracle.footmarks.ui.screen.smartplanning.ChatRole
+import com.miracle.footmarks.ui.screen.smartplanning.AgentProgressStep
 import com.miracle.footmarks.ui.screen.smartplanning.SmartPlanningContent
 import com.miracle.footmarks.ui.screen.smartplanning.SmartPlanningUiState
 import com.miracle.footmarks.data.remote.RemoteConversation
@@ -52,7 +53,34 @@ class SmartPlanningScreenTest {
         setInteractiveContent(SmartPlanningUiState(draft = "北京三日游", isSending = true))
 
         composeRule.onNodeWithContentDescription("发送").assertIsNotEnabled()
-        composeRule.onNodeWithText("正在整理你的旅行灵感…").assertIsDisplayed()
+        composeRule.onNodeWithText("正在准备你的旅行回答", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun progressCollapsesDuringContentAndHidesAfterCompletion() {
+        val state = mutableStateOf(SmartPlanningUiState(
+            isSending = true,
+            progressSteps = listOf(AgentProgressStep("itinerary_generator", "正在规划行程", "running")),
+            progressStartedAtMillis = System.currentTimeMillis()
+        ))
+        composeRule.setContent {
+            SmartPlanningContent(state.value, {}, {}, {})
+        }
+        composeRule.onNodeWithText("● 正在规划行程").assertIsDisplayed()
+        composeRule.runOnIdle { state.value = state.value.copy(streamingText = "第一天去南京") }
+        composeRule.onNodeWithText("正在输出回答", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("● 正在规划行程").assertDoesNotExist()
+        composeRule.runOnIdle {
+            state.value = state.value.copy(
+                isSending = false, streamingText = "", progressSteps = emptyList(), progressStartedAtMillis = null,
+                messages = listOf(ChatMessage(1, ChatRole.AGENT, "完整行程"))
+            )
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("正在输出回答", substring = true).fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithText("正在输出回答", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("完整行程").assertIsDisplayed()
     }
 
     @Test

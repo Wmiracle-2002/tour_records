@@ -97,11 +97,11 @@ fun SmartPlanningContent(
 
     LaunchedEffect(
         uiState.messages.size, uiState.hasOlderMessages,
-        uiState.isSending, uiState.streamingText.length
+        uiState.isSending, uiState.streamingText.length, uiState.progressSteps
     ) {
         val lastItemIndex = uiState.messages.size +
             (if (uiState.hasOlderMessages) 1 else 0) +
-            (if (uiState.isSending) 1 else 0)
+            (if (uiState.isSending || uiState.progressSteps.isNotEmpty()) 1 else 0)
         if (lastItemIndex > 0) listState.scrollToItem(lastItemIndex)
     }
 
@@ -196,8 +196,8 @@ fun SmartPlanningContent(
                 items(uiState.messages, key = { it.id }) { message ->
                     ChatBubble(message, onOpenKnowledge)
                 }
-                if (uiState.isSending || uiState.progressSteps.isNotEmpty()) {
-                    item {
+                item(key = "agent-progress") {
+                    if (uiState.isSending || uiState.progressSteps.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             AgentProgressCard(uiState)
                             if (uiState.streamingText.isNotEmpty()) {
@@ -375,6 +375,9 @@ private fun AgentProgressCard(state: SmartPlanningUiState) {
                 )
             }
             if (!hasText || !state.isSending) {
+                if (state.progressSteps.isEmpty() && state.streamingStage != null) {
+                    Text(state.streamingStage, style = MaterialTheme.typography.bodyMedium)
+                }
                 state.progressSteps.forEach { step ->
                     Text(
                         when (step.status) {

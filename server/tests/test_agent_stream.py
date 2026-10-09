@@ -96,6 +96,8 @@ def test_stream_reports_public_stage_outcomes_without_private_details(client):
                     error_message="private provider details",
                 ))
             sink(AgentEvent(event="tool_started", request_id="progress-test", tool_name="private_tool"))
+            sink(AgentEvent(event="stage_completed", request_id="progress-test",
+                            node_name="react_collector", stage_name="react_decision", stage_status="success"))
             return AgentRunResult(request_id="progress-test", answer="最终回答")
 
     client.app.state.agent_runtime = Runtime()
@@ -103,8 +105,10 @@ def test_stream_reports_public_stage_outcomes_without_private_details(client):
     progress = [item for name, item in events(response) if name == "stage"]
     assert progress[0]["stage"] == "requirement_analyzer"
     assert progress[0]["status"] == "running"
-    assert [item["status"] for item in progress[1:]] == ["success", "degraded", "failed"]
-    assert all(item["stage"] == "itinerary_generator" for item in progress[1:])
+    assert [item["status"] for item in progress[1:4]] == ["success", "degraded", "failed"]
+    assert all(item["stage"] == "itinerary_generator" for item in progress[1:4])
+    assert progress[4]["stage"] == "react_decision"
+    assert progress[4]["message"] == "正在选择查询方式"
     assert "private provider details" not in response.text
     assert "private_tool" not in response.text
 
