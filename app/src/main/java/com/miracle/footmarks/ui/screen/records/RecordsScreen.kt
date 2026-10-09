@@ -33,6 +33,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,16 +66,26 @@ fun RecordsScreen(
     viewModel: RecordsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val mapState by viewModel.mapState.collectAsState()
+    var showMap by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showMap) {
+        if (showMap && mapState.regions.isEmpty()) viewModel.loadMap()
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         when {
             uiState.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            showMap -> FootprintMapContent(
+                uiState, mapState, { showMap = false }, viewModel::loadMap, viewModel::selectMapCity,
+                onTripClick, onRecordClick, onAddToTrip
+            )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item { RecordsHeader() }
+                item { RecordsViewToggle(false) { showMap = it } }
                 if (uiState.trips.isEmpty()) {
                     item { EmptyTimeline(Modifier.fillMaxWidth().padding(vertical = 48.dp)) }
                 } else {
@@ -102,7 +116,7 @@ fun RecordsScreen(
 }
 
 @Composable
-private fun RecordsHeader() {
+internal fun RecordsHeader() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -183,7 +197,7 @@ private fun StatCard(
 }
 
 @Composable
-private fun TripCard(
+internal fun TripCard(
     item: TripWithCityAndRecords,
     onTripClick: () -> Unit,
     onRecordClick: (Long) -> Unit,

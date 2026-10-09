@@ -15,6 +15,8 @@ import com.miracle.footmarks.data.local.entity.RecordEntity
 import com.miracle.footmarks.data.local.entity.RecordType
 import com.miracle.footmarks.data.local.entity.TripEntity
 import com.miracle.footmarks.data.repository.TripRepository
+import com.miracle.footmarks.data.repository.CityRepository
+import com.miracle.footmarks.data.repository.AdministrativeDivisionRepository
 import com.miracle.footmarks.ui.screen.records.RecordsScreen
 import com.miracle.footmarks.ui.screen.records.RecordsViewModel
 import com.miracle.footmarks.ui.theme.FootmarksTheme
@@ -68,7 +70,10 @@ class LargeDatasetTest {
                 )
             )
         }
-        viewModel = RecordsViewModel(TripRepository(database.tripDao()))
+        viewModel = RecordsViewModel(
+            TripRepository(database.tripDao()), CityRepository(database.cityDao()),
+            AdministrativeDivisionRepository(context), context
+        )
     }
 
     @After
