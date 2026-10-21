@@ -9,7 +9,7 @@ from typing import Callable
 
 from app.agent.memory import ToolRunSnapshot
 from app.agent.models import KnowledgeInfo, TravelRequirement
-from app.agent.utils import dietary_notice, food_conflicts, note_supports_food
+from app.agent.utils import dietary_notice, food_conflicts, knowledge_reference, note_supports_food
 from app.agent.tools.amap import AmapApiError, AmapWebClient
 from app.agent.tools.budget import EstimateBudgetTool
 from app.agent.tools.layer import ToolUnavailableError
@@ -50,7 +50,7 @@ class FactualAnswerer:
         *,
         today_provider: Callable[[], date] = china_today,
         tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
-        knowledge_searcher: Callable[[str, list[str], str | None], list[KnowledgeInfo]] | None = None,
+        knowledge_searcher: Callable[[TravelRequirement, str | None], list[KnowledgeInfo]] | None = None,
     ) -> None:
         self._amap = amap
         self._today_provider = today_provider
@@ -84,7 +84,7 @@ class FactualAnswerer:
             return "请说明想推荐景点、美食，还是两者都要。"
         kinds = ("attraction", "food") if requirement.poi_kind == "both" else (requirement.poi_kind,)
         lines: list[str] = []
-        notes = self._knowledge_searcher(requirement.city, requirement.preferences, "food") if (
+        notes = self._knowledge_searcher(requirement, "food") if (
             self._knowledge_searcher and "food" in kinds
         ) else []
         for kind in kinds:
@@ -106,7 +106,7 @@ class FactualAnswerer:
                 )]
                 if cited:
                     lines.append("排序参考个人收藏：" + "、".join(
-                        f"[收藏#{note.id}] {note.title}" for note in cited
+                        knowledge_reference(note) for note in cited
                     ) + "；仅作个人经验参考，非当前菜品或营业信息验证。")
                 notice = dietary_notice(requirement)
                 if notice:

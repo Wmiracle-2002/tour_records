@@ -20,8 +20,8 @@ def test_planning_collects_bounded_user_knowledge_after_requirement_analysis() -
     )
     calls = []
     result = _initialize_information_node(
-        state, knowledge_searcher=lambda city, preferences, kind: (
-            calls.append((city, preferences)) or [note("南京小吃", "鸭血粉丝汤")]
+        state, knowledge_searcher=lambda requirement, kind: (
+            calls.append((requirement.city, requirement.preferences)) or [note("南京小吃", "鸭血粉丝汤")]
         ),
     )
     assert calls == [("南京", [])]

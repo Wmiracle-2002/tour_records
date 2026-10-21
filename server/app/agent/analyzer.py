@@ -215,6 +215,7 @@ class RequirementAnalyzer:
             kind = _explicit_poi_kind(query)
             if kind is not None:
                 requirement = requirement.model_copy(update={"poi_kind": kind})
+        if requirement.intent in {"poi_recommendation", "trip_planning"}:
             district = _explicit_poi_district(query, requirement.city)
             if district is not None:
                 requirement = requirement.model_copy(update={"city": district})

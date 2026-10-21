@@ -124,7 +124,7 @@ def test_recommendation_prioritizes_and_cites_user_note_without_inventing_pois()
         def search_verified_pois(self, **kwargs):
             return {"pois": [{"name": "普通饭店"}, {"name": "家常菜"}]}
 
-    answer = FactualAnswerer(Amap(), knowledge_searcher=lambda city, preferences, kind: [
+    answer = FactualAnswerer(Amap(), knowledge_searcher=lambda requirement, kind: [
         note("推荐家常菜，推荐虚构饭店。"),
     ]).answer(TravelRequirement(intent="poi_recommendation", city="南京", poi_kind="food"))
     assert "美食推荐：家常菜、普通饭店" in answer and "收藏#42" in answer

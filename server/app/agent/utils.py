@@ -12,6 +12,16 @@ if TYPE_CHECKING:
 
 _PREVIOUS_PLACE_KEYWORDS = ("以前", "之前", "曾经", "去过", "visited", "previous")
 
+# Project vocabulary: the owner defines light food as non-spicy.
+NON_SPICY_FOOD_TERMS = ("不辣", "不放辣", "不加辣", "无辣", "清淡")
+NON_SPICY_QUERY_TERMS = ("不吃辣", "不能吃辣", "不要辣", "忌辣") + NON_SPICY_FOOD_TERMS
+SPICY_FOOD_TERMS = ("麻辣", "香辣", "酸辣", "辣椒", "剁椒", "微辣", "少辣", "辣味")
+
+
+def knowledge_reference(note: KnowledgeInfo) -> str:
+    """Keep a same-city fallback's actual district visible in citations."""
+    return f"[收藏#{note.id}] {note.title}（{note.district_name or '区县未标注'}）"
+
 
 def avoids_previous_places(constraints: list[str]) -> bool:
     """Return whether constraints ask to avoid places visited before."""
@@ -49,13 +59,15 @@ def excluded_periods(requirement: TravelRequirement) -> set[str]:
 
 def non_spicy_required(requirement: TravelRequirement) -> bool:
     text = " ".join(requirement.preferences + requirement.constraints)
-    return any(word in text for word in ("不吃辣", "不能吃辣", "不要辣", "不辣", "忌辣"))
+    return any(word in text for word in NON_SPICY_QUERY_TERMS if word != "清淡") or bool(
+        re.search(r"(?<!不)(?<!不要)(?<!不想吃)(?<!不喜欢)清淡", text)
+    )
 
 
 def food_conflicts(name: str, requirement: TravelRequirement) -> bool:
     """Exclude explicitly spicy labels; absence of these labels is not safety proof."""
     return non_spicy_required(requirement) and any(
-        word in name for word in ("麻辣", "香辣", "酸辣", "辣椒", "剁椒")
+        word in name for word in SPICY_FOOD_TERMS
     )
 
 

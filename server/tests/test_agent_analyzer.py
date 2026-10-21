@@ -25,6 +25,13 @@ class FakeStructuredOutputClient:
         return self.response
 
 
+def test_planning_preserves_district_scope_without_an_extra_model_call():
+    client = FakeStructuredOutputClient(TravelRequirement(intent="trip_planning", city="福州", duration_days=1))
+    result = RequirementAnalyzer(client).analyze("规划福州长乐一日游，参考我的收藏")
+    assert result.city == "福州长乐"
+    assert len(client.calls) == 1
+
+
 def test_analyzer_forwards_query_to_structured_output_client() -> None:
     client = FakeStructuredOutputClient(
         TravelRequirement(

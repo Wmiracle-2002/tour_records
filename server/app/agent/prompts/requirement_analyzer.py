@@ -26,10 +26,13 @@ REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """
 - 缺失的信息保持为空，不要猜测或补全；
 - start_date 和 end_date 只能填写 YYYY-MM-DD；结合下方提供的当前日期，把“今天”“明天”“中秋”“国庆”等日期表达换算为下一次对应的公历日期；能够可靠换算时填写 start_date，并始终把原表达保留在 date_expression；无法可靠换算时将 start_date、end_date 设为 null，不得改用当天日期；
 - preferences 和 constraints 没有内容时使用空数组；
+- preferences只放软偏好主题，尽量使用简短名词，如“历史文化”，不放“喜欢”前缀；“参考我收藏的攻略”是操作要求，不写入preferences或constraints。
+- 明确“必须包含/只推荐”的主题以及“不去寺庙/不吃辣”等硬限制放constraints，保留限制词，不能降级成软偏好；本项目按用户定义将“清淡”与“不辣”作为同义表达，明确的微辣、麻辣等描述仍属于冲突。
 - 不要使用 task_type 或其他字段名代替 intent；
 - 不要决定调用哪些 Tool；
 - 城市一律填 city；history_query 时，如果用户询问“去过哈尔滨哪些地方”这类问题，必须把哈尔滨提取到 city，不要留空；
-- 推荐地点时，用户明确限定区县就把范围一起写入 city，例如“福州长乐”应填“福州长乐”，不要缩成“福州”；
+- 推荐或规划地点时，用户明确限定区县就把范围一起写入 city，例如“福州长乐”应填“福州长乐”，不要缩成“福州”；
+- 知识库检索以城市为范围，提到区县默认是软偏好；“最好在秦淮区”放preferences，只有“只要秦淮区/仅限秦淮区/不要其他区”等明确限定才放constraints并保留限定词。city仍保留用户提到的区县，不能因为city含区县而补造“仅限该区”的约束。
 - distance_query 和 route_query 的终点写 destination；所在城市（已知时）写 city，不要把 city 当作 destination；
 - “中山陵到夫子庙有多远”是 distance_query，不是 route_query；route_query 只用于实际导航问法“怎么走/乘什么车”；
 - 明确说步行/走路用walking，驾车/开车用driving，直线用straight。城市必须提取，例如“南京中山陵到夫子庙步行多远”city=南京，不得遗漏；没有同一会话指代依据时，“那里”不可擅自补成某地点。

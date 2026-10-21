@@ -96,7 +96,7 @@ def build_agent_graph(
     factual_answerer: FactualAnswerer | None = None,
     planning_poi_client: AmapWebClient | None = None,
     tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
-    knowledge_searcher: Callable[[str, list[str], str | None], list[KnowledgeInfo]] | None = None,
+    knowledge_searcher: Callable[[TravelRequirement, str | None], list[KnowledgeInfo]] | None = None,
     memory_answerer: Callable[[TravelAgentState], str] | None = None,
 ):
     """Build and compile the V1 graph from already-tested node dependencies."""
@@ -294,13 +294,13 @@ def _initialize_information_node(
     state: TravelAgentState,
     planning_poi_client: AmapWebClient | None = None,
     tool_run_recorder: Callable[[ToolRunSnapshot], None] | None = None,
-    knowledge_searcher: Callable[[str, list[str], str | None], list[KnowledgeInfo]] | None = None,
+    knowledge_searcher: Callable[[TravelRequirement, str | None], list[KnowledgeInfo]] | None = None,
 ) -> dict[str, Any]:
     requirement = state["requirement"]
     status = initialize_information_status(requirement)
     collected = CollectedInfo()
     if requirement.intent == "trip_planning" and requirement.city and knowledge_searcher:
-        collected.knowledge = knowledge_searcher(requirement.city, requirement.preferences, None)
+        collected.knowledge = knowledge_searcher(requirement, None)
     if requirement.intent == "trip_planning" and requirement.duration_days is not None:
         budget_result = EstimateBudgetTool().run(
             city=requirement.city,

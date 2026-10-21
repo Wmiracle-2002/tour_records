@@ -221,6 +221,7 @@ class KnowledgeInfo(BaseModel):
     updated_at: str
     district_code: str | None = None
     source_start: int | None = None
+    district_name: str | None = None
 
 
 class CollectedInfo(BaseModel):

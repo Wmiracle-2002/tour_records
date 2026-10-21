@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from app.api.knowledge import KnowledgePayload
 from app.agent.knowledge import search_knowledge
 from app.agent.runtime import AgentRuntime
+from app.agent.models import TravelRequirement
 from app.models import KnowledgeEntry, User
 
 
@@ -32,7 +33,8 @@ def seed(db):
 
 def test_district_query_returns_only_confirmed_matching_section(db_session):
     entry = seed(db_session)
-    rows = AgentRuntime._search_knowledge(db_session, 1, "福州长乐", [], kind="food")
+    rows = AgentRuntime._search_knowledge(db_session, 1, "福州长乐", [], kind="food",
+        requirement=TravelRequirement(intent="poi_recommendation", city="福州长乐", constraints=["只要长乐区的内容"]))
     assert [row.id for row in rows] == [entry.id]
     assert "清淡海鲜" in rows[0].excerpt
     assert "三坊七巷" not in rows[0].excerpt
@@ -49,7 +51,8 @@ def test_city_query_includes_unscoped_and_scoped_notes(db_session):
 
 def test_region_and_owner_never_fall_back(db_session):
     seed(db_session)
-    assert AgentRuntime._search_knowledge(db_session, 1, "福州晋安", [], kind="food") == []
+    assert AgentRuntime._search_knowledge(db_session, 1, "福州晋安", [], kind="food",
+        requirement=TravelRequirement(intent="poi_recommendation", city="福州晋安", constraints=["仅限晋安区"])) == []
     assert AgentRuntime._search_knowledge(db_session, 2, "福州长乐", [], kind="food") == []
     assert AgentRuntime._search_knowledge(db_session, 1, "鼓楼区", [], kind="food") == []
     assert AgentRuntime._search_knowledge(db_session, 1, "福州长乐", ["不存在的食物"], kind="food") == []
@@ -94,7 +97,8 @@ def test_city_query_without_category_retains_both_regions(db_session):
 
 def test_generic_guide_can_supply_food_only_via_explicit_section(db_session):
     seed(db_session)
-    assert AgentRuntime._search_knowledge(db_session, 1, "福州鼓楼", [], kind="food") == []
+    assert AgentRuntime._search_knowledge(db_session, 1, "福州鼓楼", [], kind="food",
+        requirement=TravelRequirement(intent="poi_recommendation", city="福州鼓楼", constraints=["仅限鼓楼区"])) == []
     rows = AgentRuntime._search_knowledge(db_session, 1, "福州鼓楼", [], kind="attraction")
     assert len(rows) == 1 and rows[0].source_start == BODY.index("鼓楼")
 

@@ -38,8 +38,8 @@ from app.agent.memory import (
     ConversationSummaryOutput,
     ToolRunSnapshot,
 )
-from app.agent.knowledge import resolve_knowledge_scope, search_knowledge
-from app.agent.models import KnowledgeInfo
+from app.agent.knowledge import knowledge_query, resolve_knowledge_scope, search_knowledge
+from app.agent.models import KnowledgeInfo, TravelRequirement
 from app.agent.reviser import LocalItineraryReviser
 from app.agent.response import FinalResponseGenerator
 from app.agent.tools.amap import AmapTransport, AmapWebClient, create_amap_tools_from_settings
@@ -279,14 +279,14 @@ class AgentRuntime:
             observer=observer,
             factual_answerer=FactualAnswerer(
                 amap_client, tool_run_recorder=record_tool_run,
-                knowledge_searcher=lambda city, preferences, kind: self._search_knowledge(
-                    db, user_id, city, preferences, kind=kind
+                knowledge_searcher=lambda requirement, kind: self._search_knowledge(
+                    db, user_id, requirement.city or "", [], kind=kind, requirement=requirement
                 ),
             ),
             planning_poi_client=amap_client,
             tool_run_recorder=record_tool_run,
-            knowledge_searcher=lambda city, preferences, kind: self._search_knowledge(
-                db, user_id, city, preferences, kind=kind
+            knowledge_searcher=lambda requirement, kind: self._search_knowledge(
+                db, user_id, requirement.city or "", [], kind=kind, requirement=requirement
             ),
             memory_answerer=lambda state: self._answer_memory(state, budget),
         )
@@ -323,14 +323,16 @@ class AgentRuntime:
     def _search_knowledge(
         db: Session, user_id: int, city: str, preferences: list[str],
         *, kind: str | None = None,
+        requirement: TravelRequirement | None = None,
     ) -> list[KnowledgeInfo]:
         scope = resolve_knowledge_scope(city)
         if scope is None:
             return []
-        city_code, district_code = scope
+        city_code, _ = scope
         category = {"food": "food_guide", "attraction": "attraction_guide"}.get(kind)
         rows = search_knowledge(db, user_id, city_code, keywords=preferences,
-                                category=category, district_code=district_code)
+                                category=category,
+                                query=knowledge_query(requirement or TravelRequirement(intent="general_query", city=city)))
         return [KnowledgeInfo.model_validate(row.__dict__) for row in rows]
 
     def _answer_memory(self, state, budget: AgentBudget) -> str:

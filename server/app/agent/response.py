@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.agent.utils import dietary_notice, is_food_category, note_supports_food, stale_note
+from app.agent.utils import dietary_notice, is_food_category, knowledge_reference, note_supports_food, stale_note
 
 from app.agent.models import (
     CollectedInfo,
@@ -163,14 +163,14 @@ class FinalResponseGenerator:
         ]
         if cited:
             lines.append("参考收藏：" + "、".join(
-                f"[收藏#{note.id}] {note.title}" for note in cited
+                knowledge_reference(note) for note in cited
             ) + "（餐食与兴趣参考，店铺仍以本轮地点查询为准）。")
         outdated = [note for note in collected_info.knowledge if stale_note(note)]
         if outdated:
             for note in outdated:
-                lines.append(f"旧笔记原文（过时，非当前事实）：[收藏#{note.id}] {note.title}：\n“{note.excerpt}”")
+                lines.append(f"旧笔记原文（过时，非当前事实）：{knowledge_reference(note)}：\n“{note.excerpt}”")
             lines.append("过时笔记说明：" + "、".join(
-                f"[收藏#{note.id}] {note.title}" for note in outdated
+                knowledge_reference(note) for note in outdated
             ) + "已标明过时，不作为当前事实依据；本轮未核实其中的当前门票、价格和开放时间。")
         notice = dietary_notice(requirement)
         if notice:
