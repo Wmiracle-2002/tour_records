@@ -63,6 +63,18 @@ def current_llm_timeout_seconds() -> float | None:
     return max(0.001, deadline_at - clock())
 
 
+def check_llm_budget() -> None:
+    """Check streaming progress even when only hidden reasoning is arriving."""
+    cancellation = current_cancellation()
+    if cancellation is not None:
+        cancellation.raise_if_cancelled()
+    deadline = _LLM_DEADLINE.get()
+    if deadline is not None:
+        deadline_at, clock = deadline
+        if clock() >= deadline_at:
+            raise AgentTimeoutError("Agent LLM deadline exceeded")
+
+
 @dataclass
 class AgentBudget:
     """Track total and cumulative per-stage time for one Agent run."""

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from app.agent.generator import (
@@ -29,6 +31,17 @@ class FakeItineraryClient:
             }
         )
         return self.responses[min(len(self.calls) - 1, len(self.responses) - 1)]
+
+
+def test_generator_uses_compact_json_without_dropping_constraints_or_tool_fields():
+    requirement = build_requirement()
+    collected = build_collected_info()
+    generator = StructuredItineraryGenerator(FakeItineraryClient(build_itinerary()))
+    prompt = generator._build_user_prompt(requirement, collected)
+    left, right = prompt.removeprefix('TravelRequirement:\n').split('\n\nCollectedInfo:\n')
+    assert json.loads(left) == requirement.model_dump(mode='json')
+    assert json.loads(right) == collected.model_dump(mode='json')
+    assert '\n' not in left and '\n' not in right
 
 
 def build_requirement() -> TravelRequirement:

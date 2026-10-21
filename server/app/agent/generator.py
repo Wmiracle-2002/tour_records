@@ -317,9 +317,9 @@ class StructuredItineraryGenerator:
     ) -> str:
         return (
             "TravelRequirement:\n"
-            f"{requirement.model_dump_json(indent=2)}\n\n"
+            f"{requirement.model_dump_json()}\n\n"
             "CollectedInfo:\n"
-            f"{collected_info.model_dump_json(indent=2)}"
+            f"{collected_info.model_dump_json()}"
         )
 
     def _validate_itinerary(

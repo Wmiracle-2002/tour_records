@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     llm_base_url: str | None = None
     llm_api_key: str | None = None
     llm_model: str | None = None
+    llm_thinking_mode: Literal["auto", "enabled", "disabled"] = "auto"
     llm_structured_output_mode: Literal["json_schema", "json_object"] = "json_schema"
     llm_timeout_seconds: float = Field(default=30.0, gt=0)
     llm_max_retries: int = Field(default=1, ge=0)

@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
+from contextlib import contextmanager
+from threading import Event, Thread
 from time import monotonic
 from typing import Any, Callable, TypeVar
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from app.agent.budget import current_llm_timeout_seconds
+from app.agent.budget import check_llm_budget, current_cancellation, current_llm_timeout_seconds
 from app.agent.collector import ReActContext, ReActDecision
 from app.agent.observability import current_request_id
 from app.core.config import Settings, get_settings
@@ -42,6 +46,58 @@ class LLMInvalidResponseError(LLMError):
     """The LLM provider returned a response outside the structured contract."""
 
 
+class LLMOutputLimitError(LLMInvalidResponseError):
+    """The provider exhausted its output limit; repeating the same call is costly."""
+
+
+@contextmanager
+def _stream_deadline(response: httpx.Response, deadline: float):
+    """Interrupt real sockets even if a provider trickles an unfinished SSE line."""
+    stopped = Event()
+    cancellation = current_cancellation()
+    aborted: list[Exception] = []
+
+    def watch() -> None:
+        while not stopped.wait(min(0.05, max(0.001, deadline - monotonic()))):
+            try:
+                if cancellation is not None:
+                    cancellation.raise_if_cancelled()
+                if monotonic() < deadline:
+                    continue
+                raise LLMTimeoutError("LLM stream exceeded request deadline")
+            except Exception as error:
+                aborted.append(error)
+                # HTTPX exposes its underlying stream through response extensions.
+                # shutdown wakes a blocking SSL read; close alone may not wake it.
+                try:
+                    network = response.extensions.get("network_stream")
+                    connection = network.get_extra_info("socket") if network is not None else None
+                    if connection is not None:
+                        connection.shutdown(socket.SHUT_RDWR)
+                except (OSError, AttributeError):
+                    pass
+                try:
+                    response.close()
+                except Exception:
+                    pass
+                return
+
+    watcher = Thread(target=watch, daemon=True, name="agent-stream-deadline")
+    watcher.start()
+    try:
+        yield
+    except Exception:
+        if aborted:
+            raise aborted[0] from None
+        raise
+    else:
+        if aborted:
+            raise aborted[0]
+    finally:
+        stopped.set()
+        watcher.join(timeout=0.2)
+
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -58,6 +114,7 @@ class OpenAICompatibleTransport:
         self._base_url = (current_settings.llm_base_url or "").rstrip("/")
         self._api_key = current_settings.llm_api_key
         self._model = current_settings.llm_model
+        self._thinking_mode = current_settings.llm_thinking_mode
         self._structured_output_mode = current_settings.llm_structured_output_mode
         self._timeout_seconds = current_settings.llm_timeout_seconds
         self._max_retries = current_settings.llm_max_retries
@@ -94,12 +151,12 @@ class OpenAICompatibleTransport:
             "response_format": response_format,
         }
 
-        if self._quota is not None:
-            request_payload["max_tokens"] = self._max_output_tokens
+        self._apply_generation_options(request_payload)
         total_attempts = self._max_retries + 1
         output_name = output_model.__name__
         request_id = current_request_id() or "unknown"
         for attempt in range(total_attempts):
+            check_llm_budget()
             started_at = monotonic()
             attempt_number = attempt + 1
             timeout_seconds = (
@@ -194,7 +251,9 @@ class OpenAICompatibleTransport:
                     f"LLM provider returned HTTP {response.status_code}"
                 )
             try:
-                decoded = self._decode_response(response)
+                check_llm_budget()
+                decoded = self._decode_response(response, output_name,
+                                                (monotonic() - started_at) * 1000)
             except LLMInvalidResponseError:
                 logger.warning(
                     "LLM invalid structured response request_id=%s stage=%s attempt=%d/%d status=%d elapsed_ms=%.0f",
@@ -235,18 +294,21 @@ class OpenAICompatibleTransport:
             ],
             "response_format": response_format,
         }
-        if self._model.startswith("qwen3.7-"):
-            request_payload["enable_thinking"] = False
-        if self._quota is not None:
-            request_payload["max_tokens"] = self._max_output_tokens
-            request_payload["stream_options"] = {"include_usage": True}
+        self._apply_generation_options(request_payload)
+        request_payload["stream_options"] = {"include_usage": True}
+        check_llm_budget()
+        started_at = monotonic()
         timeout = current_llm_timeout_seconds() or self._timeout_seconds
+        deadline = started_at + timeout
         quota_call = self._reserve(system_prompt, user_prompt)
         usage: tuple[int, int] | None = None
+        usage_details: dict[str, Any] | None = None
+        finish_reason = None
         parts: list[str] = []
         content_size = 0
+        reasoning_size = 0
+        first_content_ms = None
         completed = False
-        started_at = monotonic()
         try:
             with self._client.stream(
                 "POST", f"{self._base_url}/chat/completions",
@@ -261,30 +323,44 @@ class OpenAICompatibleTransport:
                     raise LLMUpstreamError(
                         f"LLM provider returned HTTP {response.status_code}"
                     )
-                for line in response.iter_lines():
-                    if not line.startswith("data: "):
-                        continue
-                    payload = line.removeprefix("data: ")
-                    if payload == "[DONE]":
-                        completed = True
-                        break
-                    try:
-                        chunk = json.loads(payload)
-                        if chunk.get("choices") == []:
-                            usage = self._usage_values(chunk.get("usage")) or usage
+                with _stream_deadline(response, deadline):
+                    for line in response.iter_lines():
+                        check_llm_budget()
+                        if monotonic() >= deadline:
+                            raise LLMTimeoutError("LLM stream exceeded request deadline")
+                        if not line.startswith("data: "):
                             continue
-                        delta = chunk["choices"][0]["delta"].get("content")
-                    except (ValueError, KeyError, IndexError, TypeError) as error:
-                        raise LLMInvalidResponseError("LLM stream chunk is invalid") from error
-                    if delta is None:
-                        continue
-                    if not isinstance(delta, str):
-                        raise LLMInvalidResponseError("LLM stream content is invalid")
-                    parts.append(delta)
-                    content_size += len(delta)
-                    if content_size > 2_000_000:
-                        raise LLMInvalidResponseError("LLM stream is too large")
-                    on_delta(delta)
+                        payload = line.removeprefix("data: ")
+                        if payload == "[DONE]":
+                            completed = True
+                            break
+                        try:
+                            chunk = json.loads(payload)
+                            if isinstance(chunk.get("usage"), dict):
+                                usage_details = chunk["usage"]
+                                usage = self._usage_values(usage_details) or usage
+                            if chunk.get("choices") == []:
+                                continue
+                            choice = chunk["choices"][0]
+                            finish_reason = choice.get("finish_reason") or finish_reason
+                            fields = choice["delta"]
+                            reasoning = fields.get("reasoning_content")
+                            if isinstance(reasoning, str):
+                                reasoning_size += len(reasoning)
+                            delta = fields.get("content")
+                        except (ValueError, KeyError, IndexError, TypeError, AttributeError) as error:
+                            raise LLMInvalidResponseError("LLM stream chunk is invalid") from error
+                        if delta is None:
+                            continue
+                        if not isinstance(delta, str):
+                            raise LLMInvalidResponseError("LLM stream content is invalid")
+                        if delta and first_content_ms is None:
+                            first_content_ms = (monotonic() - started_at) * 1000
+                        parts.append(delta)
+                        content_size += len(delta)
+                        if content_size > 2_000_000:
+                            raise LLMInvalidResponseError("LLM stream is too large")
+                        on_delta(delta)
         except (httpx.ConnectError, httpx.ConnectTimeout) as error:
             if quota_call is not None and self._quota is not None:
                 self._quota.release(quota_call)
@@ -298,6 +374,11 @@ class OpenAICompatibleTransport:
             raise LLMUpstreamError("LLM provider request failed") from error
         finally:
             self._settle(quota_call, usage)
+            self._log_response_metadata(output_model.__name__, usage_details, finish_reason,
+                                        content_size, reasoning_size, first_content_ms,
+                                        (monotonic() - started_at) * 1000)
+        if finish_reason == "length":
+            raise LLMOutputLimitError("LLM response reached output token limit")
         if not completed:
             raise LLMInvalidResponseError("LLM stream ended before completion")
         try:
@@ -312,6 +393,39 @@ class OpenAICompatibleTransport:
             (monotonic() - started_at) * 1000,
         )
         return decoded
+
+    def _apply_generation_options(self, payload: dict[str, Any]) -> None:
+        payload["max_tokens"] = self._max_output_tokens
+        if self._thinking_mode != "auto":
+            payload["enable_thinking"] = self._thinking_mode == "enabled"
+            return
+        host = urlparse(self._base_url).hostname or ""
+        dashscope = host == "dashscope.aliyuncs.com" or host.endswith(".maas.aliyuncs.com")
+        supported_deepseek = self._model in {
+            "deepseek-v4-pro", "deepseek-v4-pro-0813", "deepseek-v4-flash-0731",
+        }
+        if self._model.startswith("qwen3.7-") or (dashscope and supported_deepseek):
+            payload["enable_thinking"] = False
+
+    @staticmethod
+    def _log_response_metadata(stage, usage, finish_reason, content_chars, reasoning_chars=0,
+                               first_content_ms=None, elapsed_ms=0) -> None:
+        usage = usage if isinstance(usage, dict) else {}
+        details = usage.get("completion_tokens_details")
+        details = details if isinstance(details, dict) else {}
+        reason = finish_reason if isinstance(finish_reason, str) and finish_reason in {
+            "stop", "length", "tool_calls", "content_filter", "function_call",
+        } else (None if finish_reason is None else "unknown")
+        def count(value):
+            return value if type(value) is int and value >= 0 else None
+        logger.info(
+            "LLM response metadata request_id=%s stage=%s finish_reason=%s prompt_tokens=%s "
+            "completion_tokens=%s reasoning_tokens=%s content_chars=%s reasoning_chars=%s "
+            "first_content_ms=%s elapsed_ms=%.0f",
+            current_request_id() or "unknown", stage, reason, count(usage.get("prompt_tokens")),
+            count(usage.get("completion_tokens")), count(details.get("reasoning_tokens")),
+            content_chars, reasoning_chars, first_content_ms, elapsed_ms,
+        )
 
     def close(self) -> None:
         self._client.close()
@@ -347,11 +461,18 @@ class OpenAICompatibleTransport:
         call_id = self._reserve(system_prompt, user_prompt)
         usage = None
         try:
-            response = self._client.post(url, **kwargs)
+            check_llm_budget()
+            timeout = kwargs["timeout"]
+            remaining = current_llm_timeout_seconds()
+            deadline = monotonic() + min(timeout, remaining if remaining is not None else timeout)
+            with self._client.stream("POST", url, **kwargs) as response:
+                with _stream_deadline(response, deadline):
+                    response.read()
             try:
                 usage = self._usage_values(response.json().get("usage"))
             except (ValueError, AttributeError):
                 pass
+            check_llm_budget()
             return response
         except (httpx.ConnectError, httpx.ConnectTimeout):
             if call_id is not None and self._quota is not None:
@@ -382,13 +503,20 @@ class OpenAICompatibleTransport:
         if not self._base_url or not self._api_key or not self._model:
             raise LLMNotConfiguredError("LLM service is not configured")
 
-    @staticmethod
-    def _decode_response(response: httpx.Response) -> dict[str, Any]:
+    def _decode_response(self, response: httpx.Response, stage: str, elapsed_ms: float) -> dict[str, Any]:
         try:
             response_payload = response.json()
-            content = response_payload["choices"][0]["message"]["content"]
+            choice = response_payload["choices"][0]
+            content = choice["message"]["content"]
+            reasoning = choice["message"].get("reasoning_content")
+            self._log_response_metadata(stage, response_payload.get("usage"), choice.get("finish_reason"),
+                                        len(content) if isinstance(content, str) else 0,
+                                        len(reasoning) if isinstance(reasoning, str) else 0,
+                                        elapsed_ms=elapsed_ms)
+            if choice.get("finish_reason") == "length":
+                raise LLMOutputLimitError("LLM response reached output token limit")
             decoded = json.loads(content)
-        except (ValueError, KeyError, IndexError, TypeError) as error:
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError) as error:
             raise LLMInvalidResponseError(
                 "LLM provider returned an invalid structured response"
             ) from error
@@ -441,6 +569,8 @@ class StructuredLLMClient:
                     output_model=output_model,
                 )
                 return output_model.model_validate(payload)
+            except LLMOutputLimitError:
+                raise
             except LLMInvalidResponseError:
                 logger.warning(
                     "LLM schema retry request_id=%s stage=%s attempt=%d/%d",
